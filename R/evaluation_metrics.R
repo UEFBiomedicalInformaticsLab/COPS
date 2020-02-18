@@ -114,9 +114,9 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
     pca_silh[[i]] <- kBET::batch_sil(list(x = dat_pca$ind$coord),
                                      class[,i],
                                      nPCs = min(n_pc_max, nrow(dat)))
-    pca_reg[[i]] <- kBET::pcRegression(list(x = dat_pca$ind$coord),
+    pca_reg[[i]] <- suppressWarnings(kBET::pcRegression(list(x = dat_pca$ind$coord),
                                        class[,i],
-                                       n_top = min(n_pc_max, nrow(dat)))
+                                       n_top = min(n_pc_max, nrow(dat))))
 
     # Other
     DSC_res[i] <- DSC(dat, class[,i])

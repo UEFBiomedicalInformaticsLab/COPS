@@ -64,12 +64,16 @@ dim_reduction_suite <- function(dat,
                             initial_dims = min(50, dim(dat)[1]),
                             check_duplicates = FALSE,
                             verbose = FALSE)$Y
+        colnames(temp) <- paste0("Dim.", 1:d)
+        rownames(temp) <- colnames(dat)
       } else if (m == "umap") {
         temp <- uwot::umap(t(dat),
                            n_neighbors = umap_neighbors,
                            n_components = d,
                            pca = min(50, dim(dat)[1]),
                            verbose = FALSE)
+        colnames(temp) <- paste0("Dim.", 1:d)
+        rownames(temp) <- colnames(dat)
       } else {
         # never run
         temp <- NA
