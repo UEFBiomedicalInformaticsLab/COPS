@@ -6,6 +6,24 @@ Author: Who wrote it
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
+Depends: R (>= 3.5.0)
+Imports: 
+    FactoMineR,
+    Rtsne,
+    clValid,
+    clusteval,
+    doParallel,
+    foreach,
+    kBET,
+    parallel,
+    plyr,
+    reshape2,
+    uwot
+Suggests:
+    knitr,
+    swamp
+VignetteBuilder: knitr
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 7.0.2
