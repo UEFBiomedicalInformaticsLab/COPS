@@ -6,8 +6,7 @@
 #' @param dat_list list of pre-processed data sets to run pipeline for
 #' @param batch_label vector or matrix with categorical variables on columns
 #' @param verbose if \code{TRUE}, prints progress notifications
-#' @param parallel if \code{TRUE}, sets up and registers \code{nproc} threads for supported operations
-#' @param nproc controls the number of threads when \code{parallel} is \code{TRUE}
+#' @param parallel sets up and registers \code{parallel} number of threads for supported operations
 #' @param dim_reduction set to \code{FALSE} to skip the dimensionality reduction
 #' @param pre_clust_cv set to \code{TRUE} if data is already organized into folds from previous step
 #' @param ... extra arguments are passed to pipeline components where appropriate
@@ -15,19 +14,20 @@
 #' @return Returns a \code{list} of pipeline component outputs for given settings and input data sets
 #' @export
 #'
-#' @examples
-#' # TODO: convert embedding analysis into general functions or modify pipeline to acommodate
+#' @importFrom parallel makeCluster stopCluster
+#' @importFrom doParallel registerDoParallel
+#' @importFrom foreach registerDoSEQ
+#' @importFrom utils flush.console
 dimred_clusteval_pipeline <- function(dat_list,
                                       batch_label = NULL,
                                       verbose = TRUE,
-                                      parallel = FALSE,
-                                      nproc = 4,
+                                      parallel = 1,
                                       dim_reduction = TRUE,
                                       pre_clust_cv = FALSE,
                                       ...) {
   pipeline_start <- Sys.time()
-  if (parallel) {
-    parallel_clust <- parallel::makeCluster(nproc)
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
     doParallel::registerDoParallel(parallel_clust)
   } else {
     # Avoid warnings related to %dopar%
@@ -66,7 +66,7 @@ dimred_clusteval_pipeline <- function(dat_list,
                               time_taken_string(clusteval_start)));flush.console()
       # Evaluate stability
       stability_test_start <- Sys.time()
-      out_j$embed_stab <- stability_eval(out_j$embed_eval$clust, parallel = parallel, ...)
+      out_j$embed_stab <- stability_eval(out_j$embed_eval$clust, parallel = parallel > 1, ...)
       if(verbose) print(paste("Finished stability analysis in",
                               time_taken_string(stability_test_start)));flush.console()
 
@@ -89,7 +89,7 @@ dimred_clusteval_pipeline <- function(dat_list,
       out[[names(dat_list)[i]]] <- out_i
     }
   }
-  if (parallel) stopCluster(parallel_clust)
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
   if(verbose) print(paste("Finished pipeline in",
                           time_taken_string(pipeline_start)));flush.console()
   return(out)
@@ -118,10 +118,8 @@ dimred_clusteval_pipeline <- function(dat_list,
 #'         corresponding to clustering on \code{$embedding} using
 #'         \code{\link[clValid]{clValid}}.
 #' @export
-#' @import base
-#' @importFrom clValid clValid
-#' @importFrom clValid clusters
-#' @examples
+#' @importFrom clValid clValid clusters
+#' @importFrom stats cutree
 dimred_cluster <- function(dat_list,
                            best = NULL,
                            data_id = 1,
@@ -156,12 +154,15 @@ dimred_cluster <- function(dat_list,
       stop("Unsupported data format")
     }
   }
-
-  embed <- dim_reduction_suite(dat,
-                               dimred_methods = dimred_method,
-                               output_dimensions = dimred_dim,
-                               tsne_perplexities = dimred_perp,
-                               include_original = FALSE)[[1]]
+  if (dimred_method == "original") {
+    embed <- dat
+  } else {
+    embed <- dim_reduction_suite(dat,
+                                 dimred_methods = dimred_method,
+                                 output_dimensions = dimred_dim,
+                                 tsne_perplexities = dimred_perp,
+                                 include_original = FALSE)[[1]]
+  }
 
   out <- suppressWarnings(clValid::clValid(t(embed),
                                            nClust = k,
@@ -211,10 +212,9 @@ dimred_cluster <- function(dat_list,
 #' @return Returns a \code{list} containing a \code{data.frame} \code{$all} of all scores and
 #'         a single row \code{$best} with the best score
 #' @export
-#' @importFrom plyr join
-#' @importFrom plyr ddply
+#' @importFrom plyr join ddply
 #' @importFrom reshape2 melt
-#' @examples
+#' @importFrom stats sd
 clusteval_scoring <- function(input,
                               chisq_significance_level = 0.05,
                               w_connectivity = -0.1,

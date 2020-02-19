@@ -8,7 +8,6 @@
 #' @param batch_label categorical variable, must be vector
 #'
 #' @return Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
-#' @import base
 #' @export
 DSC <- function(data_matrix, batch_label) {
   # Dispersion within batches
@@ -32,7 +31,6 @@ DSC <- function(data_matrix, batch_label) {
 #' @param clustering_list \code{list} of clustering vectors
 #'
 #' @return Returns a scalar value giving the mean jaccard distance between clustering vectors
-#' @importFrom base array
 #' @importFrom clusteval cluster_similarity
 #' @export
 jdist <- function(clustering_list) {
@@ -59,10 +57,12 @@ jdist <- function(clustering_list) {
 #' @param by vector of column names to keep
 #' @param by2 vector of column names to split by, "run" and "fold" by default
 #' @param parallel if TRUE, run in parallel (not working currently)
+#' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{data.frame} where each row corresponds to clustering stability
 #'         with respect to kept column variables
 #' @export
+#' @importFrom plyr ddply here
 #'
 stability_eval <- function(clust,
                            by = c("k", "m"),
@@ -89,6 +89,7 @@ stability_eval <- function(clust,
 #' @param dat data matrix, samples on columns
 #' @param class vector or matrix where columns are categorical variables
 #' @param n_pc_max maximum number of principal components to analyze
+#' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{list} containing \code{\link[kBET]{batch_sil}},
 #'         \code{\link[KBET]{pcRegression}} and \code{\link{DSC}}
@@ -97,7 +98,7 @@ stability_eval <- function(clust,
 #' @importFrom FactoMineR PCA
 #' @importFrom kBET batch_sil
 #' @importFrom kBET pcRegression
-class_associations <-  function(dat, class, n_pc_max = 50, ...){
+class_associations <-  function(dat, class, n_pc_max = 10, ...){
   out <- list()
   if (is.null(dim(class))) class <- cbind(class, c())
 
@@ -113,9 +114,9 @@ class_associations <-  function(dat, class, n_pc_max = 50, ...){
     pca_silh[[i]] <- kBET::batch_sil(list(x = dat_pca$ind$coord),
                                      class[,i],
                                      nPCs = min(n_pc_max, nrow(dat)))
-    pca_reg[[i]] <- kBET::pcRegression(list(x = dat_pca$ind$coord),
+    pca_reg[[i]] <- suppressWarnings(kBET::pcRegression(list(x = dat_pca$ind$coord),
                                        class[,i],
-                                       n_top = min(n_pc_max, nrow(dat)))
+                                       n_top = min(n_pc_max, nrow(dat))))
 
     # Other
     DSC_res[i] <- DSC(dat, class[,i])
@@ -148,7 +149,8 @@ class_associations <-  function(dat, class, n_pc_max = 50, ...){
 #' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_evaluation}} outputs for every
 #'         combination of CV run, CV fold, clustering method and number of clusters
 #' @export
-#'
+#' @importFrom foreach foreach %do% %dopar%
+#' @importFrom stats dist chisq.test
 clusteval_cv <- function(dat,
                          batch_label = NULL,
                          CVFOLDS = 2,
@@ -183,7 +185,7 @@ clusteval_cv <- function(dat,
                         out <- list()
                         run <- (i-1) %/% CVFOLDS + 1
                         cvf <- (i-1) %% CVFOLDS + 1
-                        clust_res <- clustering_evaluation(dat[,cv_ind[,run] != cvf], batch_label = NULL)#, ...)
+                        clust_res <- clustering_evaluation(dat[,cv_ind[,run] != cvf], batch_label = NULL, ...)
 
                         # Use nearest neighbour to cluster validation set
                         #val_nn <- FNN::get.knnx(dat[cv_ind[,run] != cvf,], dat[cv_ind[,run] == cvf,], k = 1)
@@ -257,8 +259,7 @@ clusteval_cv <- function(dat,
 #'         \code{\link[stats]{chisq.test}} p-values
 #'         if batch_label was supplied
 #' @export
-#'
-#' @examples
+#' @importFrom stats chisq.test cutree
 clustering_evaluation <- function(dat,
                                   batch_label = NULL,
                                   n_clusters = 2:5,

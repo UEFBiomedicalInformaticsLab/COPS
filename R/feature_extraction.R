@@ -16,13 +16,13 @@
 #' @param tsne_perplexities vector of t-SNE perplexity settings to generate embeddings with
 #' @param umap_neighbors scalar UMAP parameter, affects manifold resolution
 #' @param include_original if \code{TRUE}, includes original data in output list
+#' @param parallel NOT IMPLEMENTED
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} of embeddings, elements are named based on methods used
 #' @export
 #' @importFrom Rtsne Rtsne
 #' @importFrom uwot umap
-#' @examples
 dim_reduction_suite <- function(dat,
                                 dimred_methods = c("pca", "tsne", "umap"),
                                 output_dimensions = c(2:3),
@@ -64,12 +64,16 @@ dim_reduction_suite <- function(dat,
                             initial_dims = min(50, dim(dat)[1]),
                             check_duplicates = FALSE,
                             verbose = FALSE)$Y
+        colnames(temp) <- paste0("Dim.", 1:d)
+        rownames(temp) <- colnames(dat)
       } else if (m == "umap") {
         temp <- uwot::umap(t(dat),
                            n_neighbors = umap_neighbors,
                            n_components = d,
                            pca = min(50, dim(dat)[1]),
                            verbose = FALSE)
+        colnames(temp) <- paste0("Dim.", 1:d)
+        rownames(temp) <- colnames(dat)
       } else {
         # never run
         temp <- NA
