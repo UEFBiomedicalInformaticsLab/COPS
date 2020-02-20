@@ -136,11 +136,11 @@ pre { /* Code block - determines code spacing between lines */
 <p>The R package COPS provides a suite of feature reduction techniques and clustering algorithms for disease subtype discovery from omics data.</p>
 <p><strong>Current functions provided by COPS</strong></p>
 <ul>
-<li>Dimensional reduction: PCA, S-TNE and UMAP.</li>
-<li>Knowledge-driven feature extraction: pathway and network analysis.</li>
-<li>Single-omics clustering algorithms:</li>
+<li>Knowledge-driven feature extraction: pathway and network analysis</li>
+<li>Dimensional reduction: PCA, t-SNE, UMAP</li>
+<li>Single-omics clustering algorithms: k-means, pam, hierarchical, diana, agnes, sota</li>
 <li>Multi-omics clustering algorithms:</li>
-<li>Benchmarking functions.</li>
+<li>Performance metrics: clustering stability, silhouette, Dunn, connectivity, batch effect analysis</li>
 </ul>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(COPS)
 <span class="kw">library</span>(swamp)</code></pre></div>
@@ -156,39 +156,39 @@ pre { /* Code block - determines code spacing between lines */
                                                 <span class="dt">n_clusters =</span> <span class="dv">2</span><span class="op">:</span><span class="dv">4</span>)
 <span class="co">#&gt; [1] &quot;Starting pipeline for data set #1&quot;</span>
 <span class="co">#&gt; [1] &quot;Starting dimensionality reduction&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 3.06 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 3.07 secs&quot;</span>
 <span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: pca2&quot;</span>
 <span class="co">#&gt; Warning: package 'clValid' was built under R version 3.6.2</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.45 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.03 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: pca3&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.28 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.43 secs&quot;</span>
 <span class="co">#&gt; [1] &quot;Finished stability analysis in 0.03 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.02 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: pca3&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.29 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
 <span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.02 secs&quot;</span>
 <span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: umap2&quot;</span>
 <span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.28 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.03 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.00 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: umap3&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.30 secs&quot;</span>
 <span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished pipeline in 4.59 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.01 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: umap3&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.29 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.01 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished pipeline in 4.56 secs&quot;</span>
 scores &lt;-<span class="st"> </span><span class="kw">clusteval_scoring</span>(method_evaluations)
 
 <span class="co"># List scores</span>
 <span class="kw">head</span>(scores<span class="op">$</span>all)
 <span class="co">#&gt;   k            m       metric        mean          sd dimred data_set</span>
-<span class="co">#&gt; 1 2 hierarchical Connectivity  5.43908730 2.600642329   pca2        1</span>
-<span class="co">#&gt; 2 2 hierarchical         Dunn  0.19593707 0.093870427   pca2        1</span>
-<span class="co">#&gt; 3 2 hierarchical   Silhouette  0.51403710 0.053918705   pca2        1</span>
-<span class="co">#&gt; 4 2       kmeans Connectivity 23.06626984 1.407147222   pca2        1</span>
-<span class="co">#&gt; 5 2       kmeans         Dunn  0.02553011 0.009051622   pca2        1</span>
-<span class="co">#&gt; 6 2       kmeans   Silhouette  0.34598826 0.028556323   pca2        1</span>
+<span class="co">#&gt; 1 2 hierarchical Connectivity  7.87093254 4.595676414   pca2        1</span>
+<span class="co">#&gt; 2 2 hierarchical         Dunn  0.14430483 0.052573908   pca2        1</span>
+<span class="co">#&gt; 3 2 hierarchical   Silhouette  0.44977361 0.039492900   pca2        1</span>
+<span class="co">#&gt; 4 2       kmeans Connectivity 22.18670635 3.352845801   pca2        1</span>
+<span class="co">#&gt; 5 2       kmeans         Dunn  0.02569867 0.007525089   pca2        1</span>
+<span class="co">#&gt; 6 2       kmeans   Silhouette  0.33697866 0.014439085   pca2        1</span>
 scores<span class="op">$</span>best
 <span class="co">#&gt;   data_set dimred k            m       wsum</span>
-<span class="co">#&gt; 7        1   pca3 2 hierarchical -0.3616313</span>
+<span class="co">#&gt; 7        1   pca3 2 hierarchical -0.4278051</span>
 
 <span class="co"># Generate embedding and clustering based on best setting</span>
 best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span class="kw">list</span>(ad_ge_micro_zscore), scores<span class="op">$</span>best)</code></pre></div>

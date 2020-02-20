@@ -55,11 +55,11 @@ The R package COPS provides a suite of feature reduction techniques and clusteri
 
 **Current functions provided by COPS**
 
-* Dimensional reduction: PCA, S-TNE and UMAP. 
-* Knowledge-driven feature extraction: pathway and network analysis.
-* Single-omics clustering algorithms: 
+* Knowledge-driven feature extraction: pathway and network analysis 
+* Dimensional reduction: PCA, t-SNE, UMAP
+* Single-omics clustering algorithms: k-means, pam, hierarchical, diana, agnes, sota
 * Multi-omics clustering algorithms: 
-* Benchmarking functions.
+* Performance metrics: clustering stability, silhouette, Dunn, connectivity, batch effect analysis
 
 ```{r setup, message = FALSE}
 library(COPS)
