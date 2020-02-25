@@ -38,8 +38,12 @@ dim_reduction_suite <- function(dat,
   #out <- foreach(i = prod(length(dimred_methods, dimensions)))
 
   out <- list()
-  if (include_original) out$original <- dat
-
+  if (include_original) {
+    temp <- dat
+    rownames(temp) <- paste0("dim", 1:nrow(temp))
+    out$original <- temp
+  }
+  
   for (m in dimred_methods) {
     if (m %in% c("pca", "umap")) {
       dims <- output_dimensions
@@ -57,22 +61,24 @@ dim_reduction_suite <- function(dat,
     for (d in dims) {
       if (m == "pca") {
         temp <- pca_temp$ind$coord[,1:d]
+        colnames(temp) <- paste0("dim", 1:d)
       } else if (m == "tsne") {
         temp <- Rtsne::Rtsne(t(dat),
-                            dims = 2,
-                            perplexity = d,
-                            initial_dims = min(50, dim(dat)[1]),
-                            check_duplicates = FALSE,
-                            verbose = FALSE)$Y
-        colnames(temp) <- paste0("Dim.", 1:d)
+                             dims = 2,
+                             perplexity = d,
+                             initial_dims = min(50, dim(dat)[1]),
+                             check_duplicates = FALSE,
+                             verbose = FALSE)$Y
+        colnames(temp) <- paste0("dim", 1:d)
         rownames(temp) <- colnames(dat)
       } else if (m == "umap") {
         temp <- uwot::umap(t(dat),
                            n_neighbors = umap_neighbors,
                            n_components = d,
                            pca = min(50, dim(dat)[1]),
-                           verbose = FALSE)
-        colnames(temp) <- paste0("Dim.", 1:d)
+                           verbose = FALSE,
+                           init = "normlaplacian")
+        colnames(temp) <- paste0("dim", 1:d)
         rownames(temp) <- colnames(dat)
       } else {
         # never run

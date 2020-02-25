@@ -95,6 +95,83 @@ dimred_clusteval_pipeline <- function(dat_list,
   return(out)
 }
 
+dimred_clusteval_pipeline2 <- function(dat_list,
+                                      batch_label = NULL,
+                                      verbose = TRUE,
+                                      parallel = 1,
+                                      dim_reduction = TRUE,
+                                      pre_clust_cv = FALSE,
+                                      ...) {
+  pipeline_start <- Sys.time()
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    # Avoid warnings related to %dopar%
+    foreach::registerDoSEQ()
+  }
+  out <- list()
+  for (i in 1:length(dat_list)) {
+    if(verbose) print(paste0("Starting pipeline for data set #", i)); flush.console()
+    out_i <- list()
+    if (dim_reduction) {
+      dimred_start <- Sys.time()
+      if(verbose) print(paste("Starting dimensionality reduction")); flush.console()
+      out_i$embed_set <- dim_reduction_suite(dat_list[[i]], ...)
+      if(verbose) print(paste("Finished dimensionality reduction in",
+                              time_taken_string(dimred_start))); flush.console()
+    } else {
+      # INCOMPLETE
+      # Pre computed embeddings for a specific setting?
+      out_i$embed_set <- dat_list[[i]]
+    }
+    out_i$evals <-list()
+    for (j in 1:length(out_i$embed_set)) {
+      if(verbose) print(paste("Starting clustering and evaluation for embedding:",
+                              names(out_i$embed_set)[j]));flush.console()
+      out_j <- list()
+
+      # Clustering + internal evaluation
+      clusteval_start <- Sys.time()
+      if (!pre_clust_cv) {
+        out_j$embed_eval <- clusteval_cv(out_i$embed_set[[j]], batch_label, ...)
+      } else {
+        stop("pre_clust_cv is not implemented yet")
+        # TODO: Run clustering for each predefined fold
+      }
+      if(verbose) print(paste("Finished clustering analysis in",
+                              time_taken_string(clusteval_start)));flush.console()
+      # Evaluate stability
+      stability_test_start <- Sys.time()
+      out_j$embed_stab <- stability_eval(out_j$embed_eval$clust, parallel = parallel > 1, ...)
+      if(verbose) print(paste("Finished stability analysis in",
+                              time_taken_string(stability_test_start)));flush.console()
+
+      # Batch effect estimation
+      if (!is.null(batch_label)) {
+        batch_effect_start <- Sys.time()
+        out_j$embed_baef <- class_associations(out_i$embed_set[[j]], batch_label, ...)
+        if(verbose) print(paste("Finished batch effect estimation in",
+                                time_taken_string(batch_effect_start)));flush.console()
+      }
+      if (is.null(names(out_i$embed_set)))  {
+        out_i$evals[[j]] <- out_j
+      } else {
+        out_i$evals[[names(out_i$embed_set)[j]]] <- out_j
+      }
+    }
+    if (is.null(names(dat_list)))  {
+      out[[i]] <- out_i
+    } else {
+      out[[names(dat_list)[i]]] <- out_i
+    }
+  }
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  if(verbose) print(paste("Finished pipeline in",
+                          time_taken_string(pipeline_start)));flush.console()
+  return(out)
+}
+
 #' Reduce dimensionality and cluster input data
 #'
 #' Convenience function that runs a specific setting of the dimensionality reduction
@@ -292,14 +369,20 @@ clusteval_scoring <- function(input,
 
   wsumfun <- function(x) {
     temp <- invisible(plyr::join(x, wsumtable, by = "metric"))
-    return(data.frame(wsum = sum(temp$mean * temp$weight)))
+    return(data.frame(wsum = sum(temp$mean * temp$weight), 
+                      Connectivity = temp$mean[grep("Connectivity", temp$metric)], 
+                      Dunn = temp$mean[grep("Dunn", temp$metric)], 
+                      Silhouette = temp$mean[grep("Silhouette", temp$metric)], 
+                      JaccardDist = temp$mean[grep("JaccardDist", temp$metric)],
+                      ChiSqRR_batch_label = temp$mean[grep("ChiSqRR_batch_label", temp$metric)]))
   }
 
   scores <- plyr::ddply(out, c("data_set", "dimred", "k", "m"), wsumfun)
 
   best <- scores[which.max(scores$wsum),]
 
-  return(list(all = out, best = best))
+  return(list(all = scores[order(scores$wsum, decreasing = TRUE),], 
+              best = best))
 }
 
 # Helper for pipeline verbosity

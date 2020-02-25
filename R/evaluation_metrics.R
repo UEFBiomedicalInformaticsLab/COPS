@@ -11,15 +11,15 @@
 #' @export
 DSC <- function(data_matrix, batch_label) {
   # Dispersion within batches
-  Sw <- base::scale(t(data_matrix), center = TRUE, scale = FALSE)**2 / dim(data_matrix)[2] # vectorized
-  Dw <- base::sqrt(sum(Sw))
+  Sw <- scale(t(data_matrix), center = TRUE, scale = FALSE)**2 / dim(data_matrix)[2] # vectorized
+  Dw <- sqrt(sum(Sw))
   #Dw <- sqrt(sum(sapply(split(data.frame(t(data_matrix)), batch_label), function(x) sum(diag(cov(x))))))
   # Dispersion between batches
   M = apply(data_matrix, 1, mean)
   mean_var <- function(x) {o <- apply(x, 2, mean) - M; return(sum(o**2))} # vectorized
   #mean_var <- function(x) {o <- apply(x, 2, mean) - M; return(sum(diag(o%*%t(o))))}
   Sb <- sapply(split(data.frame(t(data_matrix)), batch_label), mean_var)
-  Db = base::sqrt(sum(Sb))
+  Db = sqrt(sum(Sb))
   return(Db/Dw)
 }
 
@@ -35,17 +35,35 @@ DSC <- function(data_matrix, batch_label) {
 #' @export
 jdist <- function(clustering_list) {
   n_runs <- length(clustering_list)
-  jdist <- base::array(NA, dim = c(n_runs, n_runs))
+  jdist <- array(NA, dim = c(n_runs, n_runs))
   for (i in 1:(n_runs-1)) {
     for (j in (i+1):n_runs) {
       jdist[i,j] <- 1 - clusteval::cluster_similarity(clustering_list[[i]],
-                                                      clustering_list[[j]])
+                                                      clustering_list[[j]],
+                                                      similarity = "jaccard")
     }
   }
   mean_dist <- mean(jdist, na.rm = TRUE)
   return(mean_dist)
 }
 
+jdist_ref <- function(clustering_list, clustering_reference_list) {
+  if (length(clustering_list) != length(clustering_reference_list)) {
+    stop("Number of given references does not match number of given inputs.")
+  }
+  if (length(clustering_list) > 0) {
+    jdist <- c()
+    for (i in 1:length(clustering_list)) {
+      jdist[i] <- 1 - clusteval::cluster_similarity(clustering_list[[i]],
+                                                    clustering_reference_list[[i]],
+                                                    similarity = "jaccard")
+    }
+    mean_dist <- mean(jdist, na.rm = TRUE)
+  } else {
+    mean_dist <- NA
+  }
+  return(mean_dist)
+}
 #' Clustering stability evaluation
 #'
 #' Performs stability analysis on cross-validated clusterings using \code{\link{jdist}}.
@@ -77,7 +95,42 @@ stability_eval <- function(clust,
                            .paropts = list(.export = c("jdist")))#, "by2")))
   #.packages = c("clusteval") # Not necessary as we access namespace directly
   colnames(stability)[ncol(stability)] <- "jdist"
+  
+  return(stability)
+}
 
+stability_eval2 <- function(clust,
+                           by = c("k", "m"),
+                           by2 = c("run", "fold"),
+                           parallel = FALSE,
+                           ...)
+{
+  f <- function(x) {
+    ref_i <- unique(x$fold)
+    ref_i <- ref_i[!ref_i %in% unique(x$cv_index)]
+    
+    ref <- x[x$fold == ref_i,]
+    colnames(ref)[colnames(ref) == "cluster"] <- "reference_cluster"
+    
+    nonref <- x[x$fold != ref_i,]
+    nonref$test_ind <- nonref$cv_index == nonref$fold
+    
+    nonref <- plyr::join(nonref, ref[c("id", by2, "reference_cluster")], 
+                         by = c("id", by2[by2 != "fold"]), type = "inner")
+    
+    train_jdist <- jdist_ref(split(nonref$cluster[!nonref$test_ind], by2), 
+                             split(nonref$reference_cluster[!nonref$test_ind], by2))
+    test_jdist <- jdist_ref(split(nonref$cluster[nonref$test_ind], by2), 
+                            split(nonref$reference_cluster[nonref$test_ind], by2))
+    return(data.frame(jdist_train = train_jdist, jdist_test = test_jdist))
+  }
+  stability <- plyr::ddply(clust,
+                           by,
+                           f,
+                           .parallel = FALSE, # TODO: fix parallelization
+                           .paropts = list(.export = c("jdist_ref")))#, "by2")))
+  #.packages = c("clusteval") # Not necessary as we access namespace directly
+  
   return(stability)
 }
 
@@ -305,3 +358,66 @@ clustering_evaluation <- function(dat,
   }
   return(list(clusters = clusters, metrics = out@measures))
 }
+
+clustering_evaluation2 <- function(dat,
+                                  batch_label = NULL,
+                                  n_clusters = 2:5,
+                                  cluster_methods = c("hierarchical","pam","diana","kmeans"),
+                                  metric = "euclidean",
+                                  ...) {
+  out <- dat[grepl("^dim[0-9]+$", colnames(dat))]
+  out <- clValid(t(dat),
+                 n_clusters,
+                 clMethods = cluster_methods,
+                 metric = metric,
+                 validation="internal")
+  names(dimnames(out@measures)) <- c("metric", "k", "m")
+  # Extract clusters into array
+  clusters <- array(dim = c(dim(dat)[2], length(n_clusters), length(cluster_methods)))
+  dimnames(clusters) <- list(id = colnames(dat), k = n_clusters, m = cluster_methods)
+  for (j in 1:length(cluster_methods)) {
+    temp <- clusters(out, cluster_methods[j])
+    for (i in 1:length(n_clusters)) {
+      if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
+        temp_k <- cutree(temp, n_clusters[i])
+      } else if (cluster_methods[j] == "pam") {
+        temp_k <- temp[[i]]$clustering
+      } else if (cluster_methods[j] == "kmeans") {
+        temp_k <- temp[[i]]$cluster
+      } else if (cluster_methods[j] == "sota") {
+        temp_k <- temp[[i]]$clust
+      } else {
+        stop(paste("Unsupported method:", cluster_methods[j]))
+      }
+      clusters[,i,j] <- temp_k
+    }
+  }
+  if (!is.null(batch_label)) {
+    # For each clustering do:
+    # chisq.test with respect to batch
+    chisq_pval <- array(dim = c(length(n_clusters), length(cluster_methods)))
+    for (j in 1:length(cluster_methods)) {
+      for (i in 1:length(n_clusters)) {
+        chisq_pval[i,j] <- suppressWarnings(chisq.test(table(clusters[,i,j], batch_label)))$p.value
+      }
+    }
+    return(list(clusters = clusters, metrics = out@measures, chisq_pval = chisq_pval))
+  }
+  return(list(clusters = clusters, metrics = out@measures))
+}
+
+cluster_within_cv <- function(dat_list) {
+  for (i in 1:length(dat_list)) {
+    temp <- t(dat_list[[i]])
+    temp$dname <- names(dat_list)[[i]]
+    dat_list[[i]] <- temp
+  }
+  out <- Reduce(rbind, dat_list)
+  out <- plyr::dldply(input, function(x) list(clustering_evaluation2(x)))
+  return(out)
+}
+
+
+
+
+
