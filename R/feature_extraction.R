@@ -89,3 +89,28 @@ dim_reduction_suite <- function(dat,
   }
   return(out)
 }
+
+dim_reduction_after_cv <- function(dat_list, ...) {
+  temp_list <- list()
+  for (i in 1:length(dat_list)) {
+    temp <- dat_list[[i]]
+    temp$datname <- names(dat_list)[i]
+    temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
+    temp_list <- c(temp_list, temp)
+  }
+  
+  cfun <- function(a,b) {
+    return(list(clusters = rbind(a$clusters, b$clusters),
+                metrics = rbind(a$metrics, b$metrics), 
+                chisq_pval = rbind(a$chisq_pval, b $chisq_pval)))
+  }
+  
+  out <- foreach(i = 1:length(temp_list),
+                      .combine = c,
+                      #.export = c(""),
+                      .packages = c("FactoMineR", "Rtsne", "uwot")) %dopar% {
+    temp <- dim_reduction_suite(temp_list[[i]], ...)
+    temp
+  }
+  return(out)
+}

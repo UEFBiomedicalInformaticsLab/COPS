@@ -365,16 +365,18 @@ clustering_evaluation2 <- function(dat,
                                   cluster_methods = c("hierarchical","pam","diana","kmeans"),
                                   metric = "euclidean",
                                   ...) {
-  out <- dat[grepl("^dim[0-9]+$", colnames(dat))]
-  out <- clValid(t(dat),
+  temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
+  temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
+  rownames(temp) <- dat$id
+  out <- clValid(as.matrix(temp),
                  n_clusters,
                  clMethods = cluster_methods,
                  metric = metric,
                  validation="internal")
   names(dimnames(out@measures)) <- c("metric", "k", "m")
   # Extract clusters into array
-  clusters <- array(dim = c(dim(dat)[2], length(n_clusters), length(cluster_methods)))
-  dimnames(clusters) <- list(id = colnames(dat), k = n_clusters, m = cluster_methods)
+  clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods)))
+  dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods)
   for (j in 1:length(cluster_methods)) {
     temp <- clusters(out, cluster_methods[j])
     for (i in 1:length(n_clusters)) {
@@ -392,6 +394,16 @@ clustering_evaluation2 <- function(dat,
       clusters[,i,j] <- temp_k
     }
   }
+  out_list <- list()
+  # Combine outputs with metadata
+  out_list$clusters <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
+                                  reshape2::melt(clusters, value.name = "cluster"), 
+                                  by = "id")
+  out_list$metrics <- reshape2::melt(out@measures, value.name = "value")
+  # Insert meta data (if present)
+  out_list$metrics$run <- dat$run[1]
+  out_list$metrics$fold <- dat$fold[1]
+  out_list$metrics$dname <- dat$dname[1]
   if (!is.null(batch_label)) {
     # For each clustering do:
     # chisq.test with respect to batch
@@ -401,19 +413,38 @@ clustering_evaluation2 <- function(dat,
         chisq_pval[i,j] <- suppressWarnings(chisq.test(table(clusters[,i,j], batch_label)))$p.value
       }
     }
-    return(list(clusters = clusters, metrics = out@measures, chisq_pval = chisq_pval))
+    dimnames(chisq_pval) <- list(k = n_clusters, m = cluster_methods)
+    out_list$chisq_pval <- reshape2::melt(chisq_pval, value.name = "p")
+    # Insert meta data (if present)
+    out_list$chisq_pval$run <- dat$run[1]
+    out_list$chisq_pval$fold <- dat$fold[1]
+    out_list$chisq_pval$dname <- dat$dname[1]
   }
-  return(list(clusters = clusters, metrics = out@measures))
+  return(out_list)
 }
 
-cluster_within_cv <- function(dat_list) {
+cluster_after_cv <- function(dat_list, ...) {
+  temp_list <- list()
   for (i in 1:length(dat_list)) {
-    temp <- t(dat_list[[i]])
-    temp$dname <- names(dat_list)[[i]]
-    dat_list[[i]] <- temp
+    temp <- dat_list[[i]]
+    temp$dname <- names(dat_list)[i]
+    temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
+    temp_list <- c(temp_list, temp)
   }
-  out <- Reduce(rbind, dat_list)
-  out <- plyr::dldply(input, function(x) list(clustering_evaluation2(x)))
+  
+  cfun <- function(a,b) {
+    return(list(clusters = rbind(a$clusters, b$clusters),
+                metrics = rbind(a$metrics, b$metrics), 
+                chisq_pval = rbind(a$chisq_pval, b $chisq_pval)))
+  }
+  
+  out <- foreach(i = 1:length(temp_list),
+                      .combine = cfun,
+                      .export = c("clustering_evaluation2"),
+                      .packages = c("clValid", "reshape2")) %dopar% {
+    temp <- clustering_evaluation2(temp_list[[i]], ...)
+    temp
+  }
   return(out)
 }
 
