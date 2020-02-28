@@ -423,7 +423,8 @@ clustering_evaluation2 <- function(dat,
   return(out_list)
 }
 
-cluster_after_cv <- function(dat_list, ...) {
+cv_clusteval <- function(dat_list, ...) {
+  # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
   for (i in 1:length(dat_list)) {
     temp <- dat_list[[i]]
@@ -431,11 +432,11 @@ cluster_after_cv <- function(dat_list, ...) {
     temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
     temp_list <- c(temp_list, temp)
   }
-  
+  # Binding function that concatenates relevant list components
   cfun <- function(a,b) {
     return(list(clusters = rbind(a$clusters, b$clusters),
                 metrics = rbind(a$metrics, b$metrics), 
-                chisq_pval = rbind(a$chisq_pval, b $chisq_pval)))
+                chisq_pval = rbind(a$chisq_pval, b$chisq_pval)))
   }
   
   out <- foreach(i = 1:length(temp_list),

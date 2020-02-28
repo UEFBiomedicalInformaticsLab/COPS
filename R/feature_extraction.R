@@ -25,7 +25,7 @@
 #' @importFrom uwot umap
 dim_reduction_suite <- function(dat,
                                 dimred_methods = c("pca", "tsne", "umap"),
-                                output_dimensions = c(2:3),
+                                output_dimensions = c(2:4),
                                 tsne_perplexities = c(5,30,50),
                                 umap_neighbors = 20,
                                 include_original = TRUE,
@@ -69,7 +69,7 @@ dim_reduction_suite <- function(dat,
                              initial_dims = min(50, dim(dat)[1]),
                              check_duplicates = FALSE,
                              verbose = FALSE)$Y
-        colnames(temp) <- paste0("dim", 1:d)
+        colnames(temp) <- paste0("dim", 1:2)
         rownames(temp) <- colnames(dat)
       } else if (m == "umap") {
         temp <- uwot::umap(t(dat),
@@ -90,7 +90,9 @@ dim_reduction_suite <- function(dat,
   return(out)
 }
 
-dim_reduction_after_cv <- function(dat_list, ...) {
+# Input has to be a list of data.frames with columns corresponding to genes and also run and fold ids
+# Output has to be a list of data.frames because embeddings may have different dimensions
+cv_dimred <- function(dat_list, ...) {
   temp_list <- list()
   for (i in 1:length(dat_list)) {
     temp <- dat_list[[i]]
@@ -99,18 +101,20 @@ dim_reduction_after_cv <- function(dat_list, ...) {
     temp_list <- c(temp_list, temp)
   }
   
-  cfun <- function(a,b) {
-    return(list(clusters = rbind(a$clusters, b$clusters),
-                metrics = rbind(a$metrics, b$metrics), 
-                chisq_pval = rbind(a$chisq_pval, b $chisq_pval)))
-  }
-  
   out <- foreach(i = 1:length(temp_list),
                       .combine = c,
-                      #.export = c(""),
-                      .packages = c("FactoMineR", "Rtsne", "uwot")) %dopar% {
-    temp <- dim_reduction_suite(temp_list[[i]], ...)
-    temp
+                      .export = c("dim_reduction_suite"),
+                      .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
+    temp <- temp_list[[i]]
+    rownames(temp) <- temp$id
+    temp <- temp[!colnames(temp) %in% c("id", "run", "fold", "cv_index")]
+    temp <- dim_reduction_suite(t(temp), ...)
+    for (j in 1:length(temp)) {
+      temp[[j]] <- as.data.frame(t(temp[[j]]))
+      temp[[j]]$id <- rownames(temp[[j]])
+      temp[[j]] <- plyr::join(temp[[j]], temp_list[[i]][c("id", "run", "fold", "cv_index")], by = "id")
+    }
+    list(temp)
   }
   return(out)
 }

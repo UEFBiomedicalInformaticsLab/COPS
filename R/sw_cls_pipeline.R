@@ -110,65 +110,60 @@ dimred_clusteval_pipeline2 <- function(dat_list,
     # Avoid warnings related to %dopar%
     foreach::registerDoSEQ()
   }
+  out <- cv_folder(dat_list, ..., batch_label = batch_label)
+  out <- cv_dimred(out, ...)
+  out <- cv_clusteval(out, ...)
+  test <- stability_eval2(out)
+  # TODO: fix and finish
+  return(out)
+}
+
+cv_folder <- function(dat_list, 
+                      nfolds, 
+                      nruns, 
+                      batch_label = NULL, 
+                      stratified_cv = FALSE,
+                      mixed_cv = FALSE) {
   out <- list()
   for (i in 1:length(dat_list)) {
-    if(verbose) print(paste0("Starting pipeline for data set #", i)); flush.console()
-    out_i <- list()
-    if (dim_reduction) {
-      dimred_start <- Sys.time()
-      if(verbose) print(paste("Starting dimensionality reduction")); flush.console()
-      out_i$embed_set <- dim_reduction_suite(dat_list[[i]], ...)
-      if(verbose) print(paste("Finished dimensionality reduction in",
-                              time_taken_string(dimred_start))); flush.console()
-    } else {
-      # INCOMPLETE
-      # Pre computed embeddings for a specific setting?
-      out_i$embed_set <- dat_list[[i]]
-    }
-    out_i$evals <-list()
-    for (j in 1:length(out_i$embed_set)) {
-      if(verbose) print(paste("Starting clustering and evaluation for embedding:",
-                              names(out_i$embed_set)[j]));flush.console()
-      out_j <- list()
-
-      # Clustering + internal evaluation
-      clusteval_start <- Sys.time()
-      if (!pre_clust_cv) {
-        out_j$embed_eval <- clusteval_cv(out_i$embed_set[[j]], batch_label, ...)
+    temp <- as.data.frame(t(dat_list[[i]]))
+    temp$id <- rownames(temp)
+    folded <- data.frame()
+    for (j in 1:nruns) {
+      if (!is.null(batch_label) & (stratified_cv | mixed_cv)) {
+        a_ind <- lapply(table(batch_label), function(x) sample(1:x, x))
+        b_ind <- sample(1:length(unique(batch_label)), length(unique(batch_label)))
+        c_ind <- cumsum(table(batch_label)[unique(batch_label)[b_ind]])
+        cv_index <- c()
+        for (u in 1:length(b_ind)) {
+          un <- unique(batch_label)[b_ind[u]]
+          cv_index[batch_label == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
+        }
+        if (stratified_cv) {
+          # Stratified cv folds such that holdout set labels mostly do not match to rest of data
+          cv_index <- cv_index %/% -(length(batch_label) %/% -nfolds) + 1
+        } else {
+          # Mixed cv folds such that labels are evenly distributed within folds
+          cv_index <- cv_index %% nfolds + 1
+        }
       } else {
-        stop("pre_clust_cv is not implemented yet")
-        # TODO: Run clustering for each predefined fold
+        # Completely random folds
+        cv_index <- sample(1:nrow(temp)) %% nfolds + 1
       }
-      if(verbose) print(paste("Finished clustering analysis in",
-                              time_taken_string(clusteval_start)));flush.console()
-      # Evaluate stability
-      stability_test_start <- Sys.time()
-      out_j$embed_stab <- stability_eval(out_j$embed_eval$clust, parallel = parallel > 1, ...)
-      if(verbose) print(paste("Finished stability analysis in",
-                              time_taken_string(stability_test_start)));flush.console()
-
-      # Batch effect estimation
-      if (!is.null(batch_label)) {
-        batch_effect_start <- Sys.time()
-        out_j$embed_baef <- class_associations(out_i$embed_set[[j]], batch_label, ...)
-        if(verbose) print(paste("Finished batch effect estimation in",
-                                time_taken_string(batch_effect_start)));flush.console()
-      }
-      if (is.null(names(out_i$embed_set)))  {
-        out_i$evals[[j]] <- out_j
-      } else {
-        out_i$evals[[names(out_i$embed_set)[j]]] <- out_j
+      # Got index, create folds +1 extra "fold" with whole data
+      # TODO: reference is the same accross all runs, maybe include it only once?
+      for (f in 1:(nfolds+1)) {
+        # TODO: fix downstream support so that test set can be included too
+        tempfold <- temp[cv_index != f, ]
+        tempfold$fold <- f
+        tempfold$run <- j
+        tempfold$cv_index <- cv_index[cv_index != f]
+        folded <- rbind(folded, tempfold)
       }
     }
-    if (is.null(names(dat_list)))  {
-      out[[i]] <- out_i
-    } else {
-      out[[names(dat_list)[i]]] <- out_i
-    }
+    out[[i]] <- folded
   }
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
-  if(verbose) print(paste("Finished pipeline in",
-                          time_taken_string(pipeline_start)));flush.console()
+  names(out) <- names(dat_list)
   return(out)
 }
 

@@ -72,7 +72,7 @@ Example starting from a pre-processed data matrix and batch label vector. In thi
 
 ```{r pipeline, cache.lazy = TRUE, echo = TRUE, message = FALSE}
 method_evaluations <- dimred_clusteval_pipeline(list(ad_ge_micro_zscore), batch_label = ad_studies, include_original = FALSE, 
-                                                parallel = TRUE, nproc = 4, RUNS = 2, 
+                                                parallel = 4, RUNS = 2, 
                                                 CVFOLDS = 2, dimred_methods = c("pca", "umap"),
                                                 cluster_methods = c("hierarchical", "kmeans"),
                                                 metric = "euclidean", 
@@ -118,14 +118,20 @@ python VAE/parameter_search.py data/ad_batches.csv data/batches.csv output/testr
 
 ### Import data from external method
 ```{r vae_analysis, eval = FALSE}
-vae_embeddings <- read.csv("testrun_embeddings.csv", header = FALSE, comment.char = "#")
-vae_params <- read.csv("testrun_params.csv", header = FALSE, comment.char = "#")
+filename_embed <- "testrun_embeddings.csv"
+filename_param <- "testrun_params.csv"
+vae_embeddings <- read.csv(filename_embed, header = FALSE, comment.char = "#")
+vae_params <- read.csv(filename_param, header = FALSE, comment.char = "#")
 # Manual handling of headers
-f = file("testrun_embeddings.csv", 'r')
+f = file(filename_embed, 'r')
 colnames(vae_embeddings) <- gsub("[ #]", "", strsplit(readLines(f, n=1), ",")[[1]])
 close(f)
-f = file("testrun_params.csv", 'r')
+f = file(filename_param, 'r')
 colnames(vae_params) <- gsub("[ #]", "", strsplit(readLines(f, n=1), ",")[[1]])
 close(f)
 # TODO: convert embedding analysis into general functions or modify pipeline to acommodate
+vae_embeddings$instance <- cumsum(c(1, diff(vae_embeddings$run)<0))
+test <- tapply(vae_embeddings$dim1, vae_embeddings[c("instance", "run", "fold")], var)
+sum(apply(is.na(test), 1, any))
+sum(apply(test == 0, 1, any, na.rm = TRUE))
 ```
