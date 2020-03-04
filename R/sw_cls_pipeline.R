@@ -110,20 +110,30 @@ dimred_clusteval_pipeline2 <- function(dat_list,
     # Avoid warnings related to %dopar%
     foreach::registerDoSEQ()
   }
-  out <- cv_folder(dat_list, ..., batch_label = batch_label)
-  out <- cv_dimred(out, ...)
-  out <- cv_clusteval(out, ...)
-  test <- stability_eval2(out)
-  # TODO: fix and finish
+  
+  if (is.null(names(batch_label))) names(batch_label) <- colnames(dat_list[[1]])
+  dat_folded <- cv_fold(dat_list, ..., batch_label = batch_label)
+  dat_folded <- cv_dimred(dat_folded, ...)
+  dat_clustered <- cv_clusteval(dat_folded, ..., batch_label = batch_label)
+  dat_stability <- stability_eval2(dat_clustered$clusters, ...)
+  
+  out <- list(embedding = dat_folded, 
+              clusters = dat_clustered$clusters, 
+              internal_metrics = dat_clustered$metrics,
+              chisq_pval = dat_clustered$chisq_pval,
+              stability = dat_stability)
+  
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
   return(out)
 }
 
-cv_folder <- function(dat_list, 
-                      nfolds, 
-                      nruns, 
-                      batch_label = NULL, 
-                      stratified_cv = FALSE,
-                      mixed_cv = FALSE) {
+cv_fold <- function(dat_list, 
+                    nfolds = 5, 
+                    nruns = 2, 
+                    batch_label = NULL, 
+                    stratified_cv = FALSE, 
+                    mixed_cv = FALSE,
+                    ...) {
   out <- list()
   for (i in 1:length(dat_list)) {
     temp <- as.data.frame(t(dat_list[[i]]))

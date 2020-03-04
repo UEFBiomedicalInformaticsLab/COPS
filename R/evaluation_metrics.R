@@ -100,7 +100,7 @@ stability_eval <- function(clust,
 }
 
 stability_eval2 <- function(clust,
-                           by = c("k", "m"),
+                           by = c("datname", "drname", "k", "m"),
                            by2 = c("run", "fold"),
                            parallel = FALSE,
                            ...)
@@ -118,18 +118,23 @@ stability_eval2 <- function(clust,
     nonref <- plyr::join(nonref, ref[c("id", by2, "reference_cluster")], 
                          by = c("id", by2[by2 != "fold"]), type = "inner")
     
-    train_jdist <- jdist_ref(split(nonref$cluster[!nonref$test_ind], by2), 
-                             split(nonref$reference_cluster[!nonref$test_ind], by2))
-    test_jdist <- jdist_ref(split(nonref$cluster[nonref$test_ind], by2), 
-                            split(nonref$reference_cluster[nonref$test_ind], by2))
+    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+    train_jdist <- jdist_ref(train_nonref, train_ref)
+    
+    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+    test_jdist <- jdist_ref(test_nonref, test_ref)
+    
     return(data.frame(jdist_train = train_jdist, jdist_test = test_jdist))
   }
+  by <- by[by %in% colnames(clust)]
   stability <- plyr::ddply(clust,
                            by,
                            f,
                            .parallel = FALSE, # TODO: fix parallelization
-                           .paropts = list(.export = c("jdist_ref")))#, "by2")))
-  #.packages = c("clusteval") # Not necessary as we access namespace directly
+                           .paropts = list(.export = c("jdist_ref"),
+                                           .packages = c("clusteval")))
   
   return(stability)
 }
@@ -403,32 +408,39 @@ clustering_evaluation2 <- function(dat,
   # Insert meta data (if present)
   out_list$metrics$run <- dat$run[1]
   out_list$metrics$fold <- dat$fold[1]
-  out_list$metrics$dname <- dat$dname[1]
+  out_list$metrics$datname <- dat$datname[1]
+  out_list$metrics$drname <- dat$drname[1]
+  
   if (!is.null(batch_label)) {
     # For each clustering do:
     # chisq.test with respect to batch
     chisq_pval <- array(dim = c(length(n_clusters), length(cluster_methods)))
     for (j in 1:length(cluster_methods)) {
       for (i in 1:length(n_clusters)) {
-        chisq_pval[i,j] <- suppressWarnings(chisq.test(table(clusters[,i,j], batch_label)))$p.value
+        chisq_pval[i,j] <- suppressWarnings(chisq.test(table(clusters[,i,j], 
+                                            batch_label[match(names(clusters[,i,j]), 
+                                            names(batch_label))])))$p.value
       }
     }
     dimnames(chisq_pval) <- list(k = n_clusters, m = cluster_methods)
     out_list$chisq_pval <- reshape2::melt(chisq_pval, value.name = "p")
-    # Insert meta data (if present)
+    
     out_list$chisq_pval$run <- dat$run[1]
     out_list$chisq_pval$fold <- dat$fold[1]
-    out_list$chisq_pval$dname <- dat$dname[1]
+    out_list$chisq_pval$datname <- dat$datname[1]
+    out_list$chisq_pval$drname <- dat$drname[1]
   }
   return(out_list)
 }
+
+names(batch_label)[match(names(clusters[,i,j]), names(batch_label))] == names(clusters[,i,j])
 
 cv_clusteval <- function(dat_list, ...) {
   # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
   for (i in 1:length(dat_list)) {
     temp <- dat_list[[i]]
-    temp$dname <- names(dat_list)[i]
+    temp$drname <- names(dat_list)[i]
     temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
     temp_list <- c(temp_list, temp)
   }
