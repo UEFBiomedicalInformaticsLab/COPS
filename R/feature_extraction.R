@@ -48,6 +48,7 @@ dim_reduction_suite <- function(dat,
     if (m %in% c("pca", "umap")) {
       dims <- output_dimensions
     } else if (m == "tsne") {
+      # Rtsne throws error if perplexity is too high compared to data size
       dims <- tsne_perplexities[3 * tsne_perplexities < ncol(dat) - 1]
     } else {
       warning(paste("Unsupported method:", m))
@@ -97,24 +98,26 @@ cv_dimred <- function(dat_list, ...) {
   for (i in 1:length(dat_list)) {
     temp <- dat_list[[i]]
     temp$datname <- names(dat_list)[i]
-    temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
+    #temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
+    temp <- split(temp, temp[c("run", "fold")])
     temp_list <- c(temp_list, temp)
   }
   
-  keep_columns <- c("id", "run", "fold", "cv_index", "datname")
+  #keep_columns <- c("id", "run", "fold", "cv_index", "datname")
   out <- foreach(i = 1:length(temp_list),
                       .combine = c,
                       .export = c("dim_reduction_suite"),
                       .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
     temp <- temp_list[[i]]
     rownames(temp) <- temp$id
-    temp <- temp[!colnames(temp) %in% c("id", "run", "fold", "cv_index", "datname")]
-    temp <- dim_reduction_suite(t(temp), ...)
+    #temp <- temp[!colnames(temp) %in% c("id", "run", "fold", "cv_index", "datname")]
+    temp <- dim_reduction_suite(t(temp[grepl("^dim[0-9]+$", colnames(temp))]), ...)
     for (j in 1:length(temp)) {
       temp[[j]] <- as.data.frame(t(temp[[j]]))
       temp[[j]]$id <- rownames(temp[[j]])
       temp[[j]] <- plyr::join(temp[[j]], 
-                              temp_list[[i]][keep_columns[keep_columns %in% colnames(temp_list[[i]])]], 
+                              #temp_list[[i]][keep_columns[keep_columns %in% colnames(temp_list[[i]])]], 
+                              temp_list[[i]][!grepl("^dim[0-9]+$", colnames(temp_list[[i]]))],
                               by = "id")
     }
     temp

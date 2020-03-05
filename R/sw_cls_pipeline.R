@@ -8,7 +8,7 @@
 #' @param verbose if \code{TRUE}, prints progress notifications
 #' @param parallel sets up and registers \code{parallel} number of threads for supported operations
 #' @param dim_reduction set to \code{FALSE} to skip the dimensionality reduction
-#' @param pre_clust_cv set to \code{TRUE} if data is already organized into folds from previous step
+##' @param pre_clust_cv set to \code{TRUE} if data is already organized into folds from previous step
 #' @param ... extra arguments are passed to pipeline components where appropriate
 #'
 #' @return Returns a \code{list} of pipeline component outputs for given settings and input data sets
@@ -95,12 +95,14 @@ dimred_clusteval_pipeline <- function(dat_list,
   return(out)
 }
 
-dimred_clusteval_pipeline2 <- function(dat_list,
+dimred_clusteval_pipeline2 <- function(dat_list, 
+                                      nfolds, 
+                                      nruns, 
                                       batch_label = NULL,
                                       verbose = TRUE,
                                       parallel = 1,
                                       dim_reduction = TRUE,
-                                      pre_clust_cv = FALSE,
+                                      #pre_clust_cv = FALSE,
                                       ...) {
   pipeline_start <- Sys.time()
   if (parallel > 1) {
@@ -110,13 +112,41 @@ dimred_clusteval_pipeline2 <- function(dat_list,
     # Avoid warnings related to %dopar%
     foreach::registerDoSEQ()
   }
+  if(verbose) print("Processing data sets ..."); flush.console()
   
-  if (is.null(names(batch_label))) names(batch_label) <- colnames(dat_list[[1]])
-  dat_folded <- cv_fold(dat_list, ..., batch_label = batch_label)
+  #if (is.null(names(batch_label))) names(batch_label) <- colnames(dat_list[[1]])
+  # Manage batch label column names if batch labels given
+  batch_label_names <- NULL
+  if (!is.null(batch_label)) {
+    batch_label_names <- colnames(batch_label)
+    if (is.null(batch_label_names)) batch_label_names <- "batch_label"
+  }
+  
+  # Create cross validation folds
+  dat_folded <- cv_fold(dat_list, nfolds, nruns, ..., batch_label = batch_label)
+  
+  # Dimensionality reduction
+  dimred_start <- Sys.time()
+  if(verbose) print("Starting dimensionality reduction ..."); flush.console()
   dat_folded <- cv_dimred(dat_folded, ...)
-  dat_clustered <- cv_clusteval(dat_folded, ..., batch_label = batch_label)
-  dat_stability <- stability_eval2(dat_clustered$clusters, ...)
+  if(verbose) print(paste("Finished dimensionality reduction in",
+                          time_taken_string(dimred_start))); flush.console()
   
+  # Clustering evaluation
+  clusteval_start <- Sys.time()
+  if(verbose) print("Starting clustering analysis ..."); flush.console()
+  dat_clustered <- cv_clusteval(dat_folded, ..., batch_label_names = batch_label_names)
+  if(verbose) print(paste("Finished clustering analysis in",
+                          time_taken_string(clusteval_start))); flush.console()
+  
+  # Clustering stability evaluation
+  stability_test_start <- Sys.time()
+  if(verbose) print("Starting clustering stability analysis ..."); flush.console()
+  dat_stability <- stability_eval2(dat_clustered$clusters, ...)
+  if(verbose) print(paste("Finished clustering stability analysis in",
+                          time_taken_string(stability_test_start))); flush.console()
+  
+  # Return
   out <- list(embedding = dat_folded, 
               clusters = dat_clustered$clusters, 
               internal_metrics = dat_clustered$metrics,
@@ -124,6 +154,8 @@ dimred_clusteval_pipeline2 <- function(dat_list,
               stability = dat_stability)
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
+  if(verbose) print(paste("Finished pipeline in",
+                          time_taken_string(pipeline_start)));flush.console()
   return(out)
 }
 
@@ -137,7 +169,29 @@ cv_fold <- function(dat_list,
   out <- list()
   for (i in 1:length(dat_list)) {
     temp <- as.data.frame(t(dat_list[[i]]))
+    colnames(temp) <- paste0("dim", 1:ncol(temp))
     temp$id <- rownames(temp)
+    # Add batch label(s) as separate column(s)
+    if (!is.null(batch_label)) {
+      if (is.null(dim(batch_label))) {
+        if (!is.null(names(batch_label))) {
+          batch_id <- names(batch_label)
+        } else {
+          # Assume data and batch labels are in the same order
+          batch_id <- colnames(dat_list[[i]])
+        }
+        batch_label <- cbind(batch_label = as.character(batch_label), c())
+        rownames(batch_label) <- batch_id
+      }
+      batch_label <- as.data.frame(batch_label)
+      if (any(!(rownames(batch_label) %in% colnames(dat_list[[i]])))) {
+        # Assume that mismatches are due to processing ...
+        # Assume data and batch labels are in the same order
+        rownames(batch_label) <- colnames(dat_list[[i]])
+      }
+      batch_label$id <- rownames(batch_label)
+      temp <- plyr::join(temp, batch_label, by = "id")
+    }
     folded <- data.frame()
     for (j in 1:nruns) {
       if (!is.null(batch_label) & (stratified_cv | mixed_cv)) {

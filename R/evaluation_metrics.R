@@ -158,7 +158,7 @@ stability_eval2 <- function(clust,
 #' @importFrom kBET pcRegression
 class_associations <-  function(dat, class, n_pc_max = 10, ...){
   out <- list()
-  if (is.null(dim(class))) class <- cbind(class, c())
+  if (is.null(dim(class))) class <- cbind(as.character(class), c())
 
   pca_silh <- list()
   pca_reg <- list()
@@ -240,51 +240,51 @@ clusteval_cv <- function(dat,
                       .combine = cfun,
                       .export = c("clustering_evaluation"),
                       .packages = c("clValid", "reshape2")) %dopar% {
-                        out <- list()
-                        run <- (i-1) %/% CVFOLDS + 1
-                        cvf <- (i-1) %% CVFOLDS + 1
-                        clust_res <- clustering_evaluation(dat[,cv_ind[,run] != cvf], batch_label = NULL, ...)
+    out <- list()
+    run <- (i-1) %/% CVFOLDS + 1
+    cvf <- (i-1) %% CVFOLDS + 1
+    clust_res <- clustering_evaluation(dat[,cv_ind[,run] != cvf], batch_label = NULL, ...)
 
-                        # Use nearest neighbour to cluster validation set
-                        #val_nn <- FNN::get.knnx(dat[cv_ind[,run] != cvf,], dat[cv_ind[,run] == cvf,], k = 1)
-                        val_nn <- apply(distances[cv_ind[,run] != cvf, cv_ind[,run] == cvf], 2, which.min)
-                        val_clust <- clust_res$clusters[val_nn,,]
+    # Use nearest neighbour to cluster validation set
+    #val_nn <- FNN::get.knnx(dat[cv_ind[,run] != cvf,], dat[cv_ind[,run] == cvf,], k = 1)
+    val_nn <- apply(distances[cv_ind[,run] != cvf, cv_ind[,run] == cvf], 2, which.min)
+    val_clust <- clust_res$clusters[val_nn,,]
 
-                        clust_all <- array(NA, dim = c(ncol(dat), dim(clust_res$clusters)[2:3]))
-                        clust_all[cv_ind[,run] != cvf,,] <- clust_res$clusters
-                        clust_all[cv_ind[,run] == cvf,,] <- val_clust
+    clust_all <- array(NA, dim = c(ncol(dat), dim(clust_res$clusters)[2:3]))
+    clust_all[cv_ind[,run] != cvf,,] <- clust_res$clusters
+    clust_all[cv_ind[,run] == cvf,,] <- val_clust
 
-                        dimnames(clust_all) <- c(list(id = colnames(dat)), dimnames(clust_res$clusters)[2:3])
+    dimnames(clust_all) <- c(list(id = colnames(dat)), dimnames(clust_res$clusters)[2:3])
 
-                        out$clust <- data.frame(run = run,
-                                                fold = cvf,
-                                                reshape2::melt(clust_all, value.name = "cluster"))
+    out$clust <- data.frame(run = run,
+                            fold = cvf,
+                            reshape2::melt(clust_all, value.name = "cluster"))
 
-                        out$metrics <- data.frame(run = run,
-                                                  fold = cvf,
-                                                  reshape2::melt(clust_res$metrics))
+    out$metrics <- data.frame(run = run,
+                              fold = cvf,
+                              reshape2::melt(clust_res$metrics))
 
-                        if (!is.null(batch_label)) {
-                          if (is.null(dim(batch_label))) batch_label <- cbind(batch_label, c())
-                          chisq_pval <- list()
-                          for (i in 1:dim(batch_label)[2]) {
-                            i_function <- function(x) suppressWarnings(chisq.test(table(x, batch_label[,i])))$p.value
-                            if (!is.null(colnames(batch_label))) {
-                              i_label <- paste0("p", colnames(batch_label)[i])
-                            } else {
-                              i_label <- paste0("p", i)
-                            }
-                            chisq_pval_fold <- apply(clust_all, 2:3, i_function)
-                            dimnames(chisq_pval_fold) <- dimnames(clust_res$clusters)[2:3]
-                            chisq_pval[[i]] <- data.frame(run = run,
-                                                          fold = cvf,
-                                                          reshape2::melt(chisq_pval_fold,
-                                                                         value.name = i_label))
-                          }
-                          out$chisq_pval <- Reduce(plyr::join, chisq_pval)
-                        }
-                        out
-                      }
+    if (!is.null(batch_label)) {
+      if (is.null(dim(batch_label))) batch_label <- cbind(batch_label, c())
+      chisq_pval <- list()
+      for (i in 1:dim(batch_label)[2]) {
+        i_function <- function(x) suppressWarnings(chisq.test(table(x, batch_label[,i])))$p.value
+        if (!is.null(colnames(batch_label))) {
+          i_label <- paste0("p", colnames(batch_label)[i])
+        } else {
+          i_label <- paste0("p", i)
+        }
+        chisq_pval_fold <- apply(clust_all, 2:3, i_function)
+        dimnames(chisq_pval_fold) <- dimnames(clust_res$clusters)[2:3]
+        chisq_pval[[i]] <- data.frame(run = run,
+                                      fold = cvf,
+                                      reshape2::melt(chisq_pval_fold,
+                                                     value.name = i_label))
+      }
+      out$chisq_pval <- Reduce(plyr::join, chisq_pval)
+    }
+    out
+  }
 
   return(out_list)
 }
@@ -365,7 +365,7 @@ clustering_evaluation <- function(dat,
 }
 
 clustering_evaluation2 <- function(dat,
-                                  batch_label = NULL,
+                                  batch_label_names = NULL,
                                   n_clusters = 2:5,
                                   cluster_methods = c("hierarchical","pam","diana","kmeans"),
                                   metric = "euclidean",
@@ -411,29 +411,28 @@ clustering_evaluation2 <- function(dat,
   out_list$metrics$datname <- dat$datname[1]
   out_list$metrics$drname <- dat$drname[1]
   
-  if (!is.null(batch_label)) {
-    # For each clustering do:
-    # chisq.test with respect to batch
-    chisq_pval <- array(dim = c(length(n_clusters), length(cluster_methods)))
-    for (j in 1:length(cluster_methods)) {
-      for (i in 1:length(n_clusters)) {
-        chisq_pval[i,j] <- suppressWarnings(chisq.test(table(clusters[,i,j], 
-                                            batch_label[match(names(clusters[,i,j]), 
-                                            names(batch_label))])))$p.value
+  if (!is.null(batch_label_names)) {
+    f <- function(x) {
+      out <- data.frame()
+      for (i in 1:length(batch_label_names)) {
+        temp <- suppressWarnings(chisq.test(table(x[c("cluster", batch_label_names[i])])))
+        out <- rbind(out, data.frame(run = x$run[1], 
+                                     fold = x$fold[1], 
+                                     datname = x$datname[1],
+                                     drname = x$drname[1],
+                                     k = x$k[1],
+                                     m = x$m[1],
+                                     batch_label = batch_label_names[i],
+                                     p = temp$p.value))
       }
+      return(out)
     }
-    dimnames(chisq_pval) <- list(k = n_clusters, m = cluster_methods)
-    out_list$chisq_pval <- reshape2::melt(chisq_pval, value.name = "p")
     
-    out_list$chisq_pval$run <- dat$run[1]
-    out_list$chisq_pval$fold <- dat$fold[1]
-    out_list$chisq_pval$datname <- dat$datname[1]
-    out_list$chisq_pval$drname <- dat$drname[1]
+    #out_list$chisq_pval <- plyr::ddply(out_list$clusters, c("k", "m"), f)
+    out_list$chisq_pval <- Reduce(rbind, lapply(split(out_list$clusters, out_list$clusters[c("k", "m")]), f))
   }
   return(out_list)
 }
-
-names(batch_label)[match(names(clusters[,i,j]), names(batch_label))] == names(clusters[,i,j])
 
 cv_clusteval <- function(dat_list, ...) {
   # If runs and folds are already separated, this produces a list of length 1
@@ -441,7 +440,8 @@ cv_clusteval <- function(dat_list, ...) {
   for (i in 1:length(dat_list)) {
     temp <- dat_list[[i]]
     temp$drname <- names(dat_list)[i]
-    temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
+    #temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
+    temp <- split(temp, temp[c("run", "fold")])
     temp_list <- c(temp_list, temp)
   }
   # Binding function that concatenates relevant list components
