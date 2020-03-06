@@ -102,7 +102,6 @@ stability_eval <- function(clust,
 stability_eval2 <- function(clust,
                            by = c("datname", "drname", "k", "m"),
                            by2 = c("run", "fold"),
-                           parallel = FALSE,
                            ...)
 {
   f <- function(x) {
@@ -129,13 +128,16 @@ stability_eval2 <- function(clust,
     return(data.frame(jdist_train = train_jdist, jdist_test = test_jdist))
   }
   by <- by[by %in% colnames(clust)]
-  stability <- plyr::ddply(clust,
-                           by,
-                           f,
-                           .parallel = FALSE, # TODO: fix parallelization
-                           .paropts = list(.export = c("jdist_ref"),
-                                           .packages = c("clusteval")))
   
+  temp_list <- split(clust, clust[by])
+  stability <- foreach(i = 1:length(temp_list),
+                      .combine = rbind,
+                      .export = c("jdist_ref"),
+                      .packages = c("clusteval", "plyr")) %dopar% {
+    out <- f(temp_list[[i]])
+    for (j in by) out[[j]] <- temp_list[[i]][[j]][1]
+    out
+  }
   return(stability)
 }
 
@@ -415,15 +417,16 @@ clustering_evaluation2 <- function(dat,
     f <- function(x) {
       out <- data.frame()
       for (i in 1:length(batch_label_names)) {
-        temp <- suppressWarnings(chisq.test(table(x[c("cluster", batch_label_names[i])])))
-        out <- rbind(out, data.frame(run = x$run[1], 
-                                     fold = x$fold[1], 
-                                     datname = x$datname[1],
-                                     drname = x$drname[1],
-                                     k = x$k[1],
-                                     m = x$m[1],
-                                     batch_label = batch_label_names[i],
-                                     p = temp$p.value))
+        temp <- suppressWarnings(chisq.test(table(x[c(batch_label_names[i], "cluster")])))
+        temp <- data.frame(p = temp$p.value)
+        temp$run <- x$run[1]
+        temp$fold <- x$fold[1]
+        temp$datname <- x$datname[1]
+        temp$drname <- x$drname[1]
+        temp$k <- x$k[1]
+        temp$m <- x$m[1]
+        temp$batch_label <- batch_label_names[i]
+        out <- rbind(out, temp)
       }
       return(out)
     }
@@ -434,12 +437,13 @@ clustering_evaluation2 <- function(dat,
   return(out_list)
 }
 
-cv_clusteval <- function(dat_list, ...) {
+cv_clusteval <- function(dat_folded, ...) {
   # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
-  for (i in 1:length(dat_list)) {
-    temp <- dat_list[[i]]
-    temp$drname <- names(dat_list)[i]
+  for (i in 1:length(dat_folded)) {
+    temp <- dat_folded[[i]]
+    temp$drname <- names(dat_folded)[i]
+    if (is.null(temp$drname)) temp$drname <- i
     #temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
     temp <- split(temp, temp[c("run", "fold")])
     temp_list <- c(temp_list, temp)

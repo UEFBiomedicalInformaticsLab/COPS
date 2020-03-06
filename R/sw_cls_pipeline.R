@@ -324,6 +324,74 @@ dimred_cluster <- function(dat_list,
   return(list(embedding = t(embed), clustering = cluster))
 }
 
+dimred_cluster2 <- function(dat_list,
+                            best = NULL,
+                            data_id = 1,
+                            dimred_method = "pca",
+                            dimred_dim = 2,
+                            dimred_perp = 30,
+                            cluster_method = "kmeans",
+                            k = 2,
+                            metric = "euclidean") {
+  if (!is.null(best)) {
+    dat <- dat_list[[best$datname]]
+    
+    # Get dimensionality reduction method from name
+    temp <- regexpr("^[A-Za-z]*", best$drname)
+    dimred_method <- substr(best$drname, temp,
+                            temp + attributes(temp)$match.length - 1)
+    # Get number of dimensions from name
+    temp <- regexpr("[0-9]*$", best$drname)
+    dimred_dim <- substr(best$drname, temp,
+                         temp + attributes(temp)$match.length - 1)
+    dimred_dim <- as.numeric(dimred_dim)
+    dimred_perp <- dimred_dim
+    
+    cluster_method <- as.character(best$m)
+    k <- best$k
+  } else {
+    if (is.list(dat_list)) {
+      dat <- dat_list[[data_id]]
+    } else if (is.matrix(dat_list)|is.data.frame(dat_list)) {
+      dat <- dat_list
+    } else {
+      stop("Unsupported data format")
+    }
+  }
+  if (dimred_method == "original") {
+    embed <- dat
+  } else {
+    embed <- dim_reduction_suite(dat,
+                                 dimred_methods = dimred_method,
+                                 output_dimensions = dimred_dim,
+                                 tsne_perplexities = dimred_perp,
+                                 include_original = FALSE)[[1]]
+  }
+  
+  out <- suppressWarnings(clValid::clValid(t(embed),
+                                           nClust = k,
+                                           clMethods = cluster_method,
+                                           metric = metric,
+                                           validation=c()))
+  
+  # TODO: create generic unpacker for clValid output or use clustering methods directly
+  temp <- clValid::clusters(out, as.character(best$m))
+  
+  if (best$m %in% c("hierarchical", "diana", "agnes")) {
+    cluster <- cutree(temp, k)
+  } else if (best$m == "pam") {
+    cluster <- temp[[1]]$clustering
+  } else if (best$m == "kmeans") {
+    cluster <- temp[[1]]$cluster
+  } else if (best$m == "sota") {
+    cluster <- temp[[1]]$clust
+  } else {
+    stop(paste("Unsupported clustering method:", as.character(cluster_method)))
+  }
+  
+  return(list(embedding = t(embed), clustering = cluster))
+}
+
 #' Scoring of dimensionality reduction and clustering pipeline output
 #'
 #' Computes averages of metrics given in pipeline output and also returns the
@@ -443,6 +511,71 @@ clusteval_scoring <- function(input,
   return(list(all = scores[order(scores$wsum, decreasing = TRUE),], 
               best = best))
 }
+
+clusteval_scoring2 <- function(input,
+                              by = c("datname", "drname", "k", "m"),
+                              chisq_significance_level = 0.05,
+                              w_connectivity = -0.1,
+                              w_dunn = 0.1,
+                              w_silhouette = 0.5,
+                              w_stability = 1.0,
+                              w_batch_effect = -1.0) {
+  out <- list()
+  
+  by_internal <- by[by %in% colnames(input$internal_metrics)]
+  out[[1]] <- plyr::ddply(input$internal_metrics, 
+                          c(by_internal, "metric"), 
+                          function(x) data.frame(mean = mean(x$value), 
+                                                 sd = sd(x$value)))
+  
+  # Average number of chi-squared test pvalues under threshold in all given labels
+  by_chisq <- by[by %in% colnames(input$chisq_pval)]
+  out[[2]] <- plyr::ddply(input$chisq_pval, 
+                          c(by_chisq), 
+                          function(x) data.frame(metric = "ChiSqRR_batch_label",
+                                                 mean = mean(x$p < chisq_significance_level),
+                                                 sd = NA))
+  
+  by_stability <- by[by %in% colnames(input$stability)]
+  out[[3]] <- input$stability[by_stability]
+  out[[3]]$metric <- "JaccardDist"
+  out[[3]]$mean <- input$stability$jdist_train
+  out[[3]]$sd <- NA
+  
+  out <- Reduce(plyr::rbind.fill, out)
+  
+  ## Rank based on weighted sum of metrics
+  # Connectivity [0,Inf] minimize
+  # Dunn [0,Inf] maximize
+  # Silhouette [-1,1] maximize
+  # JaccardDist [0,1] minimize
+  # ChiSqRR [0,1] minimize
+  
+  wsumtable <- data.frame(metric = c("Connectivity", "Dunn", "Silhouette",
+                                     "JaccardDist", "ChiSqRR_batch_label"),
+                          weight = c(w_connectivity, w_dunn, w_silhouette,
+                                     -1*w_stability, w_batch_effect))
+  
+  wsumfun <- function(x) {
+    temp <- invisible(plyr::join(x, wsumtable, by = "metric"))
+    return(data.frame(wsum = sum(temp$mean * temp$weight), 
+                      Connectivity = temp$mean[grep("Connectivity", temp$metric)], 
+                      Dunn = temp$mean[grep("Dunn", temp$metric)], 
+                      Silhouette = temp$mean[grep("Silhouette", temp$metric)], 
+                      JaccardDist = temp$mean[grep("JaccardDist", temp$metric)],
+                      ChiSqRR_batch_label = temp$mean[grep("ChiSqRR_batch_label", temp$metric)]))
+  }
+  
+  by_all <- by[by %in% colnames(out)]
+  scores <- plyr::ddply(out, by_all, wsumfun)
+  
+  best <- scores[which.max(scores$wsum),]
+  
+  return(list(all = scores[order(scores$wsum, decreasing = TRUE),], 
+              best = best))
+}
+
+#aov(value ~ run * fold, method_evaluations$internal_metrics[method_evaluations$internal_metrics$k == 2 & method_evaluations$internal_metrics$m == "hierarchical" & method_evaluations$internal_metrics$drname == "pca4" & method_evaluations$internal_metrics$metric == "Silhouette",])
 
 # Helper for pipeline verbosity
 time_taken_string <- function(start) {

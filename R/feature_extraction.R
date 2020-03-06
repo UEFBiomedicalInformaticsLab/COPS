@@ -98,6 +98,7 @@ cv_dimred <- function(dat_list, ...) {
   for (i in 1:length(dat_list)) {
     temp <- dat_list[[i]]
     temp$datname <- names(dat_list)[i]
+    if (is.null(temp$datname)) temp$datname <- i
     #temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
     temp <- split(temp, temp[c("run", "fold")])
     temp_list <- c(temp_list, temp)
