@@ -7,7 +7,7 @@
 dim_reduction_suite(
   dat,
   dimred_methods = c("pca", "tsne", "umap"),
-  output_dimensions = c(2:3),
+  output_dimensions = c(2:4),
   tsne_perplexities = c(5, 30, 50),
   umap_neighbors = 20,
   include_original = TRUE,

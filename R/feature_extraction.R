@@ -91,8 +91,15 @@ dim_reduction_suite <- function(dat,
   return(out)
 }
 
-# Input has to be a list of data.frames with columns corresponding to genes and also run and fold ids
-# Output has to be a list of data.frames because embeddings may have different dimensions
+#' Dimensionality reduction on cross-validated data sets
+#'
+#' @param dat_list list of data sets
+#' @param ... arguments passed to \code{\link{dim_reduction_suite}}
+#'
+#' @return list of data sets
+#' @export
+#'
+#' @importFrom foreach foreach %dopar%
 cv_dimred <- function(dat_list, ...) {
   temp_list <- list()
   for (i in 1:length(dat_list)) {

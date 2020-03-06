@@ -6,6 +6,7 @@
 \usage{
 clusteval_scoring(
   input,
+  by = c("datname", "drname", "k", "m"),
   chisq_significance_level = 0.05,
   w_connectivity = -0.1,
   w_dunn = 0.1,
@@ -16,6 +17,8 @@ clusteval_scoring(
 }
 \arguments{
 \item{input}{\code{\link{dimred_clusteval_pipeline}} output}
+
+\item{by}{character vector containing column names to group analysis by}
 
 \item{chisq_significance_level}{p-value cutoff for computing rejection rate of
 \code{chisq.test}}

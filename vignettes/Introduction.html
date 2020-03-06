@@ -12,7 +12,7 @@
 
 <meta name="author" content="Vittorio Fortino and Teemu Rintala" />
 
-<meta name="date" content="2020-02-20" />
+<meta name="date" content="2020-03-06" />
 
 <title>Introduction to COPS</title>
 
@@ -95,7 +95,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Introduction to COPS</h1>
 <h4 class="author">Vittorio Fortino and Teemu Rintala</h4>
-<h4 class="date">2020-02-20</h4>
+<h4 class="date">2020-03-06</h4>
 
 
 
@@ -149,98 +149,105 @@ pre { /* Code block - determines code spacing between lines */
 <h2>1. How to perform cluster analysis using COPS</h2>
 <p>Example starting from a pre-processed data matrix and batch label vector. In this example we use the included Atopic Dermatitis (<em>ad_ge_micro_zscore</em>) data set and its annotations <em>ad_studies</em>.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">method_evaluations &lt;-<span class="st"> </span><span class="kw">dimred_clusteval_pipeline</span>(<span class="kw">list</span>(ad_ge_micro_zscore), <span class="dt">batch_label =</span> ad_studies, <span class="dt">include_original =</span> <span class="ot">FALSE</span>, 
-                                                <span class="dt">parallel =</span> <span class="ot">TRUE</span>, <span class="dt">nproc =</span> <span class="dv">4</span>, <span class="dt">RUNS =</span> <span class="dv">2</span>, 
-                                                <span class="dt">CVFOLDS =</span> <span class="dv">2</span>, <span class="dt">dimred_methods =</span> <span class="kw">c</span>(<span class="st">&quot;pca&quot;</span>, <span class="st">&quot;umap&quot;</span>),
+                                                <span class="dt">parallel =</span> <span class="dv">4</span>, <span class="dt">nruns =</span> <span class="dv">2</span>, 
+                                                <span class="dt">nfolds =</span> <span class="dv">2</span>, <span class="dt">dimred_methods =</span> <span class="kw">c</span>(<span class="st">&quot;pca&quot;</span>, <span class="st">&quot;umap&quot;</span>),
                                                 <span class="dt">cluster_methods =</span> <span class="kw">c</span>(<span class="st">&quot;hierarchical&quot;</span>, <span class="st">&quot;kmeans&quot;</span>),
                                                 <span class="dt">metric =</span> <span class="st">&quot;euclidean&quot;</span>, 
                                                 <span class="dt">n_clusters =</span> <span class="dv">2</span><span class="op">:</span><span class="dv">4</span>)
-<span class="co">#&gt; [1] &quot;Starting pipeline for data set #1&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting dimensionality reduction&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 3.07 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: pca2&quot;</span>
-<span class="co">#&gt; Warning: package 'clValid' was built under R version 3.6.2</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.43 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.03 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: pca3&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.29 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: umap2&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.28 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.01 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Starting clustering and evaluation for embedding: umap3&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished clustering analysis in 0.29 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished stability analysis in 0.02 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished batch effect estimation in 0.01 secs&quot;</span>
-<span class="co">#&gt; [1] &quot;Finished pipeline in 4.56 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Processing data sets ...&quot;</span>
+<span class="co">#&gt; [1] &quot;Starting dimensionality reduction ...&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 15.37 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Starting clustering analysis ...&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished clustering analysis in 1.74 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Starting clustering stability analysis ...&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished clustering stability analysis in 0.19 secs&quot;</span>
+<span class="co">#&gt; [1] &quot;Finished pipeline in 18.61 secs&quot;</span>
 scores &lt;-<span class="st"> </span><span class="kw">clusteval_scoring</span>(method_evaluations)
 
 <span class="co"># List scores</span>
 <span class="kw">head</span>(scores<span class="op">$</span>all)
-<span class="co">#&gt;   k            m       metric        mean          sd dimred data_set</span>
-<span class="co">#&gt; 1 2 hierarchical Connectivity  7.87093254 4.595676414   pca2        1</span>
-<span class="co">#&gt; 2 2 hierarchical         Dunn  0.14430483 0.052573908   pca2        1</span>
-<span class="co">#&gt; 3 2 hierarchical   Silhouette  0.44977361 0.039492900   pca2        1</span>
-<span class="co">#&gt; 4 2       kmeans Connectivity 22.18670635 3.352845801   pca2        1</span>
-<span class="co">#&gt; 5 2       kmeans         Dunn  0.02569867 0.007525089   pca2        1</span>
-<span class="co">#&gt; 6 2       kmeans   Silhouette  0.33697866 0.014439085   pca2        1</span>
+<span class="co">#&gt;    datname drname k            m       wsum Connectivity       Dunn Silhouette</span>
+<span class="co">#&gt; 13       1   pca4 2 hierarchical -0.1063055     3.292791 0.30267698  0.4312133</span>
+<span class="co">#&gt; 7        1   pca3 2 hierarchical -0.1600670     4.058730 0.26128665  0.4855121</span>
+<span class="co">#&gt; 1        1   pca2 2 hierarchical -0.6526322     8.099802 0.15801618  0.4788320</span>
+<span class="co">#&gt; 15       1   pca4 3 hierarchical -0.8337048     9.421825 0.20195534  0.3262229</span>
+<span class="co">#&gt; 9        1   pca3 3 hierarchical -0.9328725    10.481548 0.16802564  0.3427237</span>
+<span class="co">#&gt; 19       1  umap2 2 hierarchical -1.4822064    12.497354 0.08531657  0.3859329</span>
+<span class="co">#&gt;    JaccardDist ChiSqRR_batch_label</span>
+<span class="co">#&gt; 13  0.02290076                   0</span>
+<span class="co">#&gt; 7   0.02307873                   0</span>
+<span class="co">#&gt; 1   0.09786963                   0</span>
+<span class="co">#&gt; 15  0.07482920                   0</span>
+<span class="co">#&gt; 9   0.07288214                   0</span>
+<span class="co">#&gt; 19  0.43396904                   0</span>
 scores<span class="op">$</span>best
-<span class="co">#&gt;   data_set dimred k            m       wsum</span>
-<span class="co">#&gt; 7        1   pca3 2 hierarchical -0.4278051</span>
+<span class="co">#&gt;    datname drname k            m       wsum Connectivity     Dunn Silhouette</span>
+<span class="co">#&gt; 13       1   pca4 2 hierarchical -0.1063055     3.292791 0.302677  0.4312133</span>
+<span class="co">#&gt;    JaccardDist ChiSqRR_batch_label</span>
+<span class="co">#&gt; 13  0.02290076                   0</span>
 
 <span class="co"># Generate embedding and clustering based on best setting</span>
 best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span class="kw">list</span>(ad_ge_micro_zscore), scores<span class="op">$</span>best)</code></pre></div>
 <div id="plot-study-and-cluster-associations-in-best-embedding-using-swamp" class="section level3">
 <h3>Plot study and cluster associations in best embedding using swamp</h3>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">swamp<span class="op">::</span><span class="kw">confounding</span>(<span class="kw">data.frame</span>(best<span class="op">$</span>embedding, <span class="kw">factor</span>(best<span class="op">$</span>clustering), ad_studies))</code></pre></div>
-<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAkAAAAJACAMAAABSRCkEAAACrFBMVEUAAAAAAAMAAAQAABEAAB8AACQAADgAADoAAEgAAGYABgAADgAAJgAAOgAAOgYAOhMAOjoAOk0AOmYAOpAATgAAZggAZmIAZmYAZoEAZpAAZrYA//86AAA6AAM6AAQ6AB86ADg6ADo6AEg6AGY6JAA6OgA6Ojo6OmY6OpA6Zhc6Zkg6ZmY6ZpA6ZrY6kAo6kBs6kHc6kJA6kJw6kLY6kNtmAABmAANmAB9mAChmADpmAGZmIQBmOABmOgBmOjpmZjpmZmZmZpBmZrZmgABmkJBmkJxmkLZmkNtmtgBmtgtmtopmtpBmtttmtt9mtv+QAACQEQCQGwCQOACQOgCQOjqQOmaQZgCQZjqQZmaQZpCQkJCQlgCQtmaQtpCQtraQttuQtv+Q2wuQ22CQ24qQ27WQ2/+2AAC2BgC2ZgC2Zh+2Zjq2Zma2gwC2kAO2kDq2kGa2kJC2kgC2tma2tpC2tra2ttu225C227a229u22/+2/wi2/wu2/4q2/7W2///bAADbHQDbSQDbbQDbdwDbkAPbkB/bkCjbkC3bkDrbkGbbtgTbtmbbtoHbtpDbtrbbzADb25Db29vb2//b/wvb/yDb/zXb/4rb/7Xb/7bb/9vb////AAD/BwD/DwD/FQD/FgD/HQD/JAD/LAD/MwD/OgD/QgD/SQD/UAD/VwD/XwD/ZgD/bQD/dQD/fAD/gwD/igD/kgD/mQD/oAD/ogD/qAD/rwD/tgD/tgT/tjj/tln/tmb/tpD/vQD/xQD/zAD/zgD/0wD/1QD/2wD/2wb/203/22b/25D/27b/29v/4gD/6QD/8AD/+AD//wD//wj//wr//wv//yD//y3//zX//0r//2D//2L//3X//3f//4H//4r//5z//5///7X//7b//8r//9v//9////T////ZJslsAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAaL0lEQVR4nO3djb9kdV3A8d/Sw/X2sCI3yu4dtZUEkiCRe0y2MCqClmhuNWtgDxrp3SbK6AErQnZ72LUhhFxJxVlNSVNTQzJxadIiwSEFdtc0YFcYx84/0u93HubxPPzmfOecOWfu5/Pa5c7emTNzd+fN7/zO3HPnp1wiQWrRXwBVu7kAeuw1Sq1cM/KJnrN6MOJ2/qdbaqU+j0elMjQPQN2aMq0PP5ME6E78LFNzANRvqMvaZlzZdt07amrl6nYAKPhDv7FyZW31VtcH1PH99G/WV16nr9M37KhN+VdBi2kOgLq1tbYWcf11rtsMhiIPUPgHDUwpcxPz6T9Uyht//Cs3tbu62zT0qJrNAdBwAOnWVt7gdp2VbQNo8AcNKNi79ZxwV6fR3eo+5t1q3RuFqKLNFVDHw6EHFX9fFfxB78KCEUYDWnm9Y4agjjcAKaNr7V5nPeaeqfzNbxe2/7p2OiB9qWV2ZwNAbmvlV2pMgarbXCfRcbuwISC9s9I33/R3YV76EI4pUIWbx2F8Z3AYHzOJHgOkRx/9Z//KNXOM5k+wqZrN+YVEc+R+jTtyGH+NOwXIm1T3b9LqftjIaSqmQBVu8d/KaCleV6xwCwfEQXy1WzQgvjFW8RYNiCoegEgUgEgUgEjUvAD1HP/lwPClntWDY+cE9W9iqryc5Qdo7OomL/YsaRkAda9Q6pxtg+TXauqcW82pQGrl56JHoH9/mb7trd4ZQeuDM8zMBuf8id4gONUsuMOO+n79+YN31Diwr1CzA/JP6jHP/ugJY8EpYxOAgtu+1wc0dobZ2bXgLtbuDe7Q/w792fo3Ly1Wp2y7sK7G4X1X/U79xHdrq8FJGm7IyxjwvyMffKPU7MIG354fbDA81azrnf+hB6Oaus476YMqUgZA/btueJkygPTzbKY+3ok/wznQKCAzxJx99Tt9QIMThAYbBN9mDe6wE3wbf/jNVyp/swN6zDnnLfd6z7Pe00QAGj8Ku+t6YyMRUHiHPqABK6pEswNqqYvdO2sjgCZ2YZOH8f1fNufNx+zCDJXwDgFUxWYH1Al2UQNACZPo8LZm/hw5iTZUwhsBqIrNDqh/k1q5Ru+Ijm2p33r/3zvf8ef33fcLSv2Y851/8ZGPfvRjH3NU8xOf+OQvqt+931F/8MBf/qBS3/WrD372X2vqe/724b+qKfXTX3788Sd+XH33nznPf9f/NL7lN59++pnfVt/2M3+tfv7fNCAFoIqV/YXEY8fe9773f+ADH/zgfff9w4c+9OEP/+NHPED/9PGPa0Cf/Of77//Upx544F8+/enPfObBBz/7uc99/vP/8fDDX/jCl7705cf/s6Z+9sm/Uc9/11e/9rX/ffrpM2eeffa5b3zjm9/8P76zUr0WAejxX/J2Wj/yVQBVvwzPmArKDui/tKBdP/R3U4A2Njbm/zekXMv+v7wA0BNPPPnkqa98ZRoQI1DlSn3Ggp/b6u2d/PYCgMhNB9Rv1PXvTQBRdGnPmA+nuQ4gisxmBNK1zj4PQBRR6jPWc7y3PmhNnWIBIHI5CiNhC3kdCEDLEyMQiQIQiUo9jA/OMJw+TxlA5FqMQOZVxOgtAUQ2u7De5dFn5wCIXOZAJCz2GXvs5qtvueW1UT+gxWE8DYt9xvoG0J8mbQkgStqF9a8///wLEn5EFEDkJgHq/kbKlgCiJEC91x09+s6kLQFEibuwW2655S0JbwEOIHKTAD32mvPPv5A5ECWX/Iz9PoAouYRn7OjRozfwOhAllzQH+qPX35q0JYAoEdD+K3/i4qQtAURprwPdwRyIkksA9FPtfuQcKNwSQJQ4ib7rNRckvc0KgMhNAvTf+jjMNT/aXDdvCDW9qiCAyE0AdMfF7f7NF3s/WNisa0cXTgoCELnxgPqvM2B+52Bv78H+/vE3V+B1IBqWBsgMP51N1+1MLWwKIHITdmGdi48e/T3zOlD41phTWwKIEr+ZesNPviFxy40NAJHkpHoAEYBIFoBIlOTdOQBEjEAkC0AkCkAkCkAkCkAkCkAkCkAkamGvA21shIA2Njae3dgAUDVb2Ag0AugMgKobgEgUgEgUgEgUgEiUzYqFke8zDiAyWa4X5namfjAMQOTarlgY+WM9amNODe9IAahqCUYg+7uzvymAqpbFioVxcyD7uwPQ8iY4CrO/OwAtbwAiUQAiUQAiUQAiUTxjJApAJApAJApAJApAJApAJApAJApAJApAJApAJCobIHOidN07V2h6CYTpG5930O6mdndHpSoToN7l2253z7Y5W7E1/QbSE3XMyWg2N7W7OypXmQB5b1vfrJvzpL3hJanmyq/rm9jc1OruqGRlngPpUcgswGIGo5QMCpubWt4dlaqsgPqNTe9Ee0tANje1vDsqVTMDanrrZvSczfQhw78pI9BSl/UozPywj+WkpcscaInLBMj34+3GLA6bDAqbm1reHZWqTIBa3o+K1XkdiHglmmQBiEQBiEQBiEQBiEQBiEQBiEQBiEQBiEQBiETlAch/X0XzzXUvvkG6zOUyArU2w/+YALTM5QLIDD79/dvBufcakHdKkDmrw4l4t06qcrkA8vBc2PbOvff0hICanLCxbOUzida7r2AP1ts7AsiIGnnHclqC8gHUvfC9+825qU3zBtMjgMx7Tq9w0uoylQ+g/mv/2Jzg7NTHd2GMPstXTq8Dta7cDM6m37Md7Ltaq94caHrNBKpyOQHSblzv1NdzrqgbR/rSpXu9ozD2YMsVr0STKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRKACRqHIDOiZpgV/3KUkL/LozBKA8AlBJAlDpA1AeAagkAaj0ASiPAFSSAFT6AJRHACpJACp9AMojAJUkAJU+AOURgEoSgEofgPIIQCUJQKUPQHkEoJIEoNIHoDwCUEkCUOkDUB4BqCQBqPQBKI8AVJIAVPoAlEcAKkkAKn0AyiMAlSQAlb7qAtpS6oAAkFlLOnNpG0+aeKSmdt049pmTDXXWbd4HdclMgGb9urs1pduM2VD0r+BVWUAHlPmVGVDPWc3+T5e68QSJE86+U4eNl2HNc82vU83d9zzyonFayYBm/ro9Ij1ncz73Nl1lATlbx47VEoegpDtuqYuy/7+XvvHkAPTi206deNWoE/Mn/dnxT1oAmv3r9seYTiQU0b9CUGUBGTwGUTZAd7cFg3f6xhMkTjb2nTq++x49EqlgHApImQ8zAZr96/Zv37t8W1/oN66qqXW9U1vPem/T7VBABc+B9FRH+zGODuuPQ0DHd79ZqX0zAMowB/Ju32/UPUBr7Z6z1u7u2c54b9MBKEszAjrhXGLmQCN7shCQnkEf3zXLHEgIqO6Gv7Pd23QAytKMgMIdljkg2nXjYaXOHYxA/riUO6BwFwagQbJJ9GIADWc8wSTafKYQQHoSDaDxhIfxhQI62fB2YYZKiCg8jNe7sLNuyx2QOYwH0OQQVL0XEvVRWDjhCQ7IzAuJOU+ivRcS6+4koOZmlnubrrqAUlvg1z0JaKYW+HVnCEB5BKCSBKDSB6A8AlBJAlDpA1AeAagkAaj0ASiPAFSSAFT6AJRHACpJACp9AMojAJUkAJU+AOURgEoSgEofgPIIQCUJQKUPQHkEoJIEoNIHoDwCUEkCUOkDUB4BqCQBqPQBKI8AtAyJ9Mn4PSdpTn/9ggIQgEQBCECiAAQgUQACkCgAAUgUgAAkCkAAEgUgAIkCEIBEAQhAogAEIFEAApAoAAFIFIAAJApAABIFIACJAhCARAEIQKIABCBRAAKQKAABSBSAACQKQAASBSAAiQIQgEQBCECiKgwobb3PRB9bohVX0x46gsXXG+p5t09c/OJLb58ZULY1UzcjNzTX1aM2mqHqAuo5q9kBydZ8Tn3oCBbNF5pfYxdPOyEpe0CpDz3ZYNXmqPuqu52V7ZnubqrKAmqpiwQjkGjV+fSHnlZx+tVvCgec8OLb1MtnHoHSH3qywbrx01d11tojK4BnrLKA7m5LdmEGj0GUCVD6Q0+rMGKMnJGLb3/P7Luw9IeezL997/Jtb9nvq2pqXe+41gdXm1FIVGUByeZAIkBZ5kARgAqaA3m31wONB2it3XPW2t09g/1WS49CogC0owDV3fC3X2vGGdV0ANoRgMJd2ASglnQKvWMBiSbRWQBFTKKLBKQn0RGA5OPPjgUkO4zP8jpQxGF8cYDMYfw0oJGpUPZ2KKBjTtEvJJ52vFcPm68cXCzyhcS6Owmouek2VXCVpAoDSivRR2qih45gYd+c/voFBSAAiQIQgEQBCECiAAQgUQACkCgAAUgUgAAkCkAAEgUgAIkCEIBEAQhAogAEIFEAApAoAAFIFIAAJApAABIFIACJAhCARAEIQKIABCBRAAKQKAABSBSAACQKQAAStcSAZIn0nZG06L/5bAEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGRXhQHNuvzsbFsn+dhKW7F30sQzDfXtbx27GHx4tKbUtTMByrbo7mbkhh2lxAvHVxdQz5Gsep66dQKP9DXDJwE1v9f8Gr3of3jKufbMQ9/6xhkAzfy3Hiz7HXHVnm2zoPxMdzdVZQG11EWCESh96wQeztaxY7XEIWjCz1M/+sYzj/7AW0cuBh8eesG79Vh0rT2g2f/W/sAT66R3uXAIqiygu9uSXVj61gk8DB6DyBqQwWPIDC+OfMaMQtaAZv9b+7fXTrx146+qqXW9U1sfXN1aa890d1NVFtAC50DzBXREj0J5zoG82/cbdQ/QWrvnrLXNvsu/sraD50BLAuhIOLsuBFDdDX8H7dw50JIAOjI5hc4HULgLmwK0c+dACwQ0v0l0xPiTDyA90ABosoUBmt9h/KMvmRp/cgFkDuOnAZndV/dCJtH5bJ3kw5n1hcSnHO9lw+YrBhf9D03zIt/kK4nz/Vv7LyTW3UlAzU3zooCSToGqDCjfEoGkNT2szNCi/+azBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdgEoJgDZBaCYAGQXgGICkF0AiglAdpUb0ClJz4kSGRDpW/Q/+mwBCECiAAQgUQACkCgAAUgUgAAkCkAAEgUgAIkCEIBEAQhAogAEIFEAApAoAAFIFIAAJApAABIFIACJAhCARAEIQKIABCBRAAKQKAABSBSAACQKQAASBSAAiQIQgEQBCECiAAQgUZUC9EhN7bpx7DMnG+qs27wP6hILQF9vqOfdPnHxiy+93QLQMw0VLrAcXAw+PFqbWvQ0ApC+kTP+GaXU1vCDBaB+I1zgtOOttLpp+W/YVGtp6+qOrOIcW9xarVUCdMLZd+qw8TKsea75daq5+55HXjROKxJQ84Xm19jF005IKhFQ3LrLTznXnnloau33ST+O1jMOpab/pA6EH2wANdfNr7CO7Wq5U+t6R0iIBDRxu6nNgk9UCdAjL77t1IlXjToxf9KfHf9kPKDTr35TOOCEF9+mXm4zAsWu/P7QC96tx6LJIWgSkDp07NiWM/lZZ2v0QwogA2H4JPac9DHDL+6JH22nADrZ2Hfq+O579EikgnEoIGU+2AAyYoyckYtvf4/VLszgMWSGF0c+Y0ah9DmQGYXG1gs/ZFgNPqQBMs/XcDRppe6Wws30zrNu9nnrweWeo1a2zUXz3wuu8AayfuNKb5eorzN/1jdf2fZvN7gL8/jmSzC/R67X/xU/yXk2QUJPdbQf4+iw/jgEdHz3m5XalwmQ5RwoEdARPQqlAjJO9CA05FLz92k1yznQGCCbSctwOzNcdcxTPmDgfWb1YLdWD+5ura0/Ze5VyzSP0llrh0POcLMA0Mj1eosqATrhXGLmQCN7shCQnkEf35U+B8oH0JFwdp0E6JAZemoHxnZYwWhkNwcaAxQ3o43ZzvX2gB1/1ArHEf2Z7h7//jyPzfXgs8HuMXyM4WYhoOH1+neVAIU7LD2k6qOxw0qdOxiB/HFpIYCOTE2hIwAd8sYZ84WrrUP6P/5ObZY50Big1nr0jWK2Mzuhle3WEJBBodWERjxArXVzs2C/5O+z/MeaBDRyvdki85NbRNGAhjOeYBJtPmMDKGISbQkodhIdNf5MAzrkjzK18bEm+yS6aXsM7z/xeqCJHoFGATU3R8Y1s3+LG4FGrq/YCHSy4e3CDJUQUXgYr3dhZ01OpCNURBzGW74OFHcY/+hLpsefaUA134g5EKsN91u1Q+EHC0Cjh/EzTIHMc2wO+ZvBHGiPt98K50ADQHpKU/PmQIE3c2Wwfws38/ddrdXR6ys2BwpfSNRHYeGEJzggMy8kWkyinzvteK8eNl85uGgL6CnHe9mw+YrBRf9D03tRL+Uo7IB3I/8obCsck7wDsuCDDaDgEMkMPlOv7SSkn/i+/te5zODwDqf0n+rhUdh5/h2OHIWZIy/vKMu/nXm0wVGY21Lq0r0HR6+v2FHYbEWxsC9iXLFvcgSaqUX/o88WgAAkCkAAEgUgAIkCEIBEAQhAogAEIFEAApAoAAFIFIAAJApAABIFIACJAhCARAEIQKIABCBRAAKQKAABSBSAACQKQAASBSAAiQIQgEQBCECiAAQgUQACkKhyA9qRifQVzg9ApQtAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApAJApABTWySnXRW2fcuN/w1s11vXVtlbfObUSJPramF+m1BpS2Vu/IQuD2VRdQz1kVEBBtnXXjkZW7XW/t9chbJfE4oMyveQGa4DLLYtCDKguopS4SjCGirbNubJ6g4XNmVmGPLImHszVYeR5Asu5uS3ZCoq2zbmy2Gj5JrbV29M2SeBg8ztZMgMzect378H1DIN7S794y8eaLMr/9670v0V+g3l8dPrXKAqrgHGgMUL8RMwDNGZAZ6DoGS91tDUCYr6Kz1g7x6N/B9fqS+cI07uAmqX8pABW38Rig+LuY8wjkel6MheHoF+w+RwAF1+tLwVcZu4edCEDFbTwGqLUed7M5A+rWzL6oNQbI7KZUfRRQawhI397svPybpAag4jYem0Q3o4/h3XlPort7tqdHIJM+CIwdgYY3Sf1LAajAjUcO4+OnQHM+jDcImpNzIKPKADK4zBWrE3Mg48i/SerfCUAFbhwc35jBJ+GQOdGHM+sLif2GUpcZEzV16cRRmLlOs1Hq0r0Hg+uDozAjbfmPwpa1RB+pFf3VAqh0AYhE5QjIO8Ky2zXZBqDSxQhEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEogBEOygAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkSgAkagdB8i8c7tZpiLTm833HLX2jpq3/tYC6qwebM31LXrn0Y4DZBaraK61swFqbrotoyd+qR2bMq+4Wu85dZs1vIqseoDMMkR+WRYu9deoCFaqybKxdweyZToyZtbcyfZ151n1ALmjC9fOXLDISWftHZUDpEeg1lo7dqXMBVVFQP1G7Fpb6QX6WpnGr5Bu1l3YYPTMtOpzxyxxuoc50GLrNwJBWZ7DgG4z8yjgCdT/Kds4kr0dB2ih+TvQ8WUBKx6Aiswf/vQAlulYqt9QmaZuuVZhQNVbsVDX9FZx79bslkQeS+8/O0yiKXP+0rll2/kBqDL5I1D2CXw+VRNQJ/uxsHTrBT60+S6MKpmfagIya1QvaOsFPnQ5qyag+DWz8956gQ9dzioJSPjNTNHWC3poTS94GTvr3jOnqgmoqnOgchoQVUlAlZ0DLWHVBFTVOZDgcUUnseRYJQG5HdFERLR19o3F0xhvAtUUnImQR5UEJHseRFsvcBYz+E5s8Q+dUCUBVTbRDnDwndi5fTnzCECF1pRMwb1XohdzPn981QMkm0qIthbPYjiMJxoPQJWpnMNXFQF5c4HM35YWbS176HmcVCiaReVQBQF1lPdv2FKZ/ilFW8seei4nFXIYL63fCJ69jOcVC7aWPbQ7l5MKO+zChA1eS8n20+2SrWUP7QpPKgzmQOzChFUZUDlPKhQFoMIeejmrICDZmytItl7st8T5XhgJDHRrgd2S7QABVFxCA+U8oRpARVZOA6IAVJ14izuSGOAt7khkgLe4I5EB3uKOZAZ4izsqpQFRAKpenTL9ZA+AqheAdmzzOSsVQDs86VmpANrhSV/KAdAOT3pWKoB2bPM5KxVAtDwBqBrx/kAkNsD7A5EkzokmUbw/ELnmG6mZVioz8f5AOz7/Z6PLdkqPKAAVWTmnMaIAVGhNyTSmxWH8jk/ys/H+2dQcxlPGzDs07uWkesqanoH3928DiLLW3bPdUYpd2I6vbIOIKACRKACRKAAVGS8kkqCyvkeUKAAVGe8PRDQegAqtlO8RJQpARVbO94gSBaAiK+d7RIkCUJGV8z2iRAGo0Hh/IKKxAESiAFRo8hULyxaAimwOKxaWLQAV2RxWLCxbACoy0YqF5QxAhcaKhURjAYhEAajQSvn+CKIAVGTlfIcWUQAqMs6JJlmlfJc6UQAqrNK+T6YoAJEoAJEoAJEoABUfR2FEYQAqMn4ylWRJ15orXwAqsvkseVmq/h9pOygdVVFEoQAAAABJRU5ErkJggg==" style="display: block; margin: auto;" /></p>
+<p><img src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
 <pre><code>#&gt; $p.values
-#&gt;                                Dim.1       Dim.2       Dim.3
-#&gt; Dim.1                   0.000000e+00 1.000000000 1.000000000
-#&gt; Dim.2                   1.000000e+00 0.000000000 1.000000000
-#&gt; Dim.3                   1.000000e+00 1.000000000 0.000000000
-#&gt; factor.best.clustering. 7.544872e-06 0.009921359 0.002438742
-#&gt; ad_studies              1.000000e+00 1.000000000 1.000000000
+#&gt;                                 dim1        dim2        dim3      dim4
+#&gt; dim1                    0.000000e+00 1.000000000 1.000000000 1.0000000
+#&gt; dim2                    1.000000e+00 0.000000000 1.000000000 1.0000000
+#&gt; dim3                    1.000000e+00 1.000000000 0.000000000 1.0000000
+#&gt; dim4                    1.000000e+00 1.000000000 1.000000000 0.0000000
+#&gt; factor.best.clustering. 7.544872e-06 0.009921359 0.002438742 0.7195865
+#&gt; ad_studies              1.000000e+00 1.000000000 1.000000000 1.0000000
 #&gt;                         factor.best.clustering. ad_studies
-#&gt; Dim.1                              7.544872e-06  1.0000000
-#&gt; Dim.2                              9.921359e-03  1.0000000
-#&gt; Dim.3                              2.438742e-03  1.0000000
+#&gt; dim1                               7.544872e-06  1.0000000
+#&gt; dim2                               9.921359e-03  1.0000000
+#&gt; dim3                               2.438742e-03  1.0000000
+#&gt; dim4                               7.195865e-01  1.0000000
 #&gt; factor.best.clustering.            1.673815e-33  0.6711325
 #&gt; ad_studies                         6.711325e-01  0.0000000
 #&gt; 
 #&gt; $n
-#&gt;                         Dim.1 Dim.2 Dim.3 factor.best.clustering. ad_studies
-#&gt; Dim.1                     260   260   260                     260        260
-#&gt; Dim.2                     260   260   260                     260        260
-#&gt; Dim.3                     260   260   260                     260        260
-#&gt; factor.best.clustering.   260   260   260                     260        260
-#&gt; ad_studies                260   260   260                     260        260
+#&gt;                         dim1 dim2 dim3 dim4 factor.best.clustering. ad_studies
+#&gt; dim1                     260  260  260  260                     260        260
+#&gt; dim2                     260  260  260  260                     260        260
+#&gt; dim3                     260  260  260  260                     260        260
+#&gt; dim4                     260  260  260  260                     260        260
+#&gt; factor.best.clustering.  260  260  260  260                     260        260
+#&gt; ad_studies               260  260  260  260                     260        260
 #&gt; 
 #&gt; $test.function
-#&gt;                         Dim.1 Dim.2 Dim.3 factor.best.clustering. ad_studies  
-#&gt; Dim.1                   &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;                    &quot;lm&quot;        
-#&gt; Dim.2                   &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;                    &quot;lm&quot;        
-#&gt; Dim.3                   &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;                    &quot;lm&quot;        
-#&gt; factor.best.clustering. &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;  &quot;chisq.test&quot;            &quot;chisq.test&quot;
-#&gt; ad_studies              &quot;lm&quot;  &quot;lm&quot;  &quot;lm&quot;  &quot;chisq.test&quot;            &quot;chisq.test&quot;
+#&gt;                         dim1 dim2 dim3 dim4 factor.best.clustering.
+#&gt; dim1                    &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot;                   
+#&gt; dim2                    &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot;                   
+#&gt; dim3                    &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot;                   
+#&gt; dim4                    &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot;                   
+#&gt; factor.best.clustering. &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;chisq.test&quot;           
+#&gt; ad_studies              &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;lm&quot; &quot;chisq.test&quot;           
+#&gt;                         ad_studies  
+#&gt; dim1                    &quot;lm&quot;        
+#&gt; dim2                    &quot;lm&quot;        
+#&gt; dim3                    &quot;lm&quot;        
+#&gt; dim4                    &quot;lm&quot;        
+#&gt; factor.best.clustering. &quot;chisq.test&quot;
+#&gt; ad_studies              &quot;chisq.test&quot;
 #&gt; 
 #&gt; $classes
-#&gt;                   Dim.1                   Dim.2                   Dim.3 
+#&gt;                    dim1                    dim2                    dim3 
 #&gt;               &quot;numeric&quot;               &quot;numeric&quot;               &quot;numeric&quot; 
-#&gt; factor.best.clustering.              ad_studies 
-#&gt;                &quot;factor&quot;                &quot;factor&quot;</code></pre>
+#&gt;                    dim4 factor.best.clustering.              ad_studies 
+#&gt;               &quot;numeric&quot;                &quot;factor&quot;                &quot;factor&quot;</code></pre>
 </div>
 <div id="more-associations-in-best-embedding" class="section level3">
 <h3>More associations in best embedding</h3>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">class_associations</span>(<span class="kw">t</span>(best<span class="op">$</span>embedding), <span class="kw">cbind</span>(<span class="dt">clust =</span> best<span class="op">$</span>clustering, <span class="dt">study =</span> ad_studies))
 <span class="co">#&gt; $PCA_silhouette</span>
 <span class="co">#&gt; $PCA_silhouette$clust</span>
-<span class="co">#&gt; [1] 0.5055678</span>
+<span class="co">#&gt; [1] 0.4520811</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_silhouette$study</span>
-<span class="co">#&gt; [1] -0.186985</span>
+<span class="co">#&gt; [1] -0.200224</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression</span>
@@ -252,7 +259,7 @@ best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span 
 <span class="co">#&gt; [1] 7.544872e-06</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$clust$pcNfrac</span>
-<span class="co">#&gt; [1] 1</span>
+<span class="co">#&gt; [1] 0.75</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$clust$pcRegscale</span>
 <span class="co">#&gt; [1] NA</span>
@@ -276,10 +283,11 @@ best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span 
 <span class="co">#&gt; numeric(0)</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$clust$r2</span>
-<span class="co">#&gt;        R.squared   p.value.lm p.value.t.test</span>
-<span class="co">#&gt; Dim.1 0.07490833 7.544872e-06   4.976529e-02</span>
-<span class="co">#&gt; Dim.2 0.02549054 9.921359e-03   1.000000e-16</span>
-<span class="co">#&gt; Dim.3 0.03504469 2.438742e-03   1.171381e-01</span>
+<span class="co">#&gt;          R.squared   p.value.lm p.value.t.test</span>
+<span class="co">#&gt; Dim.1 0.0749083256 7.544872e-06   4.976529e-02</span>
+<span class="co">#&gt; Dim.2 0.0254905436 9.921359e-03   1.000000e-16</span>
+<span class="co">#&gt; Dim.3 0.0350446870 2.438742e-03   1.171381e-01</span>
+<span class="co">#&gt; Dim.4 0.0005004144 7.195865e-01   7.011630e-01</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$study</span>
@@ -296,10 +304,10 @@ best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span 
 <span class="co">#&gt; [1] NA</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$study$maxCorr</span>
-<span class="co">#&gt; [1] 2.517781e-15</span>
+<span class="co">#&gt; [1] 2.5146e-15</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$study$maxR2</span>
-<span class="co">#&gt; [1] 6.33922e-30</span>
+<span class="co">#&gt; [1] 6.323214e-30</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $PCA_regression$study$msigPC</span>
 <span class="co">#&gt; [1] 0</span>
@@ -316,18 +324,19 @@ best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span 
 <span class="co">#&gt; $PCA_regression$study$r2</span>
 <span class="co">#&gt;          R.squared p.value.lm p.value.F.test</span>
 <span class="co">#&gt; Dim.1 8.973427e-31          1              1</span>
-<span class="co">#&gt; Dim.2 6.339220e-30          1              1</span>
-<span class="co">#&gt; Dim.3 3.496967e-31          1              1</span>
+<span class="co">#&gt; Dim.2 6.323214e-30          1              1</span>
+<span class="co">#&gt; Dim.3 2.751366e-31          1              1</span>
+<span class="co">#&gt; Dim.4 8.216287e-31          1              1</span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; </span>
 <span class="co">#&gt; $DSC</span>
 <span class="co">#&gt;        clust        study </span>
-<span class="co">#&gt; 2.485566e+00 4.132710e-14</span></code></pre></div>
+<span class="co">#&gt; 2.252155e+00 4.004936e-14</span></code></pre></div>
 </div>
 <div id="associations-in-original-data" class="section level3">
 <h3>Associations in original data</h3>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">class_associations</span>(<span class="kw">list</span>(ad_ge_micro_zscore)[[scores<span class="op">$</span>best<span class="op">$</span>data_set]],
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">class_associations</span>(<span class="kw">list</span>(ad_ge_micro_zscore)[[scores<span class="op">$</span>best<span class="op">$</span>datname]],
                    <span class="kw">cbind</span>(<span class="dt">clust =</span> best<span class="op">$</span>clustering, <span class="dt">study =</span> ad_studies))
 <span class="co">#&gt; $PCA_silhouette</span>
 <span class="co">#&gt; $PCA_silhouette$clust</span>
@@ -445,16 +454,22 @@ best &lt;-<span class="st"> </span><span class="kw">dimred_cluster</span>(<span 
 </div>
 <div id="import-data-from-external-method" class="section level3">
 <h3>Import data from external method</h3>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">vae_embeddings &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span class="st">&quot;testrun_embeddings.csv&quot;</span>, <span class="dt">header =</span> <span class="ot">FALSE</span>, <span class="dt">comment.char =</span> <span class="st">&quot;#&quot;</span>)
-vae_params &lt;-<span class="st"> </span><span class="kw">read.csv</span>(<span class="st">&quot;testrun_params.csv&quot;</span>, <span class="dt">header =</span> <span class="ot">FALSE</span>, <span class="dt">comment.char =</span> <span class="st">&quot;#&quot;</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">filename_embed &lt;-<span class="st"> &quot;testrun_embeddings.csv&quot;</span>
+filename_param &lt;-<span class="st"> &quot;testrun_params.csv&quot;</span>
+vae_embeddings &lt;-<span class="st"> </span><span class="kw">read.csv</span>(filename_embed, <span class="dt">header =</span> <span class="ot">FALSE</span>, <span class="dt">comment.char =</span> <span class="st">&quot;#&quot;</span>)
+vae_params &lt;-<span class="st"> </span><span class="kw">read.csv</span>(filename_param, <span class="dt">header =</span> <span class="ot">FALSE</span>, <span class="dt">comment.char =</span> <span class="st">&quot;#&quot;</span>)
 <span class="co"># Manual handling of headers</span>
-f =<span class="st"> </span><span class="kw">file</span>(<span class="st">&quot;testrun_embeddings.csv&quot;</span>, <span class="st">'r'</span>)
+f =<span class="st"> </span><span class="kw">file</span>(filename_embed, <span class="st">'r'</span>)
 <span class="kw">colnames</span>(vae_embeddings) &lt;-<span class="st"> </span><span class="kw">gsub</span>(<span class="st">&quot;[ #]&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="kw">strsplit</span>(<span class="kw">readLines</span>(f, <span class="dt">n=</span><span class="dv">1</span>), <span class="st">&quot;,&quot;</span>)[[<span class="dv">1</span>]])
 <span class="kw">close</span>(f)
-f =<span class="st"> </span><span class="kw">file</span>(<span class="st">&quot;testrun_params.csv&quot;</span>, <span class="st">'r'</span>)
+f =<span class="st"> </span><span class="kw">file</span>(filename_param, <span class="st">'r'</span>)
 <span class="kw">colnames</span>(vae_params) &lt;-<span class="st"> </span><span class="kw">gsub</span>(<span class="st">&quot;[ #]&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="kw">strsplit</span>(<span class="kw">readLines</span>(f, <span class="dt">n=</span><span class="dv">1</span>), <span class="st">&quot;,&quot;</span>)[[<span class="dv">1</span>]])
 <span class="kw">close</span>(f)
-<span class="co"># </span><span class="al">TODO</span><span class="co">: convert embedding analysis into general functions or modify pipeline to acommodate</span></code></pre></div>
+<span class="co"># </span><span class="al">TODO</span><span class="co">: convert embedding analysis into general functions or modify pipeline to acommodate</span>
+vae_embeddings<span class="op">$</span>instance &lt;-<span class="st"> </span><span class="kw">cumsum</span>(<span class="kw">c</span>(<span class="dv">1</span>, <span class="kw">diff</span>(vae_embeddings<span class="op">$</span>run)<span class="op">&lt;</span><span class="dv">0</span>))
+test &lt;-<span class="st"> </span><span class="kw">tapply</span>(vae_embeddings<span class="op">$</span>dim1, vae_embeddings[<span class="kw">c</span>(<span class="st">&quot;instance&quot;</span>, <span class="st">&quot;run&quot;</span>, <span class="st">&quot;fold&quot;</span>)], var)
+<span class="kw">sum</span>(<span class="kw">apply</span>(<span class="kw">is.na</span>(test), <span class="dv">1</span>, any))
+<span class="kw">sum</span>(<span class="kw">apply</span>(test <span class="op">==</span><span class="st"> </span><span class="dv">0</span>, <span class="dv">1</span>, any, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))</code></pre></div>
 </div>
 </div>
 

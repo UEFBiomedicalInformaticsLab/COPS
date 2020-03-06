@@ -72,8 +72,8 @@ Example starting from a pre-processed data matrix and batch label vector. In thi
 
 ```{r pipeline, cache.lazy = TRUE, echo = TRUE, message = FALSE}
 method_evaluations <- dimred_clusteval_pipeline(list(ad_ge_micro_zscore), batch_label = ad_studies, include_original = FALSE, 
-                                                parallel = 4, RUNS = 2, 
-                                                CVFOLDS = 2, dimred_methods = c("pca", "umap"),
+                                                parallel = 4, nruns = 2, 
+                                                nfolds = 2, dimred_methods = c("pca", "umap"),
                                                 cluster_methods = c("hierarchical", "kmeans"),
                                                 metric = "euclidean", 
                                                 n_clusters = 2:4)
@@ -100,7 +100,7 @@ class_associations(t(best$embedding), cbind(clust = best$clustering, study = ad_
 
 ### Associations in original data
 ```{r ca_original}
-class_associations(list(ad_ge_micro_zscore)[[scores$best$data_set]],
+class_associations(list(ad_ge_micro_zscore)[[scores$best$datname]],
                    cbind(clust = best$clustering, study = ad_studies))
 ```
 

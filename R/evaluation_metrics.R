@@ -47,6 +47,17 @@ jdist <- function(clustering_list) {
   return(mean_dist)
 }
 
+#' Average Jaccard dissimilarity coefficient between clusterings and references
+#'
+#' Measures the stability of a given clustering method when combined with
+#' cross-validation or bootstrap by estimating the repeatability of clustering results.
+#'
+#' @param clustering_list \code{list} of clustering vectors
+#' @param clustering_reference_list \code{list} of reference clustering vectors
+#'
+#' @return Returns a scalar value giving the mean jaccard distance between clustering vectors
+#' @importFrom clusteval cluster_similarity
+#' @export
 jdist_ref <- function(clustering_list, clustering_reference_list) {
   if (length(clustering_list) != length(clustering_reference_list)) {
     stop("Number of given references does not match number of given inputs.")
@@ -64,6 +75,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
   }
   return(mean_dist)
 }
+
 #' Clustering stability evaluation
 #'
 #' Performs stability analysis on cross-validated clusterings using \code{\link{jdist}}.
@@ -74,32 +86,15 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #' @param clust clustering \code{data.frame} such as returned by \code{\link{clusteval_cv}}
 #' @param by vector of column names to keep
 #' @param by2 vector of column names to split by, "run" and "fold" by default
-#' @param parallel if TRUE, run in parallel (not working currently)
 #' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{data.frame} where each row corresponds to clustering stability
 #'         with respect to kept column variables
 #' @export
-#' @importFrom plyr ddply here
+#' @importFrom foreach foreach %dopar%
+#' @importFrom plyr join
 #'
 stability_eval <- function(clust,
-                           by = c("k", "m"),
-                           by2 = colnames(clust)[!colnames(clust) %in% c("cluster", "id", by)],
-                           parallel = FALSE,
-                           ...)
-{
-  stability <- plyr::ddply(clust,
-                           by,
-                           here(function(x) jdist(split(x$cluster, x[by2]))),
-                           .parallel = FALSE, # TODO: fix parallelization
-                           .paropts = list(.export = c("jdist")))#, "by2")))
-  #.packages = c("clusteval") # Not necessary as we access namespace directly
-  colnames(stability)[ncol(stability)] <- "jdist"
-  
-  return(stability)
-}
-
-stability_eval2 <- function(clust,
                            by = c("datname", "drname", "k", "m"),
                            by2 = c("run", "fold"),
                            ...)
@@ -193,105 +188,6 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 }
 
 
-#' Cross-validation of clustering evaluation
-#'
-#' Performs cross-validation to estimate clustering stability and the spread of other metrics.
-#'
-#' Stability of clustering should decrease with data size, which means that using
-#' fewer folds for cross-validation is more difficult i.e. should be less stable.
-#'
-#' @param dat data matrix, samples on columns
-#' @param batch_label vector or matrix where columns are categorical variables
-#' @param CVFOLDS number of cross-validation folds
-#' @param RUNS number of times to repeat cross-validation
-#' @param ... extra arguments are passed through to clustering_evaluation
-#'
-#' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_evaluation}} outputs for every
-#'         combination of CV run, CV fold, clustering method and number of clusters
-#' @export
-#' @importFrom foreach foreach %do% %dopar%
-#' @importFrom stats dist chisq.test
-clusteval_cv <- function(dat,
-                         batch_label = NULL,
-                         CVFOLDS = 2,
-                         RUNS = 10,
-                         #significance = 0.05,
-                         ...)
-{
-  # TODO: redirect extra arguments
-  # eargs <- list(...)
-
-  # Initialize output aggregates
-  clust <- data.frame()
-  metrics <- data.frame()
-  if (!is.null(batch_label)) chisq_pval <- data.frame()
-
-  # Compute distances between points once.
-  # Used for test set clustering via nearest neighbor
-  # TODO: find a better method for 'predicting'
-  distances <- as.matrix(dist(t(dat)))
-
-  cv_ind <- foreach(1:RUNS, .combine = "cbind") %dopar% sample(1:ncol(dat)) %% CVFOLDS + 1
-
-  cfun <- function(a,b) foreach(i = names(b), .combine = "c") %do% {
-    temp <- list()
-    temp[[i]] <- rbind(a[[i]],b[[i]]) # "temp[[i]] <- " retains names for indexing
-    temp
-  }
-  out_list <- foreach(i = 1:prod(RUNS, CVFOLDS),
-                      .combine = cfun,
-                      .export = c("clustering_evaluation"),
-                      .packages = c("clValid", "reshape2")) %dopar% {
-    out <- list()
-    run <- (i-1) %/% CVFOLDS + 1
-    cvf <- (i-1) %% CVFOLDS + 1
-    clust_res <- clustering_evaluation(dat[,cv_ind[,run] != cvf], batch_label = NULL, ...)
-
-    # Use nearest neighbour to cluster validation set
-    #val_nn <- FNN::get.knnx(dat[cv_ind[,run] != cvf,], dat[cv_ind[,run] == cvf,], k = 1)
-    val_nn <- apply(distances[cv_ind[,run] != cvf, cv_ind[,run] == cvf], 2, which.min)
-    val_clust <- clust_res$clusters[val_nn,,]
-
-    clust_all <- array(NA, dim = c(ncol(dat), dim(clust_res$clusters)[2:3]))
-    clust_all[cv_ind[,run] != cvf,,] <- clust_res$clusters
-    clust_all[cv_ind[,run] == cvf,,] <- val_clust
-
-    dimnames(clust_all) <- c(list(id = colnames(dat)), dimnames(clust_res$clusters)[2:3])
-
-    out$clust <- data.frame(run = run,
-                            fold = cvf,
-                            reshape2::melt(clust_all, value.name = "cluster"))
-
-    out$metrics <- data.frame(run = run,
-                              fold = cvf,
-                              reshape2::melt(clust_res$metrics))
-
-    if (!is.null(batch_label)) {
-      if (is.null(dim(batch_label))) batch_label <- cbind(batch_label, c())
-      chisq_pval <- list()
-      for (i in 1:dim(batch_label)[2]) {
-        i_function <- function(x) suppressWarnings(chisq.test(table(x, batch_label[,i])))$p.value
-        if (!is.null(colnames(batch_label))) {
-          i_label <- paste0("p", colnames(batch_label)[i])
-        } else {
-          i_label <- paste0("p", i)
-        }
-        chisq_pval_fold <- apply(clust_all, 2:3, i_function)
-        dimnames(chisq_pval_fold) <- dimnames(clust_res$clusters)[2:3]
-        chisq_pval[[i]] <- data.frame(run = run,
-                                      fold = cvf,
-                                      reshape2::melt(chisq_pval_fold,
-                                                     value.name = i_label))
-      }
-      out$chisq_pval <- Reduce(plyr::join, chisq_pval)
-    }
-    out
-  }
-
-  return(out_list)
-}
-
-
 #' Clustering, internal evaluation and batch effect estimation
 #'
 #' Single embedding or dataset evaluation
@@ -321,52 +217,6 @@ clusteval_cv <- function(dat,
 #' @export
 #' @importFrom stats chisq.test cutree
 clustering_evaluation <- function(dat,
-                                  batch_label = NULL,
-                                  n_clusters = 2:5,
-                                  cluster_methods = c("hierarchical","pam","diana","kmeans"),
-                                  metric = "euclidean",
-                                  ...) {
-  out <- clValid(t(dat),
-                 n_clusters,
-                 clMethods = cluster_methods,
-                 metric = metric,
-                 validation="internal")
-  names(dimnames(out@measures)) <- c("metric", "k", "m")
-  # Extract clusters into array
-  clusters <- array(dim = c(dim(dat)[2], length(n_clusters), length(cluster_methods)))
-  dimnames(clusters) <- list(id = colnames(dat), k = n_clusters, m = cluster_methods)
-  for (j in 1:length(cluster_methods)) {
-    temp <- clusters(out, cluster_methods[j])
-    for (i in 1:length(n_clusters)) {
-      if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
-        temp_k <- cutree(temp, n_clusters[i])
-      } else if (cluster_methods[j] == "pam") {
-        temp_k <- temp[[i]]$clustering
-      } else if (cluster_methods[j] == "kmeans") {
-        temp_k <- temp[[i]]$cluster
-      } else if (cluster_methods[j] == "sota") {
-        temp_k <- temp[[i]]$clust
-      } else {
-        stop(paste("Unsupported method:", cluster_methods[j]))
-      }
-      clusters[,i,j] <- temp_k
-    }
-  }
-  if (!is.null(batch_label)) {
-    # For each clustering do:
-    # chisq.test with respect to batch
-    chisq_pval <- array(dim = c(length(n_clusters), length(cluster_methods)))
-    for (j in 1:length(cluster_methods)) {
-      for (i in 1:length(n_clusters)) {
-        chisq_pval[i,j] <- suppressWarnings(chisq.test(table(clusters[,i,j], batch_label)))$p.value
-      }
-    }
-    return(list(clusters = clusters, metrics = out@measures, chisq_pval = chisq_pval))
-  }
-  return(list(clusters = clusters, metrics = out@measures))
-}
-
-clustering_evaluation2 <- function(dat,
                                   batch_label_names = NULL,
                                   n_clusters = 2:5,
                                   cluster_methods = c("hierarchical","pam","diana","kmeans"),
@@ -437,6 +287,23 @@ clustering_evaluation2 <- function(dat,
   return(out_list)
 }
 
+
+#' Clustering analysis on cross-validated data sets
+#'
+#' Performs clustering analysis on each fold of an external cross validation.
+#'
+#' Produces clusterings using multiple methods and settings while computing internal validation metrics 
+#' such as Connectivity, Dunn and Silhouette scores. Also computes chi-squared tests with respect to 
+#' a batch label if one is provided. 
+#'
+#' @param dat_folded list of \code{data.frame}s
+#' @param ... extra arguments are passed through to clustering_evaluation
+#'
+#' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_evaluation}} outputs for every
+#'         combination of CV run, CV fold, clustering method, number of clusters as well as all combinations of
+#'         data sets and dimensionality reduction techniques found in the input \code{data.frame}.
+#' @export
+#' @importFrom foreach foreach %dopar%
 cv_clusteval <- function(dat_folded, ...) {
   # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
@@ -457,9 +324,9 @@ cv_clusteval <- function(dat_folded, ...) {
   
   out <- foreach(i = 1:length(temp_list),
                       .combine = cfun,
-                      .export = c("clustering_evaluation2"),
+                      .export = c("clustering_evaluation"),
                       .packages = c("clValid", "reshape2")) %dopar% {
-    temp <- clustering_evaluation2(temp_list[[i]], ...)
+    temp <- clustering_evaluation(temp_list[[i]], ...)
     temp
   }
   return(out)

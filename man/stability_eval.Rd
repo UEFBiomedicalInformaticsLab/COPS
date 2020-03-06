@@ -6,9 +6,8 @@
 \usage{
 stability_eval(
   clust,
-  by = c("k", "m"),
-  by2 = colnames(clust)[!colnames(clust) \%in\% c("cluster", "id", by)],
-  parallel = FALSE,
+  by = c("datname", "drname", "k", "m"),
+  by2 = c("run", "fold"),
   ...
 )
 }
@@ -18,8 +17,6 @@ stability_eval(
 \item{by}{vector of column names to keep}
 
 \item{by2}{vector of column names to split by, "run" and "fold" by default}
-
-\item{parallel}{if TRUE, run in parallel (not working currently)}
 
 \item{...}{extra arguments are ignored}
 }

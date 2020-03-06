@@ -6,16 +6,20 @@
 \usage{
 dimred_clusteval_pipeline(
   dat_list,
+  nfolds,
+  nruns,
   batch_label = NULL,
   verbose = TRUE,
   parallel = 1,
-  dim_reduction = TRUE,
-  pre_clust_cv = FALSE,
   ...
 )
 }
 \arguments{
 \item{dat_list}{list of pre-processed data sets to run pipeline for}
+
+\item{nfolds}{number of cross-validation folds}
+
+\item{nruns}{number of cross-validation replicates}
 
 \item{batch_label}{vector or matrix with categorical variables on columns}
 
@@ -23,11 +27,11 @@ dimred_clusteval_pipeline(
 
 \item{parallel}{sets up and registers \code{parallel} number of threads for supported operations}
 
+\item{...}{extra arguments are passed to pipeline components where appropriate}
+
 \item{dim_reduction}{set to \code{FALSE} to skip the dimensionality reduction}
 
 \item{pre_clust_cv}{set to \code{TRUE} if data is already organized into folds from previous step}
-
-\item{...}{extra arguments are passed to pipeline components where appropriate}
 }
 \value{
 Returns a \code{list} of pipeline component outputs for given settings and input data sets
