@@ -28,15 +28,11 @@ dimred_clusteval_pipeline(
 \item{parallel}{sets up and registers \code{parallel} number of threads for supported operations}
 
 \item{...}{extra arguments are passed to pipeline components where appropriate}
-
-\item{dim_reduction}{set to \code{FALSE} to skip the dimensionality reduction}
-
-\item{pre_clust_cv}{set to \code{TRUE} if data is already organized into folds from previous step}
 }
 \value{
 Returns a \code{list} of pipeline component outputs for given settings and input data sets
 }
 \description{
-Combines \code{\link{dim_reduction_suite}}, \code{\link{clusteval_cv}} and
+Combines \code{\link{cv_fold}}, \code{\link{cv_dimred}}, \code{\link{cv_clusteval}} and
 \code{\link{stability_eval}}.
 }

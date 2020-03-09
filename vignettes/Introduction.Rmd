@@ -72,7 +72,7 @@ Example starting from a pre-processed data matrix and batch label vector. In thi
 
 ```{r pipeline, cache.lazy = TRUE, echo = TRUE, message = FALSE}
 method_evaluations <- dimred_clusteval_pipeline(list(ad_ge_micro_zscore), batch_label = ad_studies, include_original = FALSE, 
-                                                parallel = 4, nruns = 2, 
+                                                parallel = 2, nruns = 2, 
                                                 nfolds = 2, dimred_methods = c("pca", "umap"),
                                                 cluster_methods = c("hierarchical", "kmeans"),
                                                 metric = "euclidean", 

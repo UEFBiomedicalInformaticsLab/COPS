@@ -12,7 +12,7 @@ stability_eval(
 )
 }
 \arguments{
-\item{clust}{clustering \code{data.frame} such as returned by \code{\link{clusteval_cv}}}
+\item{clust}{clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}}
 
 \item{by}{vector of column names to keep}
 
@@ -28,6 +28,5 @@ Returns a \code{data.frame} where each row corresponds to clustering stability
 Performs stability analysis on cross-validated clusterings using \code{\link{jdist}}.
 }
 \details{
-Default settings work with \code{\link{clusteval_cv}} output 'clust'. \cr
-Assumes all clustering vectors (samples) appear in the same order.
+Default settings work with \code{\link{cv_clusteval}} output 'clusters'.
 }

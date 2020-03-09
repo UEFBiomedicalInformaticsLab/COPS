@@ -80,10 +80,9 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'
 #' Performs stability analysis on cross-validated clusterings using \code{\link{jdist}}.
 #'
-#' Default settings work with \code{\link{clusteval_cv}} output 'clust'. \cr
-#' Assumes all clustering vectors (samples) appear in the same order.
+#' Default settings work with \code{\link{cv_clusteval}} output 'clusters'.
 #'
-#' @param clust clustering \code{data.frame} such as returned by \code{\link{clusteval_cv}}
+#' @param clust clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}
 #' @param by vector of column names to keep
 #' @param by2 vector of column names to split by, "run" and "fold" by default
 #' @param ... extra arguments are ignored
@@ -130,7 +129,9 @@ stability_eval <- function(clust,
                       .export = c("jdist_ref"),
                       .packages = c("clusteval", "plyr")) %dopar% {
     out <- f(temp_list[[i]])
-    for (j in by) out[[j]] <- temp_list[[i]][[j]][1]
+    for (j in by) {
+      out[[j]] <- temp_list[[i]][[j]][1]
+    }
     out
   }
   return(stability)
@@ -205,7 +206,7 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' their documentation for options on metrics.
 #'
 #' @param dat data matrix with samples on columns
-#' @param batch_label must be categorical vector, OPTIONAL
+#' @param batch_label_names character vector containing column names corresponding to batch labels
 #' @param n_clusters vector of integers, numbers of clusters to be generated
 #' @param cluster_methods vector of clustering method names, see details for options
 #' @param metric distance metric used for clustering, see details for options
@@ -323,9 +324,9 @@ cv_clusteval <- function(dat_folded, ...) {
   }
   
   out <- foreach(i = 1:length(temp_list),
-                      .combine = cfun,
-                      .export = c("clustering_evaluation"),
-                      .packages = c("clValid", "reshape2")) %dopar% {
+                 .combine = cfun,
+                 .export = c("clustering_evaluation"),
+                 .packages = c("clValid", "reshape2")) %dopar% {
     temp <- clustering_evaluation(temp_list[[i]], ...)
     temp
   }

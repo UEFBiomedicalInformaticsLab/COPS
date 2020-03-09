@@ -16,6 +16,8 @@ clustering_evaluation(
 \arguments{
 \item{dat}{data matrix with samples on columns}
 
+\item{batch_label_names}{character vector containing column names corresponding to batch labels}
+
 \item{n_clusters}{vector of integers, numbers of clusters to be generated}
 
 \item{cluster_methods}{vector of clustering method names, see details for options}
@@ -23,8 +25,6 @@ clustering_evaluation(
 \item{metric}{distance metric used for clustering, see details for options}
 
 \item{...}{extra arguments are ignored currently}
-
-\item{batch_label}{must be categorical vector, OPTIONAL}
 }
 \value{
 Returns a \code{list} containing clusters, metrics, and

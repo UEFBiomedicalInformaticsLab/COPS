@@ -25,12 +25,13 @@ cv_fold(
 
 \item{stratified_cv}{if \code{TRUE}, try to maximize separation of batch labels within folds}
 
-\item{...}{extra arguments are ignored}
+\item{mixed_cv}{if \code{TRUE}, try to minimize separation of batch labels within folds}
 
-\item{mixed_cvif}{if \code{TRUE}, try to minimize separation of batch labels within folds}
+\item{...}{extra arguments are ignored}
 }
 \value{
-
+list of data.frames with added columns "fold", "run" and "cv_index" as well as 
+        duplicated rows of the original data corresponding to different folds.
 }
 \description{
 Creates cross-validation folds of data for downstream analysis.
