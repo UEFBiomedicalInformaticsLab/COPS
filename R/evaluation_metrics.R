@@ -305,6 +305,7 @@ clustering_evaluation <- function(dat,
 #'         data sets and dimensionality reduction techniques found in the input \code{data.frame}.
 #' @export
 #' @importFrom foreach foreach %dopar%
+#' @importFrom data.table rbindlist
 cv_clusteval <- function(dat_folded, ...) {
   # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
@@ -317,16 +318,20 @@ cv_clusteval <- function(dat_folded, ...) {
     temp_list <- c(temp_list, temp)
   }
   # Binding function that concatenates relevant list components
-  cfun <- function(a,b) {
-    return(list(clusters = rbind(a$clusters, b$clusters),
-                metrics = rbind(a$metrics, b$metrics), 
-                chisq_pval = rbind(a$chisq_pval, b$chisq_pval)))
+  cfun <- function(...){
+    bound_list <- list()
+    bound_list$clusters <- as.data.frame(rbindlist(lapply(list(...), function(x) x$clusters)))
+    bound_list$metrics <- as.data.frame(rbindlist(lapply(list(...), function(x) x$metrics)))
+    bound_list$chisq_pval <- as.data.frame(rbindlist(lapply(list(...), function(x) x$chisq_pval)))
+    return(bound_list)
   }
   
   out <- foreach(i = 1:length(temp_list),
                  .combine = cfun,
                  .export = c("clustering_evaluation"),
-                 .packages = c("clValid", "reshape2")) %dopar% {
+                 .packages = c("clValid", "reshape2"),
+                 .multicombine = TRUE,
+                 .maxcombine = length(temp_list)) %dopar% {
     temp <- clustering_evaluation(temp_list[[i]], ...)
     temp
   }

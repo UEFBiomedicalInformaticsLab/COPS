@@ -12,6 +12,7 @@ Imports:
     Rtsne,
     clValid,
     clusteval,
+    data.table,
     doParallel,
     foreach,
     kBET,
