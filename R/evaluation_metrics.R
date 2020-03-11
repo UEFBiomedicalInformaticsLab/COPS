@@ -125,16 +125,18 @@ stability_eval <- function(clust,
   
   temp_list <- split(clust, clust[by])
   stability <- foreach(i = 1:length(temp_list),
-                      .combine = rbind,
+                      .combine = rbindlist,
                       .export = c("jdist_ref"),
-                      .packages = c("clusteval", "plyr")) %dopar% {
+                      .packages = c("clusteval", "plyr"),
+                      .multicombine = TRUE,
+                      .maxcombine = length(temp_list)) %dopar% {
     out <- f(temp_list[[i]])
     for (j in by) {
       out[[j]] <- temp_list[[i]][[j]][1]
     }
     out
   }
-  return(stability)
+  return(as.data.frame(stability))
 }
 
 #' Categorical variable association estimates
