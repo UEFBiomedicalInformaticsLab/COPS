@@ -125,7 +125,7 @@ stability_eval <- function(clust,
   
   temp_list <- split(clust, clust[by])
   stability <- foreach(i = 1:length(temp_list),
-                      .combine = rbindlist,
+                      .combine = function(...) rbindlist(list(...)),
                       .export = c("jdist_ref"),
                       .packages = c("clusteval", "plyr"),
                       .multicombine = TRUE,
