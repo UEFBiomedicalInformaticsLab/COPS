@@ -91,7 +91,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'         with respect to kept column variables
 #' @export
 #' @importFrom foreach foreach %dopar%
-#' @importFrom plyr join
+#' @importFrom data.table data.table setDT rbindlist
 #'
 stability_eval <- function(clust,
                            by = c("datname", "drname", "k", "m"),
@@ -102,32 +102,39 @@ stability_eval <- function(clust,
     ref_i <- unique(x$fold)
     ref_i <- ref_i[!ref_i %in% unique(x$cv_index)]
     
-    ref <- x[x$fold == ref_i,]
+    ref <- x[fold == ref_i,]
     colnames(ref)[colnames(ref) == "cluster"] <- "reference_cluster"
+    ref$fold <- NULL
     
-    nonref <- x[x$fold != ref_i,]
+    nonref <- x[fold != ref_i,]
     nonref$test_ind <- nonref$cv_index == nonref$fold
     
-    nonref <- plyr::join(nonref, ref[c("id", by2, "reference_cluster")], 
-                         by = c("id", by2[by2 != "fold"]), type = "inner")
+    #nonref <- plyr::join(nonref, ref[c("id", by2, "reference_cluster")], 
+    #                     by = c("id", by2[by2 != "fold"]), type = "inner")
+    ref_cols <- c("id", by2[by2 != "fold"], "reference_cluster")
+    nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
     
-    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
-    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+    #train_nonref <- nonref[test_ind == FALSE, list(cluster), by = by2]
+    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
+    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
     train_jdist <- jdist_ref(train_nonref, train_ref)
     
-    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
-    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
+    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
     test_jdist <- jdist_ref(test_nonref, test_ref)
     
-    return(data.frame(jdist_train = train_jdist, jdist_test = test_jdist))
+    return(data.table::data.table(jdist_train = train_jdist, jdist_test = test_jdist))
   }
   by <- by[by %in% colnames(clust)]
   
-  temp_list <- split(clust, clust[by])
+  data.table::setDT(clust)
+  
+  temp_list <- split(clust, by = by)
+  #temp_list <- split(clust, clust[by])
   stability <- foreach(i = 1:length(temp_list),
-                      .combine = function(...) rbindlist(list(...)),
+                      .combine = function(...) data.table::rbindlist(list(...)),
                       .export = c("jdist_ref"),
-                      .packages = c("clusteval", "plyr"),
+                      .packages = c("clusteval", "data.table"),
                       .multicombine = TRUE,
                       .maxcombine = length(temp_list)) %dopar% {
     out <- f(temp_list[[i]])
