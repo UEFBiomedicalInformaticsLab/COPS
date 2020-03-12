@@ -131,15 +131,15 @@ stability_eval <- function(clust,
   
   temp_list <- split(clust, by = by)
   #temp_list <- split(clust, clust[by])
-  stability <- foreach(i = 1:length(temp_list),
+  stability <- foreach(i = temp_list,
                       .combine = function(...) data.table::rbindlist(list(...)),
                       .export = c("jdist_ref"),
                       .packages = c("clusteval", "data.table"),
                       .multicombine = TRUE,
                       .maxcombine = length(temp_list)) %dopar% {
-    out <- f(temp_list[[i]])
+    out <- f(i)
     for (j in by) {
-      out[[j]] <- temp_list[[i]][[j]][1]
+      out[[j]] <- i[[j]][1]
     }
     out
   }
