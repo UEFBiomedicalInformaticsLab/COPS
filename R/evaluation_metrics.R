@@ -99,6 +99,7 @@ stability_eval <- function(clust,
                            ...)
 {
   f <- function(x) {
+    data.table::setDTthreads(1)
     ref_i <- unique(x$fold)
     ref_i <- ref_i[!ref_i %in% unique(x$cv_index)]
     
@@ -131,15 +132,15 @@ stability_eval <- function(clust,
   
   temp_list <- split(clust, by = by)
   #temp_list <- split(clust, clust[by])
-  stability <- foreach(i = temp_list,
+  stability <- foreach(temp = temp_list,
                       .combine = function(...) data.table::rbindlist(list(...)),
                       .export = c("jdist_ref"),
                       .packages = c("clusteval", "data.table"),
                       .multicombine = TRUE,
                       .maxcombine = length(temp_list)) %dopar% {
-    out <- f(i)
+    out <- f(temp)
     for (j in by) {
-      out[[j]] <- i[[j]][1]
+      out[[j]] <- temp[[j]][1]
     }
     out
   }
@@ -335,13 +336,13 @@ cv_clusteval <- function(dat_folded, ...) {
     return(bound_list)
   }
   
-  out <- foreach(i = 1:length(temp_list),
+  out <- foreach(temp = temp_list,
                  .combine = cfun,
                  .export = c("clustering_evaluation"),
                  .packages = c("clValid", "reshape2"),
                  .multicombine = TRUE,
                  .maxcombine = length(temp_list)) %dopar% {
-    temp <- clustering_evaluation(temp_list[[i]], ...)
+    temp <- clustering_evaluation(temp, ...)
     temp
   }
   return(out)

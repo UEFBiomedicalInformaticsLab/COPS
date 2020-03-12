@@ -112,23 +112,20 @@ cv_dimred <- function(dat_list, ...) {
   }
   
   #keep_columns <- c("id", "run", "fold", "cv_index", "datname")
-  out <- foreach(i = 1:length(temp_list),
+  out <- foreach(temp = temp_list,
                       .combine = c,
                       .export = c("dim_reduction_suite"),
                       .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
-    temp <- temp_list[[i]]
     rownames(temp) <- temp$id
-    #temp <- temp[!colnames(temp) %in% c("id", "run", "fold", "cv_index", "datname")]
-    temp <- dim_reduction_suite(t(temp[grepl("^dim[0-9]+$", colnames(temp))]), ...)
-    for (j in 1:length(temp)) {
-      temp[[j]] <- as.data.frame(t(temp[[j]]))
-      temp[[j]]$id <- rownames(temp[[j]])
-      temp[[j]] <- plyr::join(temp[[j]], 
-                              #temp_list[[i]][keep_columns[keep_columns %in% colnames(temp_list[[i]])]], 
-                              temp_list[[i]][!grepl("^dim[0-9]+$", colnames(temp_list[[i]]))],
-                              by = "id")
+    dr_temp <- dim_reduction_suite(t(temp[grepl("^dim[0-9]+$", colnames(temp))]), ...)
+    for (j in 1:length(dr_temp)) {
+      dr_temp[[j]] <- as.data.frame(t(dr_temp[[j]]))
+      dr_temp[[j]]$id <- rownames(dr_temp[[j]])
+      dr_temp[[j]] <- plyr::join(dr_temp[[j]], 
+                                 temp[!grepl("^dim[0-9]+$", colnames(temp))],
+                                 by = "id")
     }
-    temp
+    dr_temp
   }
   return(out)
 }
