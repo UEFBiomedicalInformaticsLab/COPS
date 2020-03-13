@@ -181,7 +181,7 @@ fgtpw_test <- function() {
   pso_otp = retrieveDiseaseGenesOT(c('EFO_0000676'), assoc_score_fields)[[1]][,-c(10:13)]
   
   
-  gene.diseases = pso_otp[which(pso_otp$association_score.overall > 0.75),]
+  gene.diseases = pso_otp[which(pso_otp$association_score.overall > 0.1),]
   provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = TRUE)
   
   
@@ -230,15 +230,22 @@ fromGeneToNetworksToPathwayFeatures <- function(dat, study_batch = NULL,
   rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = t(gene.seeds), normalise = "none",
                               restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
                               parallel = FALSE, multicores = NULL, verbose = FALSE)
-  names(rwr.top.genes) = igraph::V(gene.network)$name
-  rwr.top.genes = rwr.top.genes[which(rwr.top.genes >= rwr_cutoff)]
+  rownames(rwr.top.genes) = igraph::V(gene.network)$name
+  #rwr.top.genes = rwr.top.genes[which(rwr.top.genes >= rwr_cutoff)]
   # apply random walk (dnet) to extend the set of genes
   # apply fgsea
+  res <- array(NA, c(nrow(gene.seeds), length(list_db_annots)), 
+               list(id = rownames(gene.seeds), pathway = names(list_db_annots)))
   for (i in 1:ncol(rwr.top.genes)) {
-    res <- fgsea::fgsea(list_db_annots, rwr.top.genes, 10000)
+    genes_i <- rwr.top.genes[,i]
+    genes_i <- genes_i[genes_i >= rwr_cutoff]
+    res_i <- fgsea::fgsea(list_db_annots, genes_i, nperm=10000, minSize=1, maxSize=200)
+    #res_i <- fgsea::calcGseaStat(list_db_annots[[1]], genes_i)
+    # idea: use pval as scale and sign of ES as direction
+    res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
   }
   
-  return()
+  return(res)
 }
 
 
