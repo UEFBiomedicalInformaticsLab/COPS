@@ -182,11 +182,12 @@ fgtpw_test <- function() {
   
   
   gene.diseases = pso_otp[which(pso_otp$association_score.overall > 0.1),]
-  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = TRUE)
+  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE)
   
   
-  gene.network <- provola
-  mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id","hgnc_symbol"),
+  gene.network <- string_db <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = 700)$graph
+  
+  mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id","ensembl_peptide_id"),
                                  filters = "ensembl_gene_id", values = rownames(pso_comb),
                                  mart = mart)
   dat <- pso_comb
