@@ -172,77 +172,136 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
 
 ### TESTING FUNCTIONS
 fgtpw_test <- function() {
+  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE) # TODO: fix error on directed = FALSE
+  
+  datRW <- expressionToRWFeatures(pso_comb, "EFO_0000676")
+  datRW[is.na(datRW)] <- 0 
+  # Split by pw annotation source (KEGG, GO, REACTOME)
+  datRW_list <- split(as.data.frame(t(datRW)), sapply(strsplit(colnames(datRW), "_"), function(x) x[1]))
+  
+  res <- COPS::dimred_clusteval_pipeline(datRW_list, 
+                                         batch_label = batch, 
+                                         include_original = FALSE, 
+                                         parallel = 10, nruns = 10, 
+                                         nfolds = 5, dimred_methods = c("pca", "umap"),
+                                         cluster_methods = c("hierarchical", "kmeans"),
+                                         metric = "euclidean", 
+                                         n_clusters = 2:6)
+}
+
+expressionToRWFeatures <- function(dat, 
+                                   disease_id, 
+                                   otp_cutoff = 0.8, 
+                                   ppi_cutoff = 700,
+                                   pw_max.size = 200,
+                                   ...) {
   assoc_score_fields = paste(paste("&fields=", c('disease.efo_info.label',
                                                  'disease.efo_info.therapeutic_area',
                                                  'target.gene_info.symbol',
                                                  'association_score.overall',
                                                  'disease.id',
                                                  'association_score.datatypes'), sep=''), collapse = "")
-  pso_otp = retrieveDiseaseGenesOT(c('EFO_0000676'), assoc_score_fields)[[1]][,-c(10:13)]
+  disease_otp = retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
+  gene.diseases = disease_otp[which(disease_otp$association_score.overall > otp_cutoff),]
+  
+  sdb_res <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = ppi_cutoff)
+  gene.network <- sdb_res$get_graph()
+  igraph::V(gene.network)$name <- gsub("^9606\\.", "", igraph::V(gene.network)$name)
+  
+  # Get pathways information from msigdb (https://www.gsea-msigdb.org/)
+  db_annots = msigdbr::msigdbr(species = "Homo sapiens") %>% 
+    dplyr::filter(gs_subcat == "BP" | gs_subcat == "MF" | 
+                    gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
   
   
-  gene.diseases = pso_otp[which(pso_otp$association_score.overall > 0.1),]
-  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE)
-  
-  
-  gene.network <- string_db <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = 700)$graph
-  
-  mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id","ensembl_peptide_id"),
-                                 filters = "ensembl_gene_id", values = rownames(pso_comb),
+  # Harmonize gene labels
+  #mart <- biomaRt::useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")
+  ppi_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id"), #, "hgnc_symbol", "entrezgene_id"
+                                 filters = "ensembl_peptide_id", 
+                                 values = igraph::V(gene.network)$name,
                                  mart = mart)
-  dat <- pso_comb
-  rownames(dat) <- mart_results$hgnc_symbol[match(rownames(dat), mart_results$ensembl_gene_id)]
-  mart_results[duplicated(mart_results$hgnc_symbol),] # no matches
-  dat <- dat[!duplicated(rownames(dat)),]
-  disease.genes <- rownames(gene.diseases)
+  dis_pw_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
+                                     filters = "entrezgene_id", 
+                                     values = unique(c(gene.diseases$entrezId, db_annots$entrez_gene)),
+                                     mart = mart)
+  
+  ppi_temp <- ppi_mart_results$ensembl_gene_id[match(igraph::V(gene.network)$name, 
+                                                     ppi_mart_results$ensembl_peptide_id)]
+  igraph::V(gene.network)$name[!is.na(ppi_temp)] <- ppi_temp[!is.na(ppi_temp)]
+  
+  disease.genes <- dis_pw_mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
+                                                             dis_pw_mart_results$entrezgene_id)]
+  disease.genes <- disease.genes[!is.na(disease.genes)]
+  
+  db_annots$ensembl_gene_id <- dis_pw_mart_results$ensembl_gene_id[match(db_annots$entrez_gene, 
+                                                                         dis_pw_mart_results$entrezgene_id)]
+  db_annots <- db_annots[!is.na(db_annots$ensembl_gene_id),]
+  
+  if (FALSE) { # If using hgnc symbols
+    igraph::V(gene.network)$name <- mart_results$hgnc_symbol[match(igraph::V(gene.network)$name, 
+                                                             mart_results$ensembl_peptide_id)]
+    rownames(dat) <- mart_results$hgnc_symbol[match(rownames(dat), mart_results$ensembl_gene_id)]
+  }
+  if (FALSE) { # If using ensembl peptide ids
+    rownames(dat) <- mart_results$ensembl_peptide_id[match(rownames(dat), mart_results$ensembl_gene_id)]
+    disease.genes <- mart_results$ensembl_peptide_id[match(rownames(gene.diseases), mart_results$hgnc_symbol)]
+    disease.genes <- disease.genes[!is.na(disease.genes) & !grepl("^\\s*$", disease.genes)]
+  }
+  
+  #dat <- dat[!is.na(rownames(dat)) & !grepl("^\\s*$", rownames(dat)),]
+  
+  list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$ensembl_gene_id)
+  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < pw_max.size)]
+  
+  fromGeneToNetworksToPathwayFeatures(dat, disease.genes, gene.network, list_db_annots, ...)
 }
 
 #'@param rwr_restart the restart probability used for RWR. See \code{dnet::dRWR} for more details.
 #'@param rwr_norm the way to normalise the adjacency matrix of the input graph. See \code{dnet::dRWR} for more details.
 #'@param rwr_cutoff the cuoff value to select the most visited genes.  (TO BE COMPLETED)
-fromGeneToNetworksToPathwayFeatures <- function(dat, study_batch = NULL, 
-                                                disease.genes = NULL, # a character vector
+fromGeneToNetworksToPathwayFeatures <- function(dat, 
+                                                disease.genes, # a character vector
+                                                gene.network,  # igraph.object
+                                                list_db_annots, # list of pathway annotated gene sets
+                                                #study_batch = NULL, 
                                                 top.ranked.genes = 100,
-                                                gene.network = NULL,  # igraph.object
-                                                min.size = 5, max.size = 200, 
+                                                min.size = 5, 
+                                                max.size = 200, 
                                                 parallel = 4,
                                                 verbose = FALSE,
-                                                rwr_restart = 0.5,
+                                                rwr_restart = 0.33,
                                                 rwr_norm = "quantile",
-                                                rwr_cutoff = 0.01) {
-  # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
-  db_annots = msigdbr::msigdbr(species = "Homo sapiens") %>% 
-    dplyr::filter(gs_subcat == "BP" | gs_subcat == "MF" | 
-                    gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
-  list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_symbol)
-  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < max.size)]
+                                                rwr_cutoff = 0,
+                                                ...) {
   # rank disease-genes within each sample
   gene.seeds <- plyr::aaply(dat, 2, function(s) {
                       sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)[1:top.ranked.genes]]
                       out <- intersect(sorted.genes, disease.genes)
                       out <- as.numeric(igraph::V(gene.network)$name %in% out)
-                      names(out) <- igraph::V(gene.network)$name
                       out
   })
+  colnames(gene.seeds) <- igraph::V(gene.network)$name
   #gene.seeds <- unique(do.call(c, gene.seeds))
   #gene.seeds <- as.numeric(igraph::V(gene.network)$name %in% gene.seeds)
   #names(gene.seeds) <- igraph::V(gene.network)$name
   # compile the subnetwork from the PPI
+  
+  # apply random walk (dnet) to extend the set of genes
   rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = t(gene.seeds), normalise = "none",
                               restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
-                              parallel = FALSE, multicores = NULL, verbose = FALSE)
+                              parallel = TRUE, multicores = parallel, verbose = FALSE)
   rownames(rwr.top.genes) = igraph::V(gene.network)$name
-  #rwr.top.genes = rwr.top.genes[which(rwr.top.genes >= rwr_cutoff)]
-  # apply random walk (dnet) to extend the set of genes
+  
   # apply fgsea
   res <- array(NA, c(nrow(gene.seeds), length(list_db_annots)), 
                list(id = rownames(gene.seeds), pathway = names(list_db_annots)))
   for (i in 1:ncol(rwr.top.genes)) {
     genes_i <- rwr.top.genes[,i]
-    genes_i <- genes_i[genes_i >= rwr_cutoff]
+    # Sum up duplicated gene id:s (alternative splicings)
+    genes_i <- tapply(genes_i, names(genes_i), sum)
+    genes_i <- genes_i[genes_i > rwr_cutoff]
     res_i <- fgsea::fgsea(list_db_annots, genes_i, nperm=10000, minSize=1, maxSize=200)
-    #res_i <- fgsea::calcGseaStat(list_db_annots[[1]], genes_i)
-    # idea: use pval as scale and sign of ES as direction
     res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
   }
   
