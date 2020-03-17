@@ -2,6 +2,33 @@
 ####   COPS functions   ###
 ###########################
 
+### TESTING FUNCTIONS
+fgtpw_test <- function() {
+  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE) # TODO: fix error on directed = FALSE
+  
+  pso_comb_centered <- Reduce("rbind", lapply(split(as.data.frame(t(pso_comb_unscaled)), batch), scale, scale = FALSE))
+  
+  datRW <- COPS:::expressionToRWFeatures(pso_comb_scaled, "EFO_0000676")
+  datRW[is.na(datRW)] <- 0 
+  # Split by pw annotation source (KEGG, GO, REACTOME)
+  datRW_list <- split(as.data.frame(t(datRW)), sapply(strsplit(colnames(datRW), "_"), function(x) x[1]))
+  names(datRW_list) <- paste0(names(datRW_list), "_RWR")
+  
+  datGSVA <- fromGeneToPathwayFeatures(pso_comb_unscaled, batch, parallel = 10)
+  
+  res <- COPS::dimred_clusteval_pipeline(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), 
+                                         batch_label = batch, 
+                                         include_original = FALSE, 
+                                         parallel = 10, nruns = 10, 
+                                         nfolds = 5, dimred_methods = c("pca", "umap"),
+                                         cluster_methods = c("hierarchical", "kmeans"),
+                                         metric = "euclidean", 
+                                         n_clusters = 2:6)
+  scores <- COPS::clusteval_scoring(res)
+  best <- COPS::dimred_cluster(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), scores$best)
+  GGally::ggpairs(as.data.frame(best$embedding), aes(color = factor(batch), alpha = 0.4)) + ggtitle("Batches in best embeddings")
+}
+
 
 #'Transform a gene-level data matrix into path-level information
 #'
@@ -20,7 +47,7 @@
 #'        - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
 #'@export
 #'@importFrom AnnotationDbi mapIds
-#'@importFrom dplyr filter
+#'@importFrom dplyr filter '%>%'
 #'@importFrom msigdbr msigdbr
 #'@importFrom GSVA gsva
 fromGeneToPathwayFeatures <- function(dat, study_batch = NULL, 
@@ -32,37 +59,44 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
                              dplyr::filter(gs_subcat == "BP" | gs_subcat == "MF" | 
                                            gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
   list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_symbol)
-  list_db_annots <- list_db_annots[which(sapply(db_annots, length) < max.size)]
+  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < max.size)]
+  
   ke_pathways <- NULL
   go_pathways <- NULL
   re_pathways <- NULL
   if(!is.null(study_batch)) {
     if(verbose) print("The dataset in input corresponds to the original dataset")
     list_dat <- lapply(levels(study_batch), function(x) dat[,which(x == as.character(study_batch))])
-    ke_pathways <- Reduce("cbind", lapply(list_dat, function(s) {
-      rownames(s) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL"))
-      GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=verbose, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)
+    ke_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
+      rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)))
     }))
-    go_pathways <- Reduce("cbind", lapply(list_dat, function(s) {
-      rownames(s) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL"))
-      GSVA::gsva(s, list_db_annots[grep("GO_", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=verbose, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)
+    go_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
+      rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("GO_", names(list_db_annots))], mx.diff=TRUE, 
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)))
     }))
-    re_pathways <- Reduce("cbind", lapply(list_dat, function(s) {
-      rownames(s) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL"))
-      GSVA::gsva(s, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=verbose, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)
+    re_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
+      rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)))
     }))
+    ke_pathways <- t(ke_pathways)
+    go_pathways <- t(go_pathways)
+    re_pathways <- t(re_pathways)
+    ke_pathways[is.na(ke_pathways)] <- 0
+    go_pathways[is.na(go_pathways)] <- 0
+    re_pathways[is.na(re_pathways)] <- 0
   }
   else {
-    rownames(dat) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", "ENSEMBL"))
-    ke_pathways <- gsva(dat, list_ad_m_df[grep("KEGG", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size)
-    go_pathways <- gsva(dat, list_ad_m_df[grep("GO", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size)
-    re_pathways <- gsva(dat, list_ad_m_df[grep("REACTOME", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size)
+    rownames(dat) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", "ENSEMBL")))
+    ke_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("KEGG", names(list_ad_m_df))], mx.diff=TRUE, 
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size))
+    go_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("GO", names(list_ad_m_df))], mx.diff=TRUE, 
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size))
+    re_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("REACTOME", names(list_ad_m_df))], mx.diff=TRUE, 
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size))
   }
   return(list(KEGG_PW = ke_pathways,
               GO_PW = go_pathways,
@@ -168,27 +202,6 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
   return(g.ppi_network)
 }
 
-
-
-### TESTING FUNCTIONS
-fgtpw_test <- function() {
-  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE) # TODO: fix error on directed = FALSE
-  
-  datRW <- expressionToRWFeatures(pso_comb, "EFO_0000676")
-  datRW[is.na(datRW)] <- 0 
-  # Split by pw annotation source (KEGG, GO, REACTOME)
-  datRW_list <- split(as.data.frame(t(datRW)), sapply(strsplit(colnames(datRW), "_"), function(x) x[1]))
-  
-  res <- COPS::dimred_clusteval_pipeline(datRW_list, 
-                                         batch_label = batch, 
-                                         include_original = FALSE, 
-                                         parallel = 10, nruns = 10, 
-                                         nfolds = 5, dimred_methods = c("pca", "umap"),
-                                         cluster_methods = c("hierarchical", "kmeans"),
-                                         metric = "euclidean", 
-                                         n_clusters = 2:6)
-}
-
 expressionToRWFeatures <- function(dat, 
                                    disease_id, 
                                    otp_cutoff = 0.8, 
@@ -216,26 +229,29 @@ expressionToRWFeatures <- function(dat,
   
   # Harmonize gene labels
   #mart <- biomaRt::useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
-  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")
-  ppi_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id"), #, "hgnc_symbol", "entrezgene_id"
-                                 filters = "ensembl_peptide_id", 
-                                 values = igraph::V(gene.network)$name,
+  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl", "useast.ensembl.org")
+  # It is actually faster to load whole table rather than post a large filter
+  mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id", "entrezgene_id"), 
                                  mart = mart)
-  dis_pw_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
-                                     filters = "entrezgene_id", 
-                                     values = unique(c(gene.diseases$entrezId, db_annots$entrez_gene)),
-                                     mart = mart)
+  #ppi_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id"), #, "hgnc_symbol", "entrezgene_id"
+                                 #filters = "ensembl_peptide_id", 
+                                 #values = igraph::V(gene.network)$name,
+                                 #mart = mart)
+  #dis_pw_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
+                                     #filters = "entrezgene_id", 
+                                     #values = unique(c(gene.diseases$entrezId, db_annots$entrez_gene)),
+                                     #mart = mart)
   
-  ppi_temp <- ppi_mart_results$ensembl_gene_id[match(igraph::V(gene.network)$name, 
-                                                     ppi_mart_results$ensembl_peptide_id)]
+  ppi_temp <- mart_results$ensembl_gene_id[match(igraph::V(gene.network)$name, 
+                                                 mart_results$ensembl_peptide_id)]
   igraph::V(gene.network)$name[!is.na(ppi_temp)] <- ppi_temp[!is.na(ppi_temp)]
   
-  disease.genes <- dis_pw_mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
-                                                             dis_pw_mart_results$entrezgene_id)]
+  disease.genes <- mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
+                                                      mart_results$entrezgene_id)]
   disease.genes <- disease.genes[!is.na(disease.genes)]
   
-  db_annots$ensembl_gene_id <- dis_pw_mart_results$ensembl_gene_id[match(db_annots$entrez_gene, 
-                                                                         dis_pw_mart_results$entrezgene_id)]
+  db_annots$ensembl_gene_id <- mart_results$ensembl_gene_id[match(db_annots$entrez_gene, 
+                                                                  mart_results$entrezgene_id)]
   db_annots <- db_annots[!is.na(db_annots$ensembl_gene_id),]
   
   if (FALSE) { # If using hgnc symbols
@@ -290,7 +306,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   # apply random walk (dnet) to extend the set of genes
   rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = t(gene.seeds), normalise = "none",
                               restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
-                              parallel = TRUE, multicores = parallel, verbose = FALSE)
+                              parallel = parallel > 1, multicores = parallel, verbose = FALSE)
   rownames(rwr.top.genes) = igraph::V(gene.network)$name
   
   # apply fgsea
@@ -312,7 +328,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
 
 # RWR-FGSEA pipeline_DM_TG for drug matrix and tg-gates networks  (TO BE COMPLETED)
 fromRWRtoFGSEA <- function() {
-  #random walk with restrart
+  #random walk with restart
   probm<-dRWR(gr, setSeeds=mat, normalise.affinity.matrix='quantile',parallel=T,verbose = F)
   probm<-as.matrix(probm)
   colnames(probm)<-names(d_sign)                        #Columns are chemicals
