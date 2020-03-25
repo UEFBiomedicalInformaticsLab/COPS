@@ -4,7 +4,9 @@
 \name{ad_studies}
 \alias{ad_studies}
 \title{Atopic dermatitis studies}
-\format{An object of class \code{factor}}
+\format{
+An object of class \code{factor}
+}
 \usage{
 data(ad_studies)
 }

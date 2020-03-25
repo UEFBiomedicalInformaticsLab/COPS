@@ -4,7 +4,9 @@
 \name{ad_ge_micro_zscore}
 \alias{ad_ge_micro_zscore}
 \title{Atopic dermatitis data}
-\format{An object of class \code{data.frame}}
+\format{
+An object of class \code{data.frame}
+}
 \usage{
 data(ad_ge_micro_zscore)
 }

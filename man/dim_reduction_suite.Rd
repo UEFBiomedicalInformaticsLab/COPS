@@ -6,17 +6,16 @@
 \usage{
 dim_reduction_suite(
   dat,
-  dimred_methods = c("pca", "tsne", "umap"),
+  dimred_methods = c("pca", "umap"),
   output_dimensions = c(2:4),
   tsne_perplexities = c(5, 30, 50),
   umap_neighbors = 20,
-  include_original = TRUE,
-  parallel = FALSE,
+  include_original = FALSE,
   ...
 )
 }
 \arguments{
-\item{dat}{data matrix, features on rows and samples on columns}
+\item{dat}{data matrix, features on columns and samples on rows}
 
 \item{dimred_methods}{vector of method names, see details for options}
 
@@ -27,8 +26,6 @@ dim_reduction_suite(
 \item{umap_neighbors}{scalar UMAP parameter, affects manifold resolution}
 
 \item{include_original}{if \code{TRUE}, includes original data in output list}
-
-\item{parallel}{NOT IMPLEMENTED}
 
 \item{...}{extra arguments are ignored currently}
 }

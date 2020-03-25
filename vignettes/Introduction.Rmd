@@ -71,7 +71,7 @@ library(swamp)
 Example starting from a pre-processed data matrix and batch label vector. In this example we use the included Atopic Dermatitis (*ad_ge_micro_zscore*) data set and its annotations *ad_studies*. 
 
 ```{r pipeline, cache.lazy = TRUE, echo = TRUE, message = FALSE}
-method_evaluations <- dimred_clusteval_pipeline(list(ad_ge_micro_zscore), batch_label = ad_studies, include_original = FALSE, 
+method_evaluations <- dimred_clusteval_pipeline(list(ad = ad_ge_micro_zscore), batch_label = ad_studies, include_original = FALSE, 
                                                 parallel = 2, nruns = 2, 
                                                 nfolds = 5, dimred_methods = c("pca", "umap"),
                                                 cluster_methods = c("hierarchical", "kmeans"),
@@ -84,7 +84,7 @@ head(scores$all)
 scores$best
 
 # Generate embedding and clustering based on best setting
-best <- dimred_cluster(list(ad_ge_micro_zscore), scores$best)
+best <- dimred_cluster(list(ad = ad_ge_micro_zscore), scores$best)
 
 ```
 
@@ -100,7 +100,7 @@ class_associations(t(best$embedding), cbind(clust = best$clustering, study = ad_
 
 ### Associations in original data
 ```{r ca_original}
-class_associations(list(ad_ge_micro_zscore)[[scores$best$datname]],
+class_associations(list(ad = ad_ge_micro_zscore)[[scores$best$datname]],
                    cbind(clust = best$clustering, study = ad_studies))
 ```
 

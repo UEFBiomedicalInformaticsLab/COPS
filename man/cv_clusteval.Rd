@@ -4,10 +4,10 @@
 \alias{cv_clusteval}
 \title{Clustering analysis on cross-validated data sets}
 \usage{
-cv_clusteval(dat_folded, ...)
+cv_clusteval(dat_embedded, ...)
 }
 \arguments{
-\item{dat_folded}{list of \code{data.frame}s}
+\item{dat_embedded}{list of \code{data.frame}s}
 
 \item{...}{extra arguments are passed through to clustering_evaluation}
 }

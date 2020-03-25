@@ -8,7 +8,6 @@ cv_fold(
   dat_list,
   nfolds = 5,
   nruns = 2,
-  batch_label = NULL,
   stratified_cv = FALSE,
   mixed_cv = FALSE,
   ...
@@ -21,13 +20,13 @@ cv_fold(
 
 \item{nruns}{number of cross-validation replicates}
 
-\item{batch_label}{batch_label vector or \code{data.frame} with column \code{"batch_label"}}
-
 \item{stratified_cv}{if \code{TRUE}, try to maximize separation of batch labels within folds}
 
 \item{mixed_cv}{if \code{TRUE}, try to minimize separation of batch labels within folds}
 
 \item{...}{extra arguments are ignored}
+
+\item{batch_label}{batch_label vector or \code{data.frame} with column \code{"batch_label"}}
 }
 \value{
 list of data.frames with added columns "fold", "run" and "cv_index" as well as 

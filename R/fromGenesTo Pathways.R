@@ -6,15 +6,17 @@
 fgtpw_test <- function() {
   provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE) # TODO: fix error on directed = FALSE
   
-  pso_comb_centered <- Reduce("rbind", lapply(split(as.data.frame(t(pso_comb_unscaled)), batch), scale, scale = FALSE))
+  pso_comb_centered <- Reduce("rbind", lapply(split(as.data.frame(t(pso_comb_unscaled)), batch), 
+                                              function(x) scale(x, scale = FALSE)))
   
-  datRW <- COPS:::expressionToRWFeatures(pso_comb_scaled, "EFO_0000676")
+  datRW <- COPS:::expressionToRWFeatures(pso_comb, "EFO_0000676", otp_cutoff = 0.6) # Psoriasis
+  #datRW <- COPS:::expressionToRWFeatures(tbrca, "EFO_0000305") # Breast cancer
   datRW[is.na(datRW)] <- 0 
   # Split by pw annotation source (KEGG, GO, REACTOME)
   datRW_list <- split(as.data.frame(t(datRW)), sapply(strsplit(colnames(datRW), "_"), function(x) x[1]))
   names(datRW_list) <- paste0(names(datRW_list), "_RWR")
   
-  datGSVA <- fromGeneToPathwayFeatures(pso_comb_unscaled, batch, parallel = 10)
+  datGSVA <- COPS:::fromGeneToPathwayFeatures(pso_comb_unscaled, batch, parallel = 10)
   
   res <- COPS::dimred_clusteval_pipeline(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), 
                                          batch_label = batch, 
@@ -24,9 +26,56 @@ fgtpw_test <- function() {
                                          cluster_methods = c("hierarchical", "kmeans"),
                                          metric = "euclidean", 
                                          n_clusters = 2:6)
-  scores <- COPS::clusteval_scoring(res)
+  scores <- COPS::clusteval_scoring(res, w_connectivity = 0, w_dunn = 0, w_silhouette = 0)
   best <- COPS::dimred_cluster(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), scores$best)
   GGally::ggpairs(as.data.frame(best$embedding), aes(color = factor(batch), alpha = 0.4)) + ggtitle("Batches in best embeddings")
+  GGally::ggpairs(as.data.frame(COPS::dimred_cluster(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), 
+                                                     scores$all[5,])$embedding), aes(color = factor(batch), alpha = 0.4))
+  
+  # Heatmaps of gene seeds
+  assoc_score_fields = paste(paste("&fields=", c('disease.efo_info.label',
+                                                 'disease.efo_info.therapeutic_area',
+                                                 'target.gene_info.symbol',
+                                                 'association_score.overall',
+                                                 'disease.id',
+                                                 'association_score.datatypes'), sep=''), collapse = "")
+  disease_otp = retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
+  
+  
+  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl", "useast.ensembl.org")
+  dis_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
+                                     filters = "entrezgene_id", 
+                                     values = disease_otp$entrezId,
+                                     mart = mart)
+  otp_cutoff <- 0.6
+  gene.diseases = disease_otp[which(disease_otp$association_score.overall > otp_cutoff),]
+  disease.genes <- mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
+                                                      mart_results$entrezgene_id)]
+  disease.genes <- disease.genes[!is.na(disease.genes)]
+  sum(rownames(dat) %in% disease.genes)
+  mean(disease.genes %in% rownames(dat))
+  
+  top.ranked.genes <- nrow(dat) %/% 20
+  gene.seeds <- plyr::aaply(dat, 2, function(s) {
+    sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)[1:top.ranked.genes]]
+    out <- intersect(sorted.genes, disease.genes)
+    out <- as.numeric(igraph::V(gene.network)$name %in% out)
+    out
+  })
+  
+  
+  f_jaccard <- function(x, y) {sum(x & y) / sum(x | y)}
+  seeds_jaccard <- array(NA, dim = c(nrow(gene.seeds), nrow(gene.seeds)))
+  diag(seeds_jaccard) <- 1
+  for (i in 1:(nrow(gene.seeds)-1)) {
+    for (j in (i+1):nrow(gene.seeds)) {
+      seeds_jaccard[i,j] <- f_jaccard(gene.seeds[i,], gene.seeds[j,])
+      seeds_jaccard[j,i] <- seeds_jaccard[i,j]
+    }
+  }
+  # Set samples with 0 gene seeds to zero
+  seeds_jaccard[is.na(seeds_jaccard)] <- 0
+  heatmap.2(seeds_jaccard, symm = TRUE, dist = as.dist, density.info = "none", trace = "none")
 }
 
 
@@ -40,6 +89,8 @@ fgtpw_test <- function() {
 #'@param min.size a numeric value indicating the minimum size of the resulting gene sets.
 #'@param max.size a numeric value indicating the maximum size of the resulting gene sets.
 #'@param parallel a numeric value indicating the umber of processors to use when doing the calculations in parallel.
+#'@param verbose controls verbosity
+#'@param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
 #'
 #'@return a list of three data frames:\cr
 #'        - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
@@ -53,7 +104,8 @@ fgtpw_test <- function() {
 fromGeneToPathwayFeatures <- function(dat, study_batch = NULL, 
                                       min.size = 5, max.size = 200, 
                                       parallel = 4,
-                                      verbose = FALSE) {
+                                      verbose = FALSE,
+                                      kcdf = "Gaussian") {
   # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
   db_annots = msigdbr::msigdbr(species = "Homo sapiens") %>% 
                              dplyr::filter(gs_subcat == "BP" | gs_subcat == "MF" | 
@@ -66,21 +118,21 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
   re_pathways <- NULL
   if(!is.null(study_batch)) {
     if(verbose) print("The dataset in input corresponds to the original dataset")
-    list_dat <- lapply(levels(study_batch), function(x) dat[,which(x == as.character(study_batch))])
+    list_dat <- lapply(unique(study_batch), function(x) dat[,which(x == as.character(study_batch))])
     ke_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
-      rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      #rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)))
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))
     }))
     go_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
-      rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      #rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("GO_", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)))
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))
     }))
     re_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
-      rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      #rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size)))
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))
     }))
     ke_pathways <- t(ke_pathways)
     go_pathways <- t(go_pathways)
@@ -92,12 +144,16 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
   else {
     rownames(dat) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", "ENSEMBL")))
     ke_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("KEGG", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size))
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))
     go_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("GO", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size))
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf =  kcdf))
     re_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("REACTOME", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size))
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))
   }
+  colnames(ke_pathways) <- colnames(dat)
+  colnames(go_pathways) <- colnames(dat)
+  colnames(re_pathways) <- colnames(dat)
+  
   return(list(KEGG_PW = ke_pathways,
               GO_PW = go_pathways,
               REACTOME_PW = re_pathways))
@@ -270,7 +326,8 @@ expressionToRWFeatures <- function(dat,
   list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$ensembl_gene_id)
   list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < pw_max.size)]
   
-  fromGeneToNetworksToPathwayFeatures(dat, disease.genes, gene.network, list_db_annots, ...)
+  out <- fromGeneToNetworksToPathwayFeatures(dat, disease.genes, gene.network, list_db_annots, ...)
+  return(out)
 }
 
 #'@param rwr_restart the restart probability used for RWR. See \code{dnet::dRWR} for more details.
@@ -323,8 +380,6 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   
   return(res)
 }
-
-
 
 # RWR-FGSEA pipeline_DM_TG for drug matrix and tg-gates networks  (TO BE COMPLETED)
 fromRWRtoFGSEA <- function() {

@@ -91,7 +91,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'         with respect to kept column variables
 #' @export
 #' @importFrom foreach foreach %dopar%
-#' @importFrom data.table data.table setDT rbindlist
+#' @importFrom data.table data.table is.data.table rbindlist setDT setDTthreads
 #'
 stability_eval <- function(clust,
                            by = c("datname", "drname", "k", "m"),
@@ -128,7 +128,7 @@ stability_eval <- function(clust,
   }
   by <- by[by %in% colnames(clust)]
   
-  data.table::setDT(clust)
+  if (!is.data.table(clust)) data.table::setDT(clust)
   
   temp_list <- split(clust, by = by)
   #temp_list <- split(clust, clust[by])
@@ -227,6 +227,7 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #'         if batch_label was supplied
 #' @export
 #' @importFrom stats chisq.test cutree
+#' @importFrom clValid clValid clusters
 clustering_evaluation <- function(dat,
                                   batch_label_names = NULL,
                                   n_clusters = 2:5,
@@ -236,11 +237,12 @@ clustering_evaluation <- function(dat,
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
-  out <- clValid(as.matrix(temp),
-                 n_clusters,
-                 clMethods = cluster_methods,
-                 metric = metric,
-                 validation="internal")
+  out <- clValid::clValid(as.matrix(temp),
+                          n_clusters,
+                          clMethods = cluster_methods,
+                          metric = metric,
+                          validation="internal",
+                          maxitems = Inf)
   names(dimnames(out@measures)) <- c("metric", "k", "m")
   # Extract clusters into array
   clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods)))
@@ -307,7 +309,7 @@ clustering_evaluation <- function(dat,
 #' such as Connectivity, Dunn and Silhouette scores. Also computes chi-squared tests with respect to 
 #' a batch label if one is provided. 
 #'
-#' @param dat_folded list of \code{data.frame}s
+#' @param dat_embedded list of \code{data.frame}s
 #' @param ... extra arguments are passed through to clustering_evaluation
 #'
 #' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_evaluation}} outputs for every
@@ -316,23 +318,23 @@ clustering_evaluation <- function(dat,
 #' @export
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table rbindlist
-cv_clusteval <- function(dat_folded, ...) {
+cv_clusteval <- function(dat_embedded, ...) {
   # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
-  for (i in 1:length(dat_folded)) {
-    temp <- dat_folded[[i]]
-    temp$drname <- names(dat_folded)[i]
-    if (is.null(temp$drname)) temp$drname <- i
-    #temp <- plyr::dlply(temp, c("run", "fold"), function(x) x)
-    temp <- split(temp, temp[c("run", "fold")])
+  for (i in 1:length(dat_embedded)) {
+    temp <- dat_embedded[[i]]
+    drname <- names(dat_embedded)[i]
+    if (is.null(drname)) drname <- i
+    temp$drname <- drname
+    temp <- split(temp, temp[,c("run", "fold")])
     temp_list <- c(temp_list, temp)
   }
   # Binding function that concatenates relevant list components
   cfun <- function(...){
     bound_list <- list()
-    bound_list$clusters <- as.data.frame(rbindlist(lapply(list(...), function(x) x$clusters)))
-    bound_list$metrics <- as.data.frame(rbindlist(lapply(list(...), function(x) x$metrics)))
-    bound_list$chisq_pval <- as.data.frame(rbindlist(lapply(list(...), function(x) x$chisq_pval)))
+    bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
+    bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
+    bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
     return(bound_list)
   }
   

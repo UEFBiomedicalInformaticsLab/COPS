@@ -4,7 +4,7 @@
 \alias{cv_dimred}
 \title{Dimensionality reduction on cross-validated data sets}
 \usage{
-cv_dimred(dat_list, ...)
+cv_dimred(dat_list, cv_index, ...)
 }
 \arguments{
 \item{dat_list}{list of data sets}

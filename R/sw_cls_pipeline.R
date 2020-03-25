@@ -18,6 +18,7 @@
 #' @importFrom doParallel registerDoParallel
 #' @importFrom foreach registerDoSEQ
 #' @importFrom utils flush.console
+#' @importFrom data.table as.data.table setDT setkey
 dimred_clusteval_pipeline <- function(dat_list, 
                                       nfolds, 
                                       nruns, 
@@ -45,20 +46,55 @@ dimred_clusteval_pipeline <- function(dat_list,
     if (is.null(batch_label_names)) batch_label_names <- "batch_label"
   }
   
+  # Convert data to data.table to optimize memory usage
+  for (i in 1:length(dat_list)) {
+    id <- colnames(dat_list[[i]])
+    
+    dat_list[[i]] <- as.data.table(t(dat_list[[i]]))
+    #data.table::setDT(dat_list[[i]])
+    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
+    dat_list[[i]]$id <- id
+    setkey(dat_list[[i]], id)
+    
+    # Add batch label(s) as separate column(s)
+    if (!is.null(batch_label)) {
+      if (is.null(dim(batch_label))) {
+        if (!is.null(names(batch_label))) {
+          batch_id <- names(batch_label)
+        } else {
+          # Assume data and batch labels are in the same order
+          batch_id <- id
+        }
+        batch_table <- cbind(batch_label = as.character(batch_label), c())
+        #rownames(batch_label) <- batch_id
+      } else { # matrix batch_label
+        batch_id <- rownames(batch_label)
+        batch_table <- batch_label
+      }
+      #data.table::setDT(batch_table)
+      batch_table <- as.data.table(batch_table)
+      if (!all(id %in% batch_id)) {
+        stop("All batch label sample IDs do not match with data.")
+      }
+      batch_table$id <- batch_id
+      dat_list[[i]] <- merge(dat_list[[i]], batch_table, by = "id")
+    }
+  }
+  
   # Create cross validation folds
-  dat_folded <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ..., batch_label = batch_label)
+  cv_index <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ..., batch_label = batch_label)
   
   # Dimensionality reduction
   dimred_start <- Sys.time()
   if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-  dat_folded <- cv_dimred(dat_folded, ...)
+  dat_embedded <- cv_dimred(dat_list, cv_index, ...)
   if(verbose) print(paste("Finished dimensionality reduction in",
                           time_taken_string(dimred_start))); flush.console()
   
   # Clustering evaluation
   clusteval_start <- Sys.time()
   if(verbose) print("Starting clustering analysis ..."); flush.console()
-  dat_clustered <- cv_clusteval(dat_folded, ..., batch_label_names = batch_label_names)
+  dat_clustered <- cv_clusteval(dat_embedded, ..., batch_label_names = batch_label_names)
   if(verbose) print(paste("Finished clustering analysis in",
                           time_taken_string(clusteval_start))); flush.console()
   
@@ -70,7 +106,7 @@ dimred_clusteval_pipeline <- function(dat_list,
                           time_taken_string(stability_test_start))); flush.console()
   
   # Return
-  out <- list(embedding = dat_folded, 
+  out <- list(embedding = dat_embedded, 
               clusters = dat_clustered$clusters, 
               internal_metrics = dat_clustered$metrics,
               chisq_pval = dat_clustered$chisq_pval,
@@ -102,70 +138,51 @@ dimred_clusteval_pipeline <- function(dat_list,
 cv_fold <- function(dat_list, 
                     nfolds = 5, 
                     nruns = 2, 
-                    batch_label = NULL, 
+                    #batch_label = NULL, 
                     stratified_cv = FALSE, 
                     mixed_cv = FALSE,
                     ...) {
   out <- list()
   for (i in 1:length(dat_list)) {
-    temp <- as.data.frame(t(dat_list[[i]]))
-    colnames(temp) <- paste0("dim", 1:ncol(temp))
-    temp$id <- rownames(temp)
-    # Add batch label(s) as separate column(s)
-    if (!is.null(batch_label)) {
-      if (is.null(dim(batch_label))) {
-        if (!is.null(names(batch_label))) {
-          batch_id <- names(batch_label)
-        } else {
-          # Assume data and batch labels are in the same order
-          batch_id <- colnames(dat_list[[i]])
-        }
-        batch_label <- cbind(batch_label = as.character(batch_label), c())
-        rownames(batch_label) <- batch_id
-      }
-      batch_label <- as.data.frame(batch_label)
-      if (any(!(rownames(batch_label) %in% colnames(dat_list[[i]])))) {
-        # Assume that mismatches are due to processing ...
-        # Assume data and batch labels are in the same order
-        rownames(batch_label) <- colnames(dat_list[[i]])
-      }
-      batch_label$id <- rownames(batch_label)
-      temp <- plyr::join(temp, batch_label, by = "id")
-    }
-    folded <- data.frame()
+    folded <- list()
     for (j in 1:nruns) {
-      if (!is.null(batch_label) & (stratified_cv | mixed_cv)) {
-        a_ind <- lapply(table(batch_label$batch_label), function(x) sample(1:x, x))
-        b_ind <- sample(1:length(unique(batch_label$batch_label)), length(unique(batch_label$batch_label)))
-        c_ind <- cumsum(table(batch_label$batch_label)[unique(batch_label$batch_label)[b_ind]])
+      if (!is.null(dat_list[[i]]$batch_label) & (stratified_cv | mixed_cv)) {
+        a_ind <- lapply(table(dat_list[[i]]$batch_label), function(x) sample(1:x, x))
+        b_ind <- sample(1:length(unique(dat_list[[i]]$batch_label)), length(unique(dat_list[[i]]$batch_label)))
+        c_ind <- cumsum(table(dat_list[[i]]$batch_label)[unique(dat_list[[i]]$batch_label)[b_ind]])
         cv_index <- c()
         for (u in 1:length(b_ind)) {
-          un <- unique(batch_label$batch_label)[b_ind[u]]
-          cv_index[batch_label$batch_label == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
+          un <- unique(dat_list[[i]]$batch_label)[b_ind[u]]
+          cv_index[dat_list[[i]]$batch_label == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
         }
         if (stratified_cv) {
           # Stratified cv folds such that holdout set labels mostly do not match to rest of data
-          cv_index <- cv_index %/% -(length(batch_label$batch_label) %/% -nfolds) + 1
+          cv_index <- cv_index %/% -(length(dat_list[[i]]$batch_label) %/% -nfolds) + 1
         } else {
           # Mixed cv folds such that labels are evenly distributed within folds
           cv_index <- cv_index %% nfolds + 1
         }
       } else {
         # Completely random folds
-        cv_index <- sample(1:nrow(temp)) %% nfolds + 1
+        cv_index <- sample(1:nrow(dat_list[[i]])) %% nfolds + 1
       }
       # Got index, create folds +1 extra "fold" with whole data
-      # TODO: reference is the same accross all runs, maybe include it only once?
+      # TODO: reference is the same accross all runs, maybe include it only once? 
+      #       Possible incompatibility with external methods.
+      folded[[j]] <- list()
       for (f in 1:(nfolds+1)) {
         # TODO: fix downstream support so that test set can be included too
-        tempfold <- temp[cv_index != f, ]
-        tempfold$fold <- f
-        tempfold$run <- j
-        tempfold$cv_index <- cv_index[cv_index != f]
-        folded <- rbind(folded, tempfold)
+        #tempfold <- dat_list[[i]][cv_index != f, ]
+        #tempfold$fold <- f
+        #tempfold$run <- j
+        #tempfold$cv_index <- cv_index[cv_index != f]
+        folded[[j]][[f]] <- data.table(fold = f, run = j, 
+                                       cv_index = cv_index[cv_index != f], 
+                                       id = dat_list[[i]]$id[cv_index != f])
       }
+      folded[[j]] <- data.table::rbindlist(folded[[j]])
     }
-    out[[i]] <- folded
+    out[[i]] <- data.table::rbindlist(folded)
   }
   names(out) <- names(dat_list)
   return(out)
@@ -233,35 +250,36 @@ dimred_cluster <- function(dat_list,
   if (dimred_method == "original") {
     embed <- dat
   } else {
-    embed <- dim_reduction_suite(dat,
+    embed <- dim_reduction_suite(t(dat),
                                  dimred_methods = dimred_method,
                                  output_dimensions = dimred_dim,
                                  tsne_perplexities = dimred_perp,
                                  include_original = FALSE)[[1]]
   }
   
-  out <- suppressWarnings(clValid::clValid(t(embed),
+  out <- suppressWarnings(clValid::clValid(embed,
                                            nClust = k,
                                            clMethods = cluster_method,
                                            metric = metric,
-                                           validation=c()))
+                                           validation=c("internal"),
+                                           maxitems = Inf))
   
   # TODO: create generic unpacker for clValid output or use clustering methods directly
-  temp <- clValid::clusters(out, as.character(best$m))
+  temp <- clValid::clusters(out, cluster_method)
   
-  if (best$m %in% c("hierarchical", "diana", "agnes")) {
+  if (cluster_method %in% c("hierarchical", "diana", "agnes")) {
     cluster <- cutree(temp, k)
-  } else if (best$m == "pam") {
+  } else if (cluster_method == "pam") {
     cluster <- temp[[1]]$clustering
-  } else if (best$m == "kmeans") {
+  } else if (cluster_method == "kmeans") {
     cluster <- temp[[1]]$cluster
-  } else if (best$m == "sota") {
+  } else if (cluster_method == "sota") {
     cluster <- temp[[1]]$clust
   } else {
     stop(paste("Unsupported clustering method:", as.character(cluster_method)))
   }
   
-  return(list(embedding = t(embed), clustering = cluster))
+  return(list(embedding = embed, clustering = cluster))
 }
 
 #' Scoring of dimensionality reduction and clustering pipeline output
