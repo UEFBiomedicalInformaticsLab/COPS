@@ -13,6 +13,8 @@
 #' @param dat data matrix, features on columns and samples on rows
 #' @param dimred_methods vector of method names, see details for options
 #' @param output_dimensions vector of dimensionalities to compute using each applicable method
+#' @param pca_dims PCA specific output dimensions
+#' @param umap_dims UMAP specific output dimensions
 #' @param tsne_perplexities vector of t-SNE perplexity settings to generate embeddings with
 #' @param umap_neighbors scalar UMAP parameter, affects manifold resolution
 #' @param include_original if \code{TRUE}, includes original data in output list
@@ -24,7 +26,9 @@
 #' @importFrom uwot umap
 dim_reduction_suite <- function(dat,
                                 dimred_methods = c("pca", "umap"), # TODO: fix "tsne" with data.table?
-                                output_dimensions = c(2:4),
+                                output_dimensions = NULL, #c(2:4),
+                                pca_dims = 2:6,
+                                umap_dims = 2:10,
                                 tsne_perplexities = c(5,30,50),
                                 umap_neighbors = 20,
                                 include_original = FALSE,
@@ -39,7 +43,15 @@ dim_reduction_suite <- function(dat,
   
   for (m in dimred_methods) {
     if (m %in% c("pca", "umap")) {
-      dims <- output_dimensions
+      if (is.null(output_dimensions)) {
+        if (m == "pca") {
+          dims <- pca_dims
+        } else if (m == "umap") {
+          dims <- umap_dims
+        }
+      } else {
+        dims <- output_dimensions
+      }
     } else if (m == "tsne") {
       # Rtsne throws error if perplexity is too high compared to data size
       dims <- tsne_perplexities[3 * tsne_perplexities < nrow(dat) - 1]

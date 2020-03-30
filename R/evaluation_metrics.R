@@ -23,6 +23,31 @@ DSC <- function(data_matrix, batch_label) {
   return(Db/Dw)
 }
 
+#' Jaccard similarity coefficient between two categorical vectors
+#' 
+#' R implementation of clusteval::cluster_similarity to avoid crashing.
+#' 
+#' @param a categorical vector
+#' @param b categorical vector
+#' 
+#' @return Scalar, Jaccard coefficient 
+#' @export
+JaccardSimCoef <- function(a,b) {
+  na <- is.na(a) | is.na(b)
+  a <- a[!na]
+  b <- b[!na]
+  # flattened matrix of observation pairs (only need upper triangular, but its not efficient in R?)
+  A <- rep(a, length(a)) == rep(a, each = length(a))
+  B <- rep(b, length(b)) == rep(b, each = length(b))
+  # compare matrices (remove diagonal)
+  s1 <- sum(A & B) - length(a)
+  s2 <- sum(A | B) - length(a)
+  # return (first remove diagonal from result)
+  return(s1 / s2)
+}
+
+
+
 #' Average Jaccard dissimilarity coefficient between multiple clustering results
 #'
 #' Measures the stability of a given clustering method when combined with

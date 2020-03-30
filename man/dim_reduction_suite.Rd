@@ -7,7 +7,9 @@
 dim_reduction_suite(
   dat,
   dimred_methods = c("pca", "umap"),
-  output_dimensions = c(2:4),
+  output_dimensions = NULL,
+  pca_dims = 2:6,
+  umap_dims = 2:10,
   tsne_perplexities = c(5, 30, 50),
   umap_neighbors = 20,
   include_original = FALSE,
@@ -20,6 +22,10 @@ dim_reduction_suite(
 \item{dimred_methods}{vector of method names, see details for options}
 
 \item{output_dimensions}{vector of dimensionalities to compute using each applicable method}
+
+\item{pca_dims}{PCA specific output dimensions}
+
+\item{umap_dims}{UMAP specific output dimensions}
 
 \item{tsne_perplexities}{vector of t-SNE perplexity settings to generate embeddings with}
 

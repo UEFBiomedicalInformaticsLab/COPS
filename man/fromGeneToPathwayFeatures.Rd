@@ -10,7 +10,8 @@ fromGeneToPathwayFeatures(
   min.size = 5,
   max.size = 200,
   parallel = 4,
-  verbose = FALSE
+  verbose = FALSE,
+  kcdf = "Gaussian"
 )
 }
 \arguments{
@@ -24,6 +25,10 @@ A NULL value implicates that the input data matrix represents the original datas
 \item{max.size}{a numeric value indicating the maximum size of the resulting gene sets.}
 
 \item{parallel}{a numeric value indicating the umber of processors to use when doing the calculations in parallel.}
+
+\item{verbose}{controls verbosity}
+
+\item{kcdf}{distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel}
 }
 \value{
 a list of three data frames:\cr
