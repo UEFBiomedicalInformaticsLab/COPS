@@ -7,6 +7,7 @@
 #' @param nfolds number of cross-validation folds
 #' @param nruns number of cross-validation replicates
 #' @param batch_label vector or matrix with categorical variables on columns
+#' @param subtype_label vector or matrix with categorical variables on columns
 #' @param verbose if \code{TRUE}, prints progress notifications
 #' @param parallel sets up and registers \code{parallel} number of threads for supported operations
 #' @param ... extra arguments are passed to pipeline components where appropriate
@@ -23,6 +24,7 @@ dimred_clusteval_pipeline <- function(dat_list,
                                       nfolds, 
                                       nruns, 
                                       batch_label = NULL,
+                                      subtype_label = NULL,
                                       verbose = TRUE,
                                       parallel = 1,
                                       #dim_reduction = TRUE,
@@ -46,15 +48,21 @@ dimred_clusteval_pipeline <- function(dat_list,
     if (is.null(batch_label_names)) batch_label_names <- "batch_label"
   }
   
+  subtype_label_names <- NULL
+  if (!is.null(subtype_label)) {
+    subtype_label_names <- colnames(subtype_label)
+    if (is.null(subtype_label_names)) subtype_label_names <- "subtype_label"
+  }
+  
   # Convert data to data.table to optimize memory usage
   for (i in 1:length(dat_list)) {
     id <- colnames(dat_list[[i]])
     
-    dat_list[[i]] <- as.data.table(t(dat_list[[i]]))
+    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
     #data.table::setDT(dat_list[[i]])
     colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
     dat_list[[i]]$id <- id
-    setkey(dat_list[[i]], id)
+    data.table::setkey(dat_list[[i]], id)
     
     # Add batch label(s) as separate column(s)
     if (!is.null(batch_label)) {
@@ -66,18 +74,39 @@ dimred_clusteval_pipeline <- function(dat_list,
           batch_id <- id
         }
         batch_table <- cbind(batch_label = as.character(batch_label), c())
-        #rownames(batch_label) <- batch_id
       } else { # matrix batch_label
         batch_id <- rownames(batch_label)
         batch_table <- batch_label
       }
       #data.table::setDT(batch_table)
-      batch_table <- as.data.table(batch_table)
+      batch_table <- data.table::as.data.table(batch_table)
       if (!all(id %in% batch_id)) {
         stop("All batch label sample IDs do not match with data.")
       }
       batch_table$id <- batch_id
       dat_list[[i]] <- merge(dat_list[[i]], batch_table, by = "id")
+    }
+    
+    if (!is.null(subtype_label)) {
+      if (is.null(dim(subtype_label))) {
+        if (!is.null(names(subtype_label))) {
+          subtype_id <- names(subtype_label)
+        } else {
+          # Assume data and labels are in the same order
+          subtype_id <- id
+        }
+        subtype_table <- cbind(subtype_label = as.character(subtype_label), c())
+      } else { # matrix batch_label
+        subtype_id <- rownames(subtype_label)
+        subtype_table <- subtype_label
+      }
+      #data.table::setDT(subtype_table)
+      subtype_table <- data.table::as.data.table(subtype_table)
+      if (!all(id %in% subtype_id)) {
+        stop("All batch label sample IDs do not match with data.")
+      }
+      subtype_table$id <- subtype_id
+      dat_list[[i]] <- merge(dat_list[[i]], subtype_table, by = "id")
     }
   }
   
@@ -94,7 +123,7 @@ dimred_clusteval_pipeline <- function(dat_list,
   # Clustering evaluation
   clusteval_start <- Sys.time()
   if(verbose) print("Starting clustering analysis ..."); flush.console()
-  dat_clustered <- cv_clusteval(dat_embedded, ..., batch_label_names = batch_label_names)
+  dat_clustered <- cv_clusteval(dat_embedded, ..., batch_label_names = batch_label_names, subtype_label_names = subtype_label_names)
   if(verbose) print(paste("Finished clustering analysis in",
                           time_taken_string(clusteval_start))); flush.console()
   
@@ -110,6 +139,8 @@ dimred_clusteval_pipeline <- function(dat_list,
               clusters = dat_clustered$clusters, 
               internal_metrics = dat_clustered$metrics,
               chisq_pval = dat_clustered$chisq_pval,
+              batch_association = dat_clustered$batch_association,
+              subtype_association = dat_clustered$subtype_association,
               stability = dat_stability)
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
@@ -308,68 +339,99 @@ dimred_cluster <- function(dat_list,
 #'         a single row \code{$best} with the best score
 #' @export
 #' @importFrom plyr join ddply
-#' @importFrom reshape2 melt
+#' @importFrom reshape2 melt dcast
 #' @importFrom stats sd
 clusteval_scoring <- function(input,
                               by = c("datname", "drname", "k", "m"),
-                              chisq_significance_level = 0.05,
-                              w_connectivity = -0.1,
-                              w_dunn = 0.1,
-                              w_silhouette = 0.5,
-                              w_stability = 1.0,
-                              w_batch_effect = -1.0) {
-  out <- list()
-  
+                              wsum = (TrainStabilityARI + 1 - ARIbatch_label) / 2,
+                              #wsum = (NMIsubtype_label + 1 - NMIbatch_label) / 2,
+                              chisq_significance_level = 0.05) {
+  # Internal metrics
   by_internal <- by[by %in% colnames(input$internal_metrics)]
-  out[[1]] <- plyr::ddply(input$internal_metrics, 
-                          c(by_internal, "metric"), 
-                          function(x) data.frame(mean = mean(x$value), 
-                                                 sd = sd(x$value)))
+  mean_internals <- plyr::ddply(input$internal_metrics, 
+                                c(by_internal, "metric"), 
+                                function(x) data.frame(mean = mean(x$value), 
+                                                       sd = sd(x$value)))
+  mean_internals <- reshape2::dcast(mean_internals, 
+                                    as.formula(paste(paste(by_internal, collapse = "+"), "~ metric")), 
+                                    value.var = "mean")
   
   # Average number of chi-squared test pvalues under threshold in all given labels
   by_chisq <- by[by %in% colnames(input$chisq_pval)]
-  out[[2]] <- plyr::ddply(input$chisq_pval, 
-                          c(by_chisq), 
-                          function(x) data.frame(metric = "ChiSqRR_batch_label",
-                                                 mean = mean(x$p < chisq_significance_level),
-                                                 sd = NA))
+  chisq_rr <- plyr::ddply(input$chisq_pval, 
+                          c(by_chisq, "label"), 
+                          function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level)))
+  chisq_rr$label <- paste0("ChisqRR", chisq_rr$label)
+  chisq_rr <- reshape2::dcast(chisq_rr, 
+                              as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                              value.var = "chisqRR")
   
-  by_stability <- by[by %in% colnames(input$stability)]
-  out[[3]] <- input$stability[by_stability]
-  out[[3]]$metric <- "JaccardDist"
-  out[[3]]$mean <- input$stability$jdist_train
-  out[[3]]$sd <- NA
-  
-  out <- Reduce(plyr::rbind.fill, out)
-  
-  ## Rank based on weighted sum of metrics
-  # Connectivity [0,Inf] minimize
-  # Dunn [0,Inf] maximize
-  # Silhouette [-1,1] maximize
-  # JaccardDist [0,1] minimize
-  # ChiSqRR [0,1] minimize
-  
-  wsumtable <- data.frame(metric = c("Connectivity", "Dunn", "Silhouette",
-                                     "JaccardDist", "ChiSqRR_batch_label"),
-                          weight = c(w_connectivity, w_dunn, w_silhouette,
-                                     -1*w_stability, w_batch_effect))
-  
-  wsumfun <- function(x) {
-    temp <- invisible(plyr::join(x, wsumtable, by = "metric"))
-    return(data.frame(wsum = sum(temp$mean * temp$weight), 
-                      Connectivity = temp$mean[grep("Connectivity", temp$metric)], 
-                      Dunn = temp$mean[grep("Dunn", temp$metric)], 
-                      Silhouette = temp$mean[grep("Silhouette", temp$metric)], 
-                      JaccardDist = temp$mean[grep("JaccardDist", temp$metric)],
-                      ChiSqRR_batch_label = temp$mean[grep("ChiSqRR_batch_label", temp$metric)]))
+  # Batch label associations
+  if (!is.null(input$batch_association)) {
+    if (nrow(input$batch_association) > 0) {
+      by_bassoc <- by[by %in% colnames(input$batch_association)]
+      bassoc <- plyr::ddply(input$batch_association, 
+                              c(by_bassoc, "label"), 
+                              function(x) data.frame(NMI = mean(x$nmi), ARI = mean(x$ari)))
+      bassoc_nmi <- reshape2::dcast(bassoc, 
+                                    as.formula(paste(paste(by_bassoc, collapse = "+"), "~ label")), 
+                                    value.var = "NMI")
+      colnames(bassoc_nmi)[!colnames(bassoc_nmi) %in% by_bassoc] <- paste0("NMI", colnames(bassoc_nmi)[!colnames(bassoc_nmi) %in% by_bassoc])
+      bassoc_ari <- reshape2::dcast(bassoc, 
+                                    as.formula(paste(paste(by_bassoc, collapse = "+"), "~ label")), 
+                                    value.var = "ARI")
+      colnames(bassoc_ari)[!colnames(bassoc_ari) %in% by_bassoc] <- paste0("ARI", colnames(bassoc_ari)[!colnames(bassoc_ari) %in% by_bassoc])
+    } else {
+      bassoc_nmi <- NULL
+      bassoc_ari <- NULL
+    }
+  } else {
+    bassoc_nmi <- NULL
+    bassoc_ari <- NULL
   }
   
-  by_all <- by[by %in% colnames(out)]
-  scores <- plyr::ddply(out, by_all, wsumfun)
+  # Subtype label associations
+  if (!is.null(input$subtype_association)) {
+    if (nrow(input$subtype_association) > 0) {
+      by_sassoc <- by[by %in% colnames(input$subtype_association)]
+      sassoc <- plyr::ddply(input$subtype_association, 
+                            c(by_sassoc, "label"), 
+                            function(x) data.frame(NMI = mean(x$nmi), ARI = mean(x$ari)))
+      sassoc_nmi <- reshape2::dcast(sassoc, 
+                                    as.formula(paste(paste(by_sassoc, collapse = "+"), "~ label")), 
+                                    value.var = "NMI")
+      colnames(sassoc_nmi)[!colnames(sassoc_nmi) %in% by_sassoc] <- paste0("NMI", colnames(sassoc_nmi)[!colnames(sassoc_nmi) %in% by_sassoc])
+      sassoc_ari <- reshape2::dcast(sassoc, 
+                                    as.formula(paste(paste(by_sassoc, collapse = "+"), "~ label")), 
+                                    value.var = "ARI")
+      colnames(sassoc_ari)[!colnames(sassoc_ari) %in% by_sassoc] <- paste0("ARI", colnames(sassoc_ari)[!colnames(sassoc_ari) %in% by_sassoc])
+    } else {
+      sassoc_nmi <- NULL
+      sassoc_ari <- NULL
+    }
+  } else {
+    sassoc_nmi <- NULL
+    sassoc_ari <- NULL
+  }
   
-  best <- scores[which.max(scores$wsum),]
+  # Stability
+  #by_stability <- by[by %in% colnames(input$stability)]
+  stability <- input$stability
+  stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
+  colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
+                                               "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
   
-  return(list(all = scores[order(scores$wsum, decreasing = TRUE),], 
+  # Combine all metrics
+  out <- list(mean_internals, chisq_rr, bassoc_nmi, bassoc_ari, sassoc_nmi, sassoc_ari, stability)
+  out <- Reduce(plyr::join, out[!sapply(out, is.null)])
+  
+  # Scoring
+  score <- substitute(wsum)
+  
+  out$wsum <- eval(score, out)
+  best <- out[which.max(out$wsum),]
+  
+  return(list(all = out[order(out$wsum, decreasing = TRUE),], 
               best = best))
 }
 

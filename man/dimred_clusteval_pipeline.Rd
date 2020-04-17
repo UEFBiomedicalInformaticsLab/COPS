@@ -9,6 +9,7 @@ dimred_clusteval_pipeline(
   nfolds,
   nruns,
   batch_label = NULL,
+  subtype_label = NULL,
   verbose = TRUE,
   parallel = 1,
   ...
@@ -22,6 +23,8 @@ dimred_clusteval_pipeline(
 \item{nruns}{number of cross-validation replicates}
 
 \item{batch_label}{vector or matrix with categorical variables on columns}
+
+\item{subtype_label}{vector or matrix with categorical variables on columns}
 
 \item{verbose}{if \code{TRUE}, prints progress notifications}
 

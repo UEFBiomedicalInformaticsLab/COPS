@@ -42,7 +42,7 @@ fgtpw_test <- function() {
   disease_otp = retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
   
   
-  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl", "useast.ensembl.org")
+  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")#, "useast.ensembl.org")
   dis_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
                                      filters = "entrezgene_id", 
                                      values = disease_otp$entrezId,
@@ -105,11 +105,14 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
                                       min.size = 5, max.size = 200, 
                                       parallel = 4,
                                       verbose = FALSE,
-                                      kcdf = "Gaussian") {
+                                      key_name = "ENSEMBL",
+                                      kcdf = "Gaussian",
+                                      rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
+                                      ) {
   # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
-  db_annots = msigdbr::msigdbr(species = "Homo sapiens") %>% 
-                             dplyr::filter(gs_subcat == "BP" | gs_subcat == "MF" | 
-                                           gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
+  db_annots = msigdbr::msigdbr(species = "Homo sapiens")
+  db_annots <- dplyr::filter(db_annots, gs_subcat == "BP" | gs_subcat == "MF" | 
+                                        gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
   list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_symbol)
   list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < max.size)]
   
@@ -118,21 +121,21 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
   re_pathways <- NULL
   if(!is.null(study_batch)) {
     if(verbose) print("The dataset in input corresponds to the original dataset")
-    list_dat <- lapply(unique(study_batch), function(x) dat[,which(x == as.character(study_batch))])
+    list_dat <- lapply(unique(study_batch), function(x) dat[,which(x == as.character(study_batch)), drop = FALSE])
     ke_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
-      #rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      if (key_name != "SYMBOL") rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", key_name)))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
     }))
     go_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
-      #rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      if (key_name != "SYMBOL") rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", key_name)))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("GO_", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
     }))
     re_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
-      #rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", "ENSEMBL")))
+      if (key_name != "SYMBOL") rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", key_name)))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))
+                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
     }))
     ke_pathways <- t(ke_pathways)
     go_pathways <- t(go_pathways)
@@ -142,13 +145,13 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
     re_pathways[is.na(re_pathways)] <- 0
   }
   else {
-    rownames(dat) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", "ENSEMBL")))
-    ke_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("KEGG", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))
-    go_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("GO", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf =  kcdf))
-    re_pathways <- suppressWarnings(gsva(dat, list_ad_m_df[grep("REACTOME", names(list_ad_m_df))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))
+    if (key_name != "SYMBOL") rownames(dat) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", key_name)))
+    ke_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+    go_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("GO", names(list_db_annots))], mx.diff=TRUE, 
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf =  kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+    re_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
+                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
   }
   colnames(ke_pathways) <- colnames(dat)
   colnames(go_pathways) <- colnames(dat)
@@ -212,7 +215,7 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
   string_db <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = cutoff)
   if(directed == TRUE) {
     gene.stringdb <- string_db$map(my_data_frame = gene.diseases, my_data_frame_id_col_names='target.gene_info.symbol', 
-                                     removeUnmappedRows=T)
+                                     removeUnmappedRows=TRUE)
     string_inter <- string_db$get_interactions(gene.stringdb$STRING_id)
     idx_from <- match(x = string_inter$from, table = gene.stringdb$STRING_id)
     idx_to <- match(x = string_inter$to, table = gene.stringdb$STRING_id)
@@ -222,8 +225,8 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
     print(gene.stringdb$target.gene_info.symbol[idx_from])
     ppi_network <- data.frame(node1=gene.stringdb$target.gene_info.symbol[idx_from], 
                               node2=gene.stringdb$target.gene_info.symbol[idx_to], 
-                              weight=string_inter$combined_score/1000,stringsAsFactors = F)
-    g.ppi_network <- igraph::graph_from_edgelist(as.matrix(ppi_network[,1:2]), directed=T)
+                              weight=string_inter$combined_score/1000,stringsAsFactors = FALSE)
+    g.ppi_network <- igraph::graph_from_edgelist(as.matrix(ppi_network[,1:2]), directed=TRUE)
   } 
   else {
     hs_all_proteins = string_db_hs$get_proteins(); rownames(hs_all_proteins) = hs_all_proteins[,1]
@@ -234,9 +237,10 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
     adj_matrix <- as_adjacency_matrix(g)
     # map gene ids to protein ids
     # get gene/protein ids via Biomart
-    mart <- biomaRt::useMart(host = 'grch37.ensembl.org', 
-                             biomart='ENSEMBL_MART_ENSEMBL', 
-                             dataset='hsapiens_gene_ensembl')
+    #mart <- biomaRt::useMart(host = 'grch37.ensembl.org', 
+    #                         biomart='ENSEMBL_MART_ENSEMBL', 
+    #                         dataset='hsapiens_gene_ensembl')
+    mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")
     # extract protein ids from the human network
     protein_ids <- sapply(strsplit(rownames(adj_matrix), '\\.'), function(x) x[2])
     # get protein to gene id mappings
@@ -285,7 +289,7 @@ expressionToRWFeatures <- function(dat,
   
   # Harmonize gene labels
   #mart <- biomaRt::useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
-  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl", "useast.ensembl.org")
+  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")#, "useast.ensembl.org")
   # It is actually faster to load whole table rather than post a large filter
   mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id", "entrezgene_id"), 
                                  mart = mart)

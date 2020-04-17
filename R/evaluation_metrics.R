@@ -123,7 +123,34 @@ stability_eval <- function(clust,
                            by2 = c("run", "fold"),
                            ...)
 {
-  f <- function(x) {
+  # Function to be applied for each
+  f1 <- function(clust, clustref) {
+    if (length(clust) != length(clustref)) {
+      stop("Number of given references does not match number of given inputs.")
+    }
+    if (length(clust) > 0) {
+      jsc <- c()
+      nmi <- c()
+      ari <- c()
+      for (i in 1:length(clust)) {
+        jsc[i] <- clusteval::cluster_similarity(clust[[i]],
+                                                clustref[[i]],
+                                                similarity = "jaccard")
+        nmi[i] <- aricode::NMI(clust[[i]], clustref[[i]])
+        ari[i] <- aricode::ARI(clust[[i]], clustref[[i]])
+      }
+      mean_jsc <- mean(jsc, na.rm = TRUE)
+      mean_nmi <- mean(nmi, na.rm = TRUE)
+      mean_ari <- mean(ari, na.rm = TRUE)
+    } else {
+      mean_jsc <- NA
+      mean_nmi <- NA
+      mean_ari <- NA
+    }
+    return(list(mean_jsc = mean_jsc, mean_nmi = mean_nmi, mean_ari = mean_ari))
+  }
+  # Function to be applied for method combinations in clustering table
+  f2 <- function(x) {
     data.table::setDTthreads(1)
     ref_i <- unique(x$fold)
     ref_i <- ref_i[!ref_i %in% unique(x$cv_index)]
@@ -135,21 +162,23 @@ stability_eval <- function(clust,
     nonref <- x[fold != ref_i,]
     nonref$test_ind <- nonref$cv_index == nonref$fold
     
-    #nonref <- plyr::join(nonref, ref[c("id", by2, "reference_cluster")], 
-    #                     by = c("id", by2[by2 != "fold"]), type = "inner")
     ref_cols <- c("id", by2[by2 != "fold"], "reference_cluster")
     nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
     
-    #train_nonref <- nonref[test_ind == FALSE, list(cluster), by = by2]
     train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
     train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
-    train_jdist <- jdist_ref(train_nonref, train_ref)
+    train_res <- f1(train_nonref, train_ref)
     
     test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
     test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
-    test_jdist <- jdist_ref(test_nonref, test_ref)
+    test_res <- f1(test_nonref, test_ref)
     
-    return(data.table::data.table(jdist_train = train_jdist, jdist_test = test_jdist))
+    return(data.table::data.table(train_jsc = train_res$mean_jsc, 
+                                  train_nmi = train_res$mean_nmi, 
+                                  train_ari = train_res$mean_ari, 
+                                  test_jsc = test_res$mean_jsc,
+                                  test_nmi = test_res$mean_nmi,
+                                  test_ari = test_res$mean_ari))
   }
   by <- by[by %in% colnames(clust)]
   
@@ -159,11 +188,11 @@ stability_eval <- function(clust,
   #temp_list <- split(clust, clust[by])
   stability <- foreach(temp = temp_list,
                       .combine = function(...) data.table::rbindlist(list(...)),
-                      .export = c("jdist_ref"),
-                      .packages = c("clusteval", "data.table"),
+                      .export = c(),
+                      .packages = c("clusteval", "data.table", "aricode"),
                       .multicombine = TRUE,
                       .maxcombine = length(temp_list)) %dopar% {
-    out <- f(temp)
+    out <- f2(temp)
     for (j in by) {
       out[[j]] <- temp[[j]][1]
     }
@@ -172,10 +201,10 @@ stability_eval <- function(clust,
   return(as.data.frame(stability))
 }
 
-#' Categorical variable association estimates
+#' Continuous variable to categorical variable association analysis
 #'
 #' Three non-clustering batch effect estimators put together. \cr
-#' Can be used for other purposes as well.
+#' Can be used for other purposes as well. 
 #'
 #' @param dat data matrix, samples on columns
 #' @param class vector or matrix where columns are categorical variables
@@ -253,8 +282,10 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' @export
 #' @importFrom stats chisq.test cutree
 #' @importFrom clValid clValid clusters
+#' @importFrom aricode NMI ARI
 clustering_evaluation <- function(dat,
                                   batch_label_names = NULL,
+                                  subtype_label_names = NULL,
                                   n_clusters = 2:5,
                                   cluster_methods = c("hierarchical","pam","diana","kmeans"),
                                   metric = "euclidean",
@@ -301,26 +332,60 @@ clustering_evaluation <- function(dat,
   out_list$metrics$datname <- dat$datname[1]
   out_list$metrics$drname <- dat$drname[1]
   
+  # Pearson's chi-squared test
+  f1 <- function(x, c1, c2) {
+    temp <- suppressWarnings(chisq.test(x[[c1]], x[[c2]]))
+    temp <- data.frame(p = temp$p.value)
+    temp$run <- x$run[1]
+    temp$fold <- x$fold[1]
+    temp$datname <- x$datname[1]
+    temp$drname <- x$drname[1]
+    temp$k <- x$k[1]
+    temp$m <- x$m[1]
+    temp$label <- c2
+    return(temp)
+  }
+  # Other contingency table based metrics
+  f2 <- function(x, c1, c2) {
+    temp <- data.frame(nmi = aricode::NMI(x[[c1]], x[[c2]]),
+                       ari = aricode::ARI(x[[c1]], x[[c2]]))
+    temp$run <- x$run[1]
+    temp$fold <- x$fold[1]
+    temp$datname <- x$datname[1]
+    temp$drname <- x$drname[1]
+    temp$k <- x$k[1]
+    temp$m <- x$m[1]
+    temp$label <- c2
+    return(temp)
+  }
+  
   if (!is.null(batch_label_names)) {
-    f <- function(x) {
-      out <- data.frame()
-      for (i in 1:length(batch_label_names)) {
-        temp <- suppressWarnings(chisq.test(table(x[c(batch_label_names[i], "cluster")])))
-        temp <- data.frame(p = temp$p.value)
-        temp$run <- x$run[1]
-        temp$fold <- x$fold[1]
-        temp$datname <- x$datname[1]
-        temp$drname <- x$drname[1]
-        temp$k <- x$k[1]
-        temp$m <- x$m[1]
-        temp$batch_label <- batch_label_names[i]
-        out <- rbind(out, temp)
-      }
-      return(out)
+    batch_label_chisq <- list()
+    batch_label_assoc <- list()
+    for (i in 1:length(batch_label_names)) {
+      batch_label_chisq[[i]] <- Reduce("rbind", 
+                                       lapply(split(out_list$clusters, 
+                                                    out_list$clusters[c("k", "m")]), 
+                                              f1, c1 = "cluster", c2 = batch_label_names[i]))
+      batch_label_assoc[[i]] <- Reduce("rbind", 
+                                       lapply(split(out_list$clusters, 
+                                                    out_list$clusters[c("k", "m")]), 
+                                              f2, c1 = "cluster", c2 = batch_label_names[i]))
     }
-    
-    #out_list$chisq_pval <- plyr::ddply(out_list$clusters, c("k", "m"), f)
-    out_list$chisq_pval <- Reduce(rbind, lapply(split(out_list$clusters, out_list$clusters[c("k", "m")]), f))
+    out_list$chisq_pval <- Reduce("rbind", batch_label_chisq)
+    out_list$batch_association <- Reduce("rbind", batch_label_assoc)
+  }
+  
+  if (!is.null(subtype_label_names)) {
+    subtype_label_assoc <- list()
+    for (i in 1:length(subtype_label_names)) {
+      temp <- out_list$clusters[!is.na(out_list$clusters[[subtype_label_names[i]]]),]
+      subtype_label_assoc[[i]] <- Reduce("rbind", 
+                                         lapply(split(temp, 
+                                                      temp[c("k", "m")]), 
+                                                f2, c1 = "cluster", c2 = subtype_label_names[i]))
+    }
+    out_list$subtype_association <- Reduce("rbind", subtype_label_assoc)
   }
   return(out_list)
 }
@@ -360,6 +425,8 @@ cv_clusteval <- function(dat_embedded, ...) {
     bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
     bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
     bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
+    bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
+    bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
     return(bound_list)
   }
   

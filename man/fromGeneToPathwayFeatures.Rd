@@ -11,7 +11,9 @@ fromGeneToPathwayFeatures(
   max.size = 200,
   parallel = 4,
   verbose = FALSE,
-  kcdf = "Gaussian"
+  key_name = "ENSEMBL",
+  kcdf = "Gaussian",
+  rnaseq = FALSE
 )
 }
 \arguments{

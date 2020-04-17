@@ -7,12 +7,8 @@
 clusteval_scoring(
   input,
   by = c("datname", "drname", "k", "m"),
-  chisq_significance_level = 0.05,
-  w_connectivity = -0.1,
-  w_dunn = 0.1,
-  w_silhouette = 0.5,
-  w_stability = 1,
-  w_batch_effect = -1
+  wsum = (TrainStabilityARI + 1 - ARIbatch_label)/2,
+  chisq_significance_level = 0.05
 )
 }
 \arguments{

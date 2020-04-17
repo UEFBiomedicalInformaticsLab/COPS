@@ -2,7 +2,7 @@
 % Please edit documentation in R/evaluation_metrics.R
 \name{class_associations}
 \alias{class_associations}
-\title{Categorical variable association estimates}
+\title{Continuous variable to categorical variable association analysis}
 \usage{
 class_associations(dat, class, n_pc_max = 10, ...)
 }

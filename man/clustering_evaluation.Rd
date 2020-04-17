@@ -7,6 +7,7 @@
 clustering_evaluation(
   dat,
   batch_label_names = NULL,
+  subtype_label_names = NULL,
   n_clusters = 2:5,
   cluster_methods = c("hierarchical", "pam", "diana", "kmeans"),
   metric = "euclidean",
