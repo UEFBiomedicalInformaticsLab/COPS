@@ -279,7 +279,7 @@ dimred_cluster <- function(dat_list,
     }
   }
   if (dimred_method == "original") {
-    embed <- dat
+    embed <- t(dat)
   } else {
     embed <- dim_reduction_suite(t(dat),
                                  dimred_methods = dimred_method,
