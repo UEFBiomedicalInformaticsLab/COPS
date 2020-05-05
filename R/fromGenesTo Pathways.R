@@ -1,96 +1,16 @@
-###########################
-####   COPS functions   ###
-###########################
-
-### TESTING FUNCTIONS
-fgtpw_test <- function() {
-  provola = getHumanPPIfromSTRINGdb(gene.diseases, directed = FALSE) # TODO: fix error on directed = FALSE
-  
-  pso_comb_centered <- Reduce("rbind", lapply(split(as.data.frame(t(pso_comb_unscaled)), batch), 
-                                              function(x) scale(x, scale = FALSE)))
-  
-  datRW <- COPS:::expressionToRWFeatures(pso_comb, "EFO_0000676", otp_cutoff = 0.6) # Psoriasis
-  #datRW <- COPS:::expressionToRWFeatures(tbrca, "EFO_0000305") # Breast cancer
-  datRW[is.na(datRW)] <- 0 
-  # Split by pw annotation source (KEGG, GO, REACTOME)
-  datRW_list <- split(as.data.frame(t(datRW)), sapply(strsplit(colnames(datRW), "_"), function(x) x[1]))
-  names(datRW_list) <- paste0(names(datRW_list), "_RWR")
-  
-  datGSVA <- COPS:::fromGeneToPathwayFeatures(pso_comb_unscaled, batch, parallel = 10)
-  
-  res <- COPS::dimred_clusteval_pipeline(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), 
-                                         batch_label = batch, 
-                                         include_original = FALSE, 
-                                         parallel = 10, nruns = 10, 
-                                         nfolds = 5, dimred_methods = c("pca", "umap"),
-                                         cluster_methods = c("hierarchical", "kmeans"),
-                                         metric = "euclidean", 
-                                         n_clusters = 2:6)
-  scores <- COPS::clusteval_scoring(res, w_connectivity = 0, w_dunn = 0, w_silhouette = 0)
-  best <- COPS::dimred_cluster(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), scores$best)
-  GGally::ggpairs(as.data.frame(best$embedding), aes(color = factor(batch), alpha = 0.4)) + ggtitle("Batches in best embeddings")
-  GGally::ggpairs(as.data.frame(COPS::dimred_cluster(c(list(zscore = pso_comb_scaled), datRW_list, datGSVA), 
-                                                     scores$all[5,])$embedding), aes(color = factor(batch), alpha = 0.4))
-  
-  # Heatmaps of gene seeds
-  assoc_score_fields = paste(paste("&fields=", c('disease.efo_info.label',
-                                                 'disease.efo_info.therapeutic_area',
-                                                 'target.gene_info.symbol',
-                                                 'association_score.overall',
-                                                 'disease.id',
-                                                 'association_score.datatypes'), sep=''), collapse = "")
-  disease_otp = retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
-  
-  
-  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")#, "useast.ensembl.org")
-  dis_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
-                                     filters = "entrezgene_id", 
-                                     values = disease_otp$entrezId,
-                                     mart = mart)
-  otp_cutoff <- 0.6
-  gene.diseases = disease_otp[which(disease_otp$association_score.overall > otp_cutoff),]
-  disease.genes <- mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
-                                                      mart_results$entrezgene_id)]
-  disease.genes <- disease.genes[!is.na(disease.genes)]
-  sum(rownames(dat) %in% disease.genes)
-  mean(disease.genes %in% rownames(dat))
-  
-  top.ranked.genes <- nrow(dat) %/% 20
-  gene.seeds <- plyr::aaply(dat, 2, function(s) {
-    sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)[1:top.ranked.genes]]
-    out <- intersect(sorted.genes, disease.genes)
-    out <- as.numeric(igraph::V(gene.network)$name %in% out)
-    out
-  })
-  
-  
-  f_jaccard <- function(x, y) {sum(x & y) / sum(x | y)}
-  seeds_jaccard <- array(NA, dim = c(nrow(gene.seeds), nrow(gene.seeds)))
-  diag(seeds_jaccard) <- 1
-  for (i in 1:(nrow(gene.seeds)-1)) {
-    for (j in (i+1):nrow(gene.seeds)) {
-      seeds_jaccard[i,j] <- f_jaccard(gene.seeds[i,], gene.seeds[j,])
-      seeds_jaccard[j,i] <- seeds_jaccard[i,j]
-    }
-  }
-  # Set samples with 0 gene seeds to zero
-  seeds_jaccard[is.na(seeds_jaccard)] <- 0
-  heatmap.2(seeds_jaccard, symm = TRUE, dist = as.dist, density.info = "none", trace = "none")
-}
-
-
 #'Transform a gene-level data matrix into path-level information
 #'
-#'Utility function to extract pathway-based features from gene expression data.
+#'Utility function to extract pathway-based features from gene expression data using GSVA.
 #'
 #'@param dat a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
 #'@param study_batch factor indicating the individual studies. 
 #'A NULL value implicates that the input data matrix represents the original dataset (without removing the batches).
-#'@param min.size a numeric value indicating the minimum size of the resulting gene sets.
-#'@param max.size a numeric value indicating the maximum size of the resulting gene sets.
-#'@param parallel a numeric value indicating the umber of processors to use when doing the calculations in parallel.
+#'@param min.size a numeric value indicating the minimum size of gene sets included
+#'@param max.size a numeric value indicating the maximum size of gene sets included
+#'@param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #'@param verbose controls verbosity
 #'@param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
+#'@param gs_subcats a character vector indicating msigdbr gene set subcategory names to include in the analysis
 #'
 #'@return a list of three data frames:\cr
 #'        - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
@@ -107,12 +27,12 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
                                       verbose = FALSE,
                                       key_name = "ENSEMBL",
                                       kcdf = "Gaussian",
-                                      rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
+                                      gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME")
+                                      #rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
                                       ) {
   # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
   db_annots = msigdbr::msigdbr(species = "Homo sapiens")
-  db_annots <- dplyr::filter(db_annots, gs_subcat == "BP" | gs_subcat == "MF" | 
-                                        gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
+  db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
   list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_symbol)
   list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < max.size)]
   
