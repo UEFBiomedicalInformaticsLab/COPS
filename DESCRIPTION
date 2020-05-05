@@ -8,17 +8,30 @@ Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
 Depends: R (>= 3.5.0)
 Imports: 
-    FactoMineR,
-    Rtsne,
+    AnnotationDbi,
+    aricode,
+    biomaRt,
     clValid,
     clusteval,
     data.table,
+    dnet,
     doParallel,
+    dplyr,
+    FactoMineR,
+    fgsea,
     foreach,
+    GSVA,
+    httr,
+    igraph,
+    jsonlite,
     kBET,
+    Matrix,
+    msigdbr,
     parallel,
     plyr,
     reshape2,
+    Rtsne,
+    STRINGdb,
     uwot
 Suggests:
     knitr,

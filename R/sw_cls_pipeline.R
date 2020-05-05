@@ -340,7 +340,7 @@ dimred_cluster <- function(dat_list,
 #' @export
 #' @importFrom plyr join ddply
 #' @importFrom reshape2 melt dcast
-#' @importFrom stats sd
+#' @importFrom stats sd as.formula
 clusteval_scoring <- function(input,
                               by = c("datname", "drname", "k", "m"),
                               wsum = (TrainStabilityARI + 1 - ARIbatch_label) / 2,

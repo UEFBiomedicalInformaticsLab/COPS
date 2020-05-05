@@ -13,7 +13,7 @@ fromGeneToPathwayFeatures(
   verbose = FALSE,
   key_name = "ENSEMBL",
   kcdf = "Gaussian",
-  rnaseq = FALSE
+  gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME")
 )
 }
 \arguments{
@@ -22,15 +22,17 @@ fromGeneToPathwayFeatures(
 \item{study_batch}{factor indicating the individual studies. 
 A NULL value implicates that the input data matrix represents the original dataset (without removing the batches).}
 
-\item{min.size}{a numeric value indicating the minimum size of the resulting gene sets.}
+\item{min.size}{a numeric value indicating the minimum size of gene sets included}
 
-\item{max.size}{a numeric value indicating the maximum size of the resulting gene sets.}
+\item{max.size}{a numeric value indicating the maximum size of gene sets included}
 
-\item{parallel}{a numeric value indicating the umber of processors to use when doing the calculations in parallel.}
+\item{parallel}{a numeric value indicating the number of processors to use when doing the calculations in parallel.}
 
 \item{verbose}{controls verbosity}
 
 \item{kcdf}{distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel}
+
+\item{gs_subcats}{a character vector indicating msigdbr gene set subcategory names to include in the analysis}
 }
 \value{
 a list of three data frames:\cr
@@ -39,5 +41,5 @@ a list of three data frames:\cr
        - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
 }
 \description{
-Utility function to extract pathway-based features from gene expression data.
+Utility function to extract pathway-based features from gene expression data using GSVA.
 }

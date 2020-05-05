@@ -2,7 +2,7 @@
 % Please edit documentation in R/fromGenesTo Pathways.R
 \name{getHumanPPIfromSTRINGdb}
 \alias{getHumanPPIfromSTRINGdb}
-\title{Retrieve a protein-protein interaction network from STRINGdb.}
+\title{Retrieve human protein-protein interaction network from STRINGdb.}
 \usage{
 getHumanPPIfromSTRINGdb(gene.diseases, cutoff = 700, directed = FALSE)
 }

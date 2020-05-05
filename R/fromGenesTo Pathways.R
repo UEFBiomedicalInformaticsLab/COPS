@@ -1,26 +1,27 @@
-#'Transform a gene-level data matrix into path-level information
-#'
-#'Utility function to extract pathway-based features from gene expression data using GSVA.
-#'
-#'@param dat a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
-#'@param study_batch factor indicating the individual studies. 
-#'A NULL value implicates that the input data matrix represents the original dataset (without removing the batches).
-#'@param min.size a numeric value indicating the minimum size of gene sets included
-#'@param max.size a numeric value indicating the maximum size of gene sets included
-#'@param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
-#'@param verbose controls verbosity
-#'@param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
-#'@param gs_subcats a character vector indicating msigdbr gene set subcategory names to include in the analysis
-#'
-#'@return a list of three data frames:\cr
+#' Transform a gene-level data matrix into path-level information
+#' 
+#' Utility function to extract pathway-based features from gene expression data using GSVA.
+#' 
+#' @param dat a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
+#' @param study_batch factor indicating the individual studies. 
+#' A NULL value implicates that the input data matrix represents the original dataset (without removing the batches).
+#' @param min.size a numeric value indicating the minimum size of gene sets included
+#' @param max.size a numeric value indicating the maximum size of gene sets included
+#' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
+#' @param verbose controls verbosity
+#' @param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
+#' @param gs_subcats a character vector indicating msigdbr gene set subcategory names to include in the analysis
+#' 
+#' @return a list of three data frames:\cr
 #'        - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
 #'        - \strong{GO_PW}: a character variable containing gene symbols;\cr
 #'        - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
-#'@export
-#'@importFrom AnnotationDbi mapIds
-#'@importFrom dplyr filter '%>%'
-#'@importFrom msigdbr msigdbr
-#'@importFrom GSVA gsva
+#' @export
+#' @importFrom AnnotationDbi mapIds
+#' @importFrom org.Hs.eg.db org.Hs.eg.db
+#' @importFrom dplyr filter
+#' @importFrom msigdbr msigdbr
+#' @importFrom GSVA gsva
 fromGeneToPathwayFeatures <- function(dat, study_batch = NULL, 
                                       min.size = 5, max.size = 200, 
                                       parallel = 4,
@@ -83,19 +84,19 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
 }
 
 
-#'Retrieve disease-gene associations from the Open Targets platforms. 
-#'
-#'Utility function to extract relevant disease-gene associations
-#'
-#'@param diseases a character vector indicating the disease names. 
-#'@param fields a character vector indicating the data types used for the infrence of disease-gene associations.
-#'Check the Open Target platforms for more details.
+#' Retrieve disease-gene associations from the Open Targets platforms. 
 #' 
-#'@return a data frame including disease-gene association found for each specified data type.
-#'@export
-#'@importFrom httr content
-#'@importFrom jsonlite fromJSON
-#'@importFrom AnnotationDbi mapIds
+#' Utility function to extract relevant disease-gene associations
+#' 
+#' @param diseases a character vector indicating the disease names. 
+#' @param fields a character vector indicating the data types used for the infrence of disease-gene associations.
+#' Check the Open Target platforms for more details.
+#' 
+#' @return a data frame including disease-gene association found for each specified data type.
+#' @export
+#' @importFrom httr content GET
+#' @importFrom jsonlite fromJSON
+#' @importFrom AnnotationDbi mapIds
 retrieveDiseaseGenesOT <- function(diseases, fields) {
   server <- 'https://platform-api.opentargets.io/v3/platform'
   endpoint_prmtrs <- '/public/association/filter'
@@ -121,16 +122,20 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 }
 
 
-#'Retrieve a protein-protein interaction network from STRINGdb.
-#'
-#'Utility function to extract a gene subnetwork from STRINGdb including only the seed genes and their interactions. 
-#'@param gene.diseases a character vector indicating the gene seeds. 
-#'@param cutoff a numeric value indicating the cutoff for the edge scores.  
-#'@param directed a boolean value indicating the type of grpah to be generated. 
+#' Retrieve human protein-protein interaction network from STRINGdb.
 #' 
-#'@return an igraph object.
-#'@export
-#'@import STRINGdb
+#' Utility function to extract a gene subnetwork from STRINGdb including only the seed genes and their interactions. 
+#' 
+#' @param gene.diseases a character vector indicating the gene seeds. 
+#' @param cutoff a numeric value indicating the cutoff for the edge scores.  
+#' @param directed a boolean value indicating the type of grpah to be generated. 
+#' 
+#' @return an igraph object.
+#' @export
+#' @importFrom STRINGdb STRINGdb
+#' @importFrom igraph graph_from_edgelist graph_from_adjacency_matrix as_adjacency_matrix
+#' @importFrom biomaRt useEnsembl getBM
+#' @importFrom Matrix rowSums
 getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALSE) {
   string_db <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = cutoff)
   if(directed == TRUE) {
@@ -148,13 +153,13 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
                               weight=string_inter$combined_score/1000,stringsAsFactors = FALSE)
     g.ppi_network <- igraph::graph_from_edgelist(as.matrix(ppi_network[,1:2]), directed=TRUE)
   } 
-  else {
+  else { # TODO: fix directed = FALSE, what is string_db_hs?
     hs_all_proteins = string_db_hs$get_proteins(); rownames(hs_all_proteins) = hs_all_proteins[,1]
     hs_ex_proteins = hs_all_proteins[which((hs_all_proteins$preferred_name %in% 
                                               rownames(gene.diseases)) == TRUE),]; 
     g = string_db_hs$get_subnetwork(hs_ex_proteins$protein_external_id)
     # create adjacency matrix
-    adj_matrix <- as_adjacency_matrix(g)
+    adj_matrix <- igraph::as_adjacency_matrix(g)
     # map gene ids to protein ids
     # get gene/protein ids via Biomart
     #mart <- biomaRt::useMart(host = 'grch37.ensembl.org', 
@@ -182,6 +187,27 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
   return(g.ppi_network)
 }
 
+#' Gene expression to gene seeds to RWR on PPI into FGSEA scores
+#'
+#' Conveniently wraps \code{\link{fromGeneToNetworksToPathwayFeatures}} using 
+#' \code{\link{retrieveDiseaseGenesOT}} for disease associated genes, 
+#' \code{STRINGdb} human PPI as a network, \code{msigdbr} for gene set annotations and 
+#' \code{biomaRt} for harmonization.
+#'
+#' @param dat a gene expression matrix with samples on columns
+#' @param disease_id integer ID in Open Targets platform
+#' @param otp_cutoff numeric association score cutoff for Open Targets platform
+#' @param ppi_cutoff numeric PPI link score cutoff
+#' @param ... extra arguments are passed on to \code{\link{fromGeneToNetworksToPathwayFeatures}}
+#'
+#' @return list of enrichment scores
+#' @export
+#'
+#' @importFrom STRINGdb STRINGdb
+#' @importFrom igraph V
+#' @importFrom msigdbr msigdbr
+#' @importFrom dplyr filter
+#' @importFrom biomaRt useEnsembl getBM
 expressionToRWFeatures <- function(dat, 
                                    disease_id, 
                                    otp_cutoff = 0.8, 
@@ -202,8 +228,8 @@ expressionToRWFeatures <- function(dat,
   igraph::V(gene.network)$name <- gsub("^9606\\.", "", igraph::V(gene.network)$name)
   
   # Get pathways information from msigdb (https://www.gsea-msigdb.org/)
-  db_annots = msigdbr::msigdbr(species = "Homo sapiens") %>% 
-    dplyr::filter(gs_subcat == "BP" | gs_subcat == "MF" | 
+  db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
+  db_annots <- dplyr::filter(db_annots, gs_subcat == "BP" | #gs_subcat == "MF" | 
                     gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
   
   
@@ -254,14 +280,36 @@ expressionToRWFeatures <- function(dat,
   return(out)
 }
 
-#'@param rwr_restart the restart probability used for RWR. See \code{dnet::dRWR} for more details.
-#'@param rwr_norm the way to normalise the adjacency matrix of the input graph. See \code{dnet::dRWR} for more details.
-#'@param rwr_cutoff the cuoff value to select the most visited genes.  (TO BE COMPLETED)
+#' Random walk with restart and FGSEA worker
+#'
+#' Runs random walk in a given network starting from seed genes selected from most over/under expressed in the data intersected with 
+#' known disease genes. The gene affinities are then processed with FGSEA to yield pathway features. 
+#'
+#' @param dat a gene expression matrix with samples on columns
+#' @param disease.genes a character vector containing Entrez IDs of genes associated with the target disease
+#' @param gene.network an \code{igraph.object} with nodes matching to \code{dat} rows
+#' @param list_db_annots list of character vectors containing gene sets for FGSEA
+#' @param top.ranked.genes integer, controls the number of gene seed candidates to intersect with the disease genes
+#' @param min.size integer, minimum size of gene sets
+#' @param max.size integer, maximum size of gene sets
+#' @param parallel integer, number of threads
+#' @param verbose boolean, verbosity of \code{dnet::dRWR}
+#' @param rwr_restart the restart probability used for RWR. See \code{dnet::dRWR} for more details.
+#' @param rwr_norm the way to normalise the adjacency matrix of the input graph. See \code{dnet::dRWR} for more details.
+#' @param rwr_cutoff the cuoff value to select the most visited genes.  
+#' @param ... extra arguments are ignored
+#'
+#' @return list of enrichment scores
+#' @export
+#' 
+#' @importFrom plyr aaply
+#' @importFrom igraph V
+#' @importFrom dnet dRWR
+#' @importFrom fgsea fgsea
 fromGeneToNetworksToPathwayFeatures <- function(dat, 
                                                 disease.genes, # a character vector
                                                 gene.network,  # igraph.object
                                                 list_db_annots, # list of pathway annotated gene sets
-                                                #study_batch = NULL, 
                                                 top.ranked.genes = 100,
                                                 min.size = 5, 
                                                 max.size = 200, 
@@ -271,7 +319,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                                                 rwr_norm = "quantile",
                                                 rwr_cutoff = 0,
                                                 ...) {
-  # rank disease-genes within each sample
+  # Rank disease-genes within each sample
   gene.seeds <- plyr::aaply(dat, 2, function(s) {
                       sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)[1:top.ranked.genes]]
                       out <- intersect(sorted.genes, disease.genes)
@@ -279,18 +327,14 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                       out
   })
   colnames(gene.seeds) <- igraph::V(gene.network)$name
-  #gene.seeds <- unique(do.call(c, gene.seeds))
-  #gene.seeds <- as.numeric(igraph::V(gene.network)$name %in% gene.seeds)
-  #names(gene.seeds) <- igraph::V(gene.network)$name
-  # compile the subnetwork from the PPI
   
-  # apply random walk (dnet) to extend the set of genes
+  # Apply random walk (dnet) to extend the set of genes
   rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = t(gene.seeds), normalise = "none",
                               restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
-                              parallel = parallel > 1, multicores = parallel, verbose = FALSE)
+                              parallel = parallel > 1, multicores = parallel, verbose = verbose)
   rownames(rwr.top.genes) = igraph::V(gene.network)$name
   
-  # apply fgsea
+  # Apply fgsea
   res <- array(NA, c(nrow(gene.seeds), length(list_db_annots)), 
                list(id = rownames(gene.seeds), pathway = names(list_db_annots)))
   for (i in 1:ncol(rwr.top.genes)) {
@@ -304,33 +348,3 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   
   return(res)
 }
-
-# RWR-FGSEA pipeline_DM_TG for drug matrix and tg-gates networks  (TO BE COMPLETED)
-fromRWRtoFGSEA <- function() {
-  #random walk with restart
-  probm<-dRWR(gr, setSeeds=mat, normalise.affinity.matrix='quantile',parallel=T,verbose = F)
-  probm<-as.matrix(probm)
-  colnames(probm)<-names(d_sign)                        #Columns are chemicals
-  rownames(probm)<-V(gr)$name
-  for (i in 1:dim(probm)[2]){
-    cutof_q<-sort(probm[,i],decreasing = T)[ng]
-    probm[probm[,i]<cutof_q,i]<-0
-  }
-  #Fgsea
-  q<-apply(probm,2,function(y)sum(y!=0)) 
-  probm<-probm[,q>=ng]                    
-  probm<-as.matrix(probm)
-  colnames(probm)<-names(q)[which(q>=ng)]
-  newscore<-ES<-NES<-pval<-matrix(NA,nrow=length(ptw),ncol=ncol(probm),
-                                  dimnames=list(names(ptw),colnames(probm))) 
-  for(i in 1:ncol(probm)){
-    #for each chemical and its sets of genes we do this procedure
-    res<-fgsea(pathways=ptw,stats=probm[probm[,i]!=0,i],nperm=10000,minSize=1,maxSize=200,BPPARAM=p)
-    #the pathways more than 500 genes are not considered and those with at least one gene will be considered
-    ES[res$pathway,i]<-res$ES
-    NES[res$pathway,i]<-res$NES
-    pval[res$pathway,i]<-res$pval
-    newscore[res$pathway,i]<-(res$NES)*(-log10(res$pval))
-  }
-  return(list(ES=ES,NES=NES,pval=pval,newscore=newscore))
-}# end function
