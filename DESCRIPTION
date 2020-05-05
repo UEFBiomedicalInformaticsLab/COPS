@@ -1,11 +1,12 @@
 Package: COPS
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Title: Clustering algorithms for Omics-driven Patient Stratification
+Version: 0.2.0
+Author: Teemu Rintala, Vittorio Fortino
+Maintainer: Teemu Rintala <teemu.rintala@uef.fi>
+Description: Clustering algorithms for Omics-driven Patient Stratification provides 
+    a suite of feature reduction and clustering analysis tools for disease subtype discovery 
+    from omics data.
 Depends: R (>= 3.5.0)
 Imports: 
     AnnotationDbi,
@@ -37,7 +38,7 @@ Suggests:
     knitr,
     swamp
 VignetteBuilder: knitr
-License: What license is it under?
+License: MIT
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.0
