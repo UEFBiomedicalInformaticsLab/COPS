@@ -345,7 +345,11 @@ clusteval_scoring <- function(input,
                               by = c("datname", "drname", "k", "m"),
                               wsum = (TrainStabilityARI + 1 - ARIbatch_label) / 2,
                               #wsum = (NMIsubtype_label + 1 - NMIbatch_label) / 2,
-                              chisq_significance_level = 0.05) {
+                              chisq_significance_level = 0.05,
+                              summarise = TRUE) {
+  if (summarise == FALSE) {
+    by <- c(by, "run", "fold")
+  }
   # Internal metrics
   by_internal <- by[by %in% colnames(input$internal_metrics)]
   mean_internals <- plyr::ddply(input$internal_metrics, 
