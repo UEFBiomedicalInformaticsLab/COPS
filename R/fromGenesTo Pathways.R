@@ -102,7 +102,7 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
   endpoint_prmtrs <- '/public/association/filter'
   OT_list <- list()
   for(d in diseases) {
-    optional_prmtrs <- paste('?size=10000&disease=', d, fields, sep="")
+    optional_prmtrs <- paste('?size=10000&disease=', d, fields, "&order=association_score.overall", sep="")
     uri <- paste(server, endpoint_prmtrs, optional_prmtrs,sep='')
     get_association_json <- httr::content(httr::GET(uri),'text')
     get_association_usable <- jsonlite::fromJSON(get_association_json, flatten = TRUE)
@@ -138,7 +138,7 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 #' @importFrom Matrix rowSums
 getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALSE) {
   string_db <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = cutoff)
-  if(directed == TRUE) {
+  if(directed) {
     gene.stringdb <- string_db$map(my_data_frame = gene.diseases, my_data_frame_id_col_names='target.gene_info.symbol', 
                                      removeUnmappedRows=TRUE)
     string_inter <- string_db$get_interactions(gene.stringdb$STRING_id)
@@ -153,11 +153,11 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
                               weight=string_inter$combined_score/1000,stringsAsFactors = FALSE)
     g.ppi_network <- igraph::graph_from_edgelist(as.matrix(ppi_network[,1:2]), directed=TRUE)
   } 
-  else { # TODO: fix directed = FALSE, what is string_db_hs?
-    hs_all_proteins = string_db_hs$get_proteins(); rownames(hs_all_proteins) = hs_all_proteins[,1]
+  else {
+    hs_all_proteins = string_db$get_proteins(); rownames(hs_all_proteins) = hs_all_proteins[,1]
     hs_ex_proteins = hs_all_proteins[which((hs_all_proteins$preferred_name %in% 
                                               rownames(gene.diseases)) == TRUE),]; 
-    g = string_db_hs$get_subnetwork(hs_ex_proteins$protein_external_id)
+    g = string_db$get_subnetwork(hs_ex_proteins$protein_external_id)
     # create adjacency matrix
     adj_matrix <- igraph::as_adjacency_matrix(g)
     # map gene ids to protein ids
@@ -210,43 +210,43 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
 #' @importFrom biomaRt useEnsembl getBM
 expressionToRWFeatures <- function(dat, 
                                    disease_id, 
-                                   otp_cutoff = 0.8, 
-                                   ppi_cutoff = 700,
-                                   pw_max.size = 200,
+                                   otp_score = "association_score.datatypes.rna_expression", 
+                                   otp_cutoff = 0.0, 
+                                   ppi_cutoff = 700, 
+                                   pw_min.size = 5,
+                                   pw_max.size = 200, 
+                                   dat_gene_key = "SYMBOL", 
+                                   gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"), 
+                                   directed_ppi = TRUE,
                                    ...) {
-  assoc_score_fields = paste(paste("&fields=", c('disease.efo_info.label',
+  assoc_score_fields <- paste(paste("&fields=", c('disease.efo_info.label',
                                                  'disease.efo_info.therapeutic_area',
                                                  'target.gene_info.symbol',
                                                  'association_score.overall',
                                                  'disease.id',
                                                  'association_score.datatypes'), sep=''), collapse = "")
-  disease_otp = retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
-  gene.diseases = disease_otp[which(disease_otp$association_score.overall > otp_cutoff),]
+  disease_otp <- retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
+  gene.diseases <- disease_otp[which(disease_otp[[otp_score]] > otp_cutoff),]
   
   sdb_res <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = ppi_cutoff)
   gene.network <- sdb_res$get_graph()
   igraph::V(gene.network)$name <- gsub("^9606\\.", "", igraph::V(gene.network)$name)
   
+  if (!directed_ppi) {
+    gene.network <- igraph::as.undirected(gene.network, mode = "collapse")
+  }
+  
   # Get pathways information from msigdb (https://www.gsea-msigdb.org/)
   db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
-  db_annots <- dplyr::filter(db_annots, gs_subcat == "BP" | #gs_subcat == "MF" | 
-                    gs_subcat == "CP:KEGG" | gs_subcat == "CP:REACTOME")
-  
+  db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
   
   # Harmonize gene labels
-  #mart <- biomaRt::useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
-  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")#, "useast.ensembl.org")
-  # It is actually faster to load whole table rather than post a large filter
-  mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id", "entrezgene_id"), 
-                                 mart = mart)
-  #ppi_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "ensembl_peptide_id"), #, "hgnc_symbol", "entrezgene_id"
-                                 #filters = "ensembl_peptide_id", 
-                                 #values = igraph::V(gene.network)$name,
-                                 #mart = mart)
-  #dis_pw_mart_results <- biomaRt::getBM(attributes = c("ensembl_gene_id", "entrezgene_id"),
-                                     #filters = "entrezgene_id", 
-                                     #values = unique(c(gene.diseases$entrezId, db_annots$entrez_gene)),
-                                     #mart = mart)
+  mart_attributes <- c("ensembl_gene_id", "ensembl_peptide_id", "entrezgene_id")
+  if (dat_gene_key == "SYMBOL") {
+    mart_attributes <- c(mart_attributes, "hgnc_symbol")
+  }
+  mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")
+  mart_results <- biomaRt::getBM(attributes = mart_attributes, mart = mart)
   
   ppi_temp <- mart_results$ensembl_gene_id[match(igraph::V(gene.network)$name, 
                                                  mart_results$ensembl_peptide_id)]
@@ -260,21 +260,22 @@ expressionToRWFeatures <- function(dat,
                                                                   mart_results$entrezgene_id)]
   db_annots <- db_annots[!is.na(db_annots$ensembl_gene_id),]
   
-  if (FALSE) { # If using hgnc symbols
-    igraph::V(gene.network)$name <- mart_results$hgnc_symbol[match(igraph::V(gene.network)$name, 
-                                                             mart_results$ensembl_peptide_id)]
-    rownames(dat) <- mart_results$hgnc_symbol[match(rownames(dat), mart_results$ensembl_gene_id)]
-  }
-  if (FALSE) { # If using ensembl peptide ids
-    rownames(dat) <- mart_results$ensembl_peptide_id[match(rownames(dat), mart_results$ensembl_gene_id)]
-    disease.genes <- mart_results$ensembl_peptide_id[match(rownames(gene.diseases), mart_results$hgnc_symbol)]
-    disease.genes <- disease.genes[!is.na(disease.genes) & !grepl("^\\s*$", disease.genes)]
+  if (dat_gene_key == "SYMBOL") {
+    rownames_ensembl <- mart_results$ensembl_gene_id[match(rownames(dat), mart_results$hgnc_symbol)]
+    dat <- dat[!is.na(rownames_ensembl),]
+    rownames(dat) <- rownames_ensembl[!is.na(rownames_ensembl)]
+  } else 
+  if (dat_gene_key == "ENTREZ") {
+    rownames_ensembl <-  mart_results$ensembl_gene_id[match(rownames(dat), mart_results$entrez_gene)]
+    dat <- dat[!is.na(rownames_ensembl),]
+    rownames(dat) <- rownames_ensembl[!is.na(rownames_ensembl)]
   }
   
-  #dat <- dat[!is.na(rownames(dat)) & !grepl("^\\s*$", rownames(dat)),]
+  dat <- dat[!duplicated(rownames(dat)),]
   
   list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$ensembl_gene_id)
-  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < pw_max.size)]
+  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) <= pw_max.size & 
+                                           sapply(list_db_annots, length) >= pw_min.size)]
   
   out <- fromGeneToNetworksToPathwayFeatures(dat, disease.genes, gene.network, list_db_annots, ...)
   return(out)
@@ -302,6 +303,7 @@ expressionToRWFeatures <- function(dat,
 #' @return list of enrichment scores
 #' @export
 #' 
+#' @importFrom foreach foreach %dopar%
 #' @importFrom plyr aaply
 #' @importFrom igraph V
 #' @importFrom dnet dRWR
@@ -310,41 +312,129 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                                                 disease.genes, # a character vector
                                                 gene.network,  # igraph.object
                                                 list_db_annots, # list of pathway annotated gene sets
-                                                top.ranked.genes = 100,
-                                                min.size = 5, 
-                                                max.size = 200, 
-                                                parallel = 4,
+                                                top.ranked.genes = 100, 
+                                                parallel = 1,
                                                 verbose = FALSE,
                                                 rwr_restart = 0.33,
                                                 rwr_norm = "quantile",
                                                 rwr_cutoff = 0,
+                                                kernelized_sorting = FALSE,
+                                                reg_up_down = FALSE,
                                                 ...) {
+  sample_names <- colnames(dat)
+  dat <- dat[intersect(rownames(dat), disease.genes),]
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    # Avoid warnings related to %dopar%
+    foreach::registerDoSEQ()
+  }
   # Rank disease-genes within each sample
-  gene.seeds <- plyr::aaply(dat, 2, function(s) {
-                      sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)[1:top.ranked.genes]]
-                      out <- intersect(sorted.genes, disease.genes)
-                      out <- as.numeric(igraph::V(gene.network)$name %in% out)
-                      out
-  })
-  colnames(gene.seeds) <- igraph::V(gene.network)$name
-  
-  # Apply random walk (dnet) to extend the set of genes
-  rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = t(gene.seeds), normalise = "none",
-                              restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
-                              parallel = parallel > 1, multicores = parallel, verbose = verbose)
-  rownames(rwr.top.genes) = igraph::V(gene.network)$name
-  
-  # Apply fgsea
-  res <- array(NA, c(nrow(gene.seeds), length(list_db_annots)), 
-               list(id = rownames(gene.seeds), pathway = names(list_db_annots)))
-  for (i in 1:ncol(rwr.top.genes)) {
-    genes_i <- rwr.top.genes[,i]
-    # Sum up duplicated gene id:s (alternative splicings)
-    genes_i <- tapply(genes_i, names(genes_i), sum)
-    genes_i <- genes_i[genes_i > rwr_cutoff]
-    res_i <- fgsea::fgsea(list_db_annots, genes_i, nperm=10000, minSize=1, maxSize=200)
-    res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
+  if (kernelized_sorting) {
+    #gene_expr_score <- dat * 0
+    gene_sd <- apply(dat, 1, sd)
+    #for (i in 1:ncol(dat)) {
+    gene_expr_score <- foreach(i = 1:ncol(dat), 
+            .combine = cbind,
+            .export = c(),
+            .multicombine = TRUE,
+            .maxcombine = ncol(dat)) %dopar% {
+      gene_expr_score_i <- dat * 0
+      for (j in (1:ncol(dat))[-i]) {
+        # z-score with respect to each kernel
+        gene_expr_score_i[,j] <- pnorm((dat[,j] - dat[,i]) / gene_sd)
+      }
+      # sum over kernels
+      #gene_expr_score[,i] <- apply(gene_expr_score_i, 1, sum) / (ncol(dat) - 1) 
+      apply(gene_expr_score_i, 1, sum) / (ncol(dat) - 1) 
+    }
+    expr <- gene_expr_score - 0.5
+  } else {
+    expr <- dat
   }
   
-  return(res)
+  if (reg_up_down) {
+    gene.seeds.up <- apply(expr, 2, function(s) { #, dg, ntop, gn) {
+      sorted.genes <- names(s)[order(s, decreasing = TRUE)]
+      out <- intersect(sorted.genes, disease.genes)[1:top.ranked.genes]
+      # Remove NA when intersection is smaller than number of genes selected
+      out <- out[!is.na(out)]
+      out <- as.numeric(igraph::V(gene.network)$name %in% out)
+      out
+    })#, dg = disease.genes, ntop = top.ranked.genes, gn = gene.network)
+    rownames(gene.seeds.up) <- igraph::V(gene.network)$name
+    
+    # Apply random walk (dnet) to extend the set of genes
+    rwr.top.genes.up <- dnet::dRWR(gene.network, setSeeds = gene.seeds.up, normalise = "none",
+                                restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
+                                parallel = parallel > 1, multicores = parallel, verbose = verbose)
+    rownames(rwr.top.genes.up) <- igraph::V(gene.network)$name
+    
+    gene.seeds.down <- apply(expr, 2, function(s) { #, dg, ntop, gn) {
+      sorted.genes <- names(s)[order(s, decreasing = FALSE)]
+      out <- intersect(sorted.genes, disease.genes)[1:top.ranked.genes]
+      # Remove NA when intersection is smaller than number of genes selected
+      out <- out[!is.na(out)]
+      out <- as.numeric(igraph::V(gene.network)$name %in% out)
+      out
+    })#, dg = disease.genes, ntop = top.ranked.genes, gn = gene.network)
+    rownames(gene.seeds.down) <- igraph::V(gene.network)$name
+    
+    # Apply random walk (dnet) to extend the set of genes
+    rwr.top.genes.down <- dnet::dRWR(gene.network, setSeeds = gene.seeds.down, normalise = "none",
+                                restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
+                                parallel = parallel > 1, multicores = parallel, verbose = verbose)
+    rownames(rwr.top.genes.down) <- igraph::V(gene.network)$name
+    
+    # Combine
+    rwr.top.genes <- rwr.top.genes.up - rwr.top.genes.down
+  } else {
+    gene.seeds <- apply(expr, 2, function(s) { #, dg, ntop, gn) {
+      sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)]
+      out <- intersect(sorted.genes, disease.genes)[1:top.ranked.genes]
+      # Remove NA when intersection is smaller than number of genes selected
+      out <- out[!is.na(out)]
+      out <- as.numeric(igraph::V(gene.network)$name %in% out)
+      out
+    })#, dg = disease.genes, ntop = top.ranked.genes, gn = gene.network)
+    rownames(gene.seeds) <- igraph::V(gene.network)$name
+    
+    # Apply random walk (dnet) to extend the set of genes
+    rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = gene.seeds, normalise = "none",
+                                restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
+                                parallel = parallel > 1, multicores = parallel, verbose = verbose)
+    rownames(rwr.top.genes) = igraph::V(gene.network)$name
+  }
+  
+  # Apply FGSEA
+  #res <- array(NA, c(ncol(dat), length(list_db_annots)), 
+  #             list(id = colnames(dat), pathway = names(list_db_annots)))
+  #for (i in 1:ncol(rwr.top.genes)) {
+  # Use foreach to speed up per sample FGSEA
+  res <- foreach(genes_i = lapply(1:ncol(dat), function(x) rwr.top.genes[,x]), 
+                             .combine = rbind,
+                             .export = c(),
+                             .multicombine = TRUE,
+                             .maxcombine = ncol(dat)) %dopar% {
+    #genes_i <- rwr.top.genes[,i]
+    # Sum up duplicated gene id:s (alternative splicings)
+    genes_i <- tapply(genes_i, names(genes_i), sum)
+    genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
+    res_i <- fgsea::fgsea(list_db_annots, genes_i, nperm=10000, minSize=1, maxSize=200, nproc = 1)
+    #res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
+    res_out <- rep(NA, length(list_db_annots))
+    res_out[match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
+    res_out
+  }
+  rownames(res) <- sample_names
+  colnames(res) <- names(list_db_annots)
+  # Remove pathways with only NA
+  res <- res[, apply(res, 2, function(x) !all(is.na(x)))]
+  
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  
+  return(list(KEGG_RWR = t(res[,grep("^KEGG", colnames(res))]), 
+              GO_RWR = t(res[,grep("^GO", colnames(res))]), 
+              REACTOME_RWR = t(res[,grep("^REACTOME", colnames(res))])))
 }
