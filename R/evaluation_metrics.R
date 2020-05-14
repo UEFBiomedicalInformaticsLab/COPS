@@ -304,7 +304,7 @@ clustering_evaluation <- function(dat,
   clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods)))
   dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods)
   for (j in 1:length(cluster_methods)) {
-    temp <- clusters(out, cluster_methods[j])
+    temp <- clValid::clusters(out, cluster_methods[j])
     for (i in 1:length(n_clusters)) {
       if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
         temp_k <- cutree(temp, n_clusters[i])
