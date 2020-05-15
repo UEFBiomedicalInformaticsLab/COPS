@@ -434,7 +434,11 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
   
-  return(list(KEGG_RWR = t(res[,grep("^KEGG", colnames(res))]), 
+  genes_out <- as.matrix(rwr.top.genes)
+  colnames(genes_out) <- sample_names
+  
+  return(list(GENE_RWR = genes_out,
+              KEGG_RWR = t(res[,grep("^KEGG", colnames(res))]), 
               GO_RWR = t(res[,grep("^GO", colnames(res))]), 
               REACTOME_RWR = t(res[,grep("^REACTOME", colnames(res))])))
 }
