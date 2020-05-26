@@ -25,6 +25,7 @@ dimred_clusteval_pipeline <- function(dat_list,
                                       nruns, 
                                       batch_label = NULL,
                                       subtype_label = NULL,
+                                      survival_data = NULL,
                                       verbose = TRUE,
                                       parallel = 1,
                                       #dim_reduction = TRUE,
@@ -134,6 +135,15 @@ dimred_clusteval_pipeline <- function(dat_list,
   if(verbose) print(paste("Finished clustering stability analysis in",
                           time_taken_string(stability_test_start))); flush.console()
   
+  # Survival evaluation
+  if (!is.null(survival_data)) {
+    survival_analysis_start <- Sys.time()
+    if(verbose) print("Starting survival analysis ..."); flush.console()
+    dat_survival <- survival_evaluation(survival_data, dat_clustered$clusters, ...)
+    if(verbose) print(paste("Finished survival analysis in",
+                            time_taken_string(survival_analysis_start))); flush.console()
+  }
+  
   # Return
   out <- list(embedding = dat_embedded, 
               clusters = dat_clustered$clusters, 
@@ -142,6 +152,7 @@ dimred_clusteval_pipeline <- function(dat_list,
               batch_association = dat_clustered$batch_association,
               subtype_association = dat_clustered$subtype_association,
               stability = dat_stability)
+  if (!is.null(survival_data)) out$survival <- dat_survival
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
   if(verbose) print(paste("Finished pipeline in",
@@ -425,8 +436,18 @@ clusteval_scoring <- function(input,
   colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
                                                "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
   
+  # Survival likelihood ratio test
+  if (!is.null(input$survival)) {
+    by_survival <- by[by %in% colnames(input$survival)]
+    survival <- plyr::ddply(input$survival, 
+                            by_survival, 
+                            function(x) data.frame(SurvivalPValue = mean(x$cluster_significance)))
+  } else {
+    survival <- NULL
+  }
+  
   # Combine all metrics
-  out <- list(mean_internals, chisq_rr, bassoc_nmi, bassoc_ari, sassoc_nmi, sassoc_ari, stability)
+  out <- list(mean_internals, chisq_rr, bassoc_nmi, bassoc_ari, sassoc_nmi, sassoc_ari, stability, survival)
   out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   
   # Scoring

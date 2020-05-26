@@ -22,11 +22,12 @@
 #'
 #' @return Returns a \code{list} of embeddings, elements are named based on methods used
 #' @export
+#' @importFrom FactoMineR PCA
 #' @importFrom Rtsne Rtsne
 #' @importFrom uwot umap
 dim_reduction_suite <- function(dat,
-                                dimred_methods = c("pca", "umap"), # TODO: fix "tsne" with data.table?
-                                output_dimensions = NULL, #c(2:4),
+                                dimred_methods = c("pca", "umap"), # TODO: fix Rtsne issue 
+                                output_dimensions = NULL, 
                                 pca_dims = 2:6,
                                 umap_dims = 2:10,
                                 tsne_perplexities = c(5,30,50),

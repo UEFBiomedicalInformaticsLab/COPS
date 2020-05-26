@@ -8,7 +8,8 @@ clusteval_scoring(
   input,
   by = c("datname", "drname", "k", "m"),
   wsum = (TrainStabilityARI + 1 - ARIbatch_label)/2,
-  chisq_significance_level = 0.05
+  chisq_significance_level = 0.05,
+  summarise = TRUE
 )
 }
 \arguments{

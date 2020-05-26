@@ -10,6 +10,7 @@ dimred_clusteval_pipeline(
   nruns,
   batch_label = NULL,
   subtype_label = NULL,
+  survival_data = NULL,
   verbose = TRUE,
   parallel = 1,
   ...

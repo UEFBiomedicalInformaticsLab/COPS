@@ -409,7 +409,6 @@ clustering_evaluation <- function(dat,
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table rbindlist
 cv_clusteval <- function(dat_embedded, ...) {
-  # If runs and folds are already separated, this produces a list of length 1
   temp_list <- list()
   for (i in 1:length(dat_embedded)) {
     temp <- dat_embedded[[i]]

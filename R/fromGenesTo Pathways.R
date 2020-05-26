@@ -83,6 +83,41 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
               REACTOME_PW = re_pathways))
 }
 
+#' Single sample gene set enrichment based on expression rank analysis
+#' 
+#' DiffRank by Wang et al. BMC Medical Genomics 2019
+#' 
+#' @param expr gene expression
+#' @param list_db_annots list of gene sets
+#' 
+#' @return 
+#' @export
+DiffRank <- function(expr, list_db_annots, parallel = 1) {
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    foreach::registerDoSEQ()
+  }
+  ranks <- apply(expr, 2, function(x) order(order(x)))
+  out <- matrix(NA, length(list_db_annots), ncol(expr))
+  rownames(out) <- names(list_db_annots)
+  colnames(out) <- colnames(expr)
+  out <- foreach(i = list_db_annots, 
+                .combine = rbind,
+                .export = c(),
+                .multicombine = TRUE,
+                .maxcombine = length(list_db_annots)) %dopar% {
+    ind <- which(rownames(expr) %in% list_db_annots[[i]])
+    apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
+  }
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  rownames(out) <- names(list_db_annots)
+  return(list(KEGG_DiffRank = out[grep("^KEGG", rownames(out)),], 
+              GO_DiffRank = out[grep("^GO", rownames(out)),], 
+              REACTOME_DiffRank = out[grep("^REACTOME", rownames(out)),]))
+}
+
 
 #' Retrieve disease-gene associations from the Open Targets platforms. 
 #' 
@@ -316,7 +351,8 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                                                 parallel = 1,
                                                 verbose = FALSE,
                                                 rwr_restart = 0.33,
-                                                rwr_norm = "quantile",
+                                                rwr_norm = "none",
+                                                rwr_affinity_norm = "quantile",
                                                 rwr_cutoff = 0,
                                                 kernelized_sorting = FALSE,
                                                 reg_up_down = FALSE,
@@ -366,8 +402,8 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
     rownames(gene.seeds.up) <- igraph::V(gene.network)$name
     
     # Apply random walk (dnet) to extend the set of genes
-    rwr.top.genes.up <- dnet::dRWR(gene.network, setSeeds = gene.seeds.up, normalise = "none",
-                                restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
+    rwr.top.genes.up <- dnet::dRWR(gene.network, setSeeds = gene.seeds.up, normalise = rwr_norm,
+                                restart = rwr_restart, normalise.affinity.matrix = rwr_affinity_norm, 
                                 parallel = parallel > 1, multicores = parallel, verbose = verbose)
     rownames(rwr.top.genes.up) <- igraph::V(gene.network)$name
     
@@ -382,8 +418,8 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
     rownames(gene.seeds.down) <- igraph::V(gene.network)$name
     
     # Apply random walk (dnet) to extend the set of genes
-    rwr.top.genes.down <- dnet::dRWR(gene.network, setSeeds = gene.seeds.down, normalise = "none",
-                                restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
+    rwr.top.genes.down <- dnet::dRWR(gene.network, setSeeds = gene.seeds.down, normalise = rwr_norm,
+                                restart = rwr_restart, normalise.affinity.matrix = rwr_affinity_norm, 
                                 parallel = parallel > 1, multicores = parallel, verbose = verbose)
     rownames(rwr.top.genes.down) <- igraph::V(gene.network)$name
     
@@ -401,8 +437,8 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
     rownames(gene.seeds) <- igraph::V(gene.network)$name
     
     # Apply random walk (dnet) to extend the set of genes
-    rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = gene.seeds, normalise = "none",
-                                restart = rwr_restart, normalise.affinity.matrix = rwr_norm, 
+    rwr.top.genes <- dnet::dRWR(gene.network, setSeeds = gene.seeds, normalise = rwr_norm,
+                                restart = rwr_restart, normalise.affinity.matrix = rwr_affinity_norm, 
                                 parallel = parallel > 1, multicores = parallel, verbose = verbose)
     rownames(rwr.top.genes) = igraph::V(gene.network)$name
   }
@@ -418,10 +454,14 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                              .multicombine = TRUE,
                              .maxcombine = ncol(dat)) %dopar% {
     #genes_i <- rwr.top.genes[,i]
-    # Sum up duplicated gene id:s (alternative splicings)
+    # Sum up duplicated gene id:s
     genes_i <- tapply(genes_i, names(genes_i), sum)
     genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
-    res_i <- fgsea::fgsea(list_db_annots, genes_i, nperm=10000, minSize=1, maxSize=200, nproc = 1)
+    res_i <- fgsea::fgsea(list_db_annots, 
+                          genes_i, 
+                          nperm=10000, 
+                          maxSize=min(max(sapply(list_db_annots, length)), length(genes_i) - 1), 
+                          nproc = 1)
     #res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
     res_out <- rep(NA, length(list_db_annots))
     res_out[match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
@@ -431,6 +471,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   colnames(res) <- names(list_db_annots)
   # Remove pathways with only NA
   res <- res[, apply(res, 2, function(x) !all(is.na(x)))]
+  res[is.na(res)] <- 0
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
   
@@ -441,4 +482,108 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
               KEGG_RWR = t(res[,grep("^KEGG", colnames(res))]), 
               GO_RWR = t(res[,grep("^GO", colnames(res))]), 
               REACTOME_RWR = t(res[,grep("^REACTOME", colnames(res))])))
+}
+
+#' Visualize gene seed similarity for given settings
+#'
+#' @param dat 
+#' @param disease_targets 
+#' @param n_top_expr 
+#' @param n_top_target 
+#' @param mart_results 
+#' @param gene.network 
+#' @param plot_title 
+#' @param otp_score 
+#' @param kernelized_sorting 
+#' @param reg_up_down 
+#' @param parallel 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+seed_similarity <- function(dat, disease_targets, n_top_expr, n_top_target, 
+                            mart_results, gene.network, plot_title,
+                            otp_score = "association_score.datatypes.rna_expression",
+                            kernelized_sorting = FALSE, 
+                            reg_up_down = FALSE,
+                            parallel = 1) {
+  gene.diseases <- disease_targets[order(disease_targets[[otp_score]], 
+                                         decreasing = TRUE),]
+  disease.genes <- mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
+                                                      mart_results$entrezgene_id)]
+  disease.genes <- disease.genes[!is.na(disease.genes)][1:min(n_top_target, sum(disease_targets[[otp_score]] > 0))]
+  
+  dat <- dat[intersect(rownames(dat), disease.genes),]
+  
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    foreach::registerDoSEQ()
+  }
+  # Rank disease-genes within each sample
+  if (kernelized_sorting) {
+    gene_sd <- apply(dat, 1, sd)
+    gene_expr_score <- foreach(i = 1:ncol(dat), 
+                               .combine = cbind,
+                               .export = c(),
+                               .multicombine = TRUE,
+                               .maxcombine = ncol(dat)) %dopar% {
+                                 gene_expr_score_i <- dat * 0
+                                 for (j in (1:ncol(dat))[-i]) {
+                                   # z-score with respect to each kernel
+                                   gene_expr_score_i[,j] <- pnorm((dat[,j] - dat[,i]) / gene_sd)
+                                 }
+                                 # sum over kernels
+                                 apply(gene_expr_score_i, 1, sum) / (ncol(dat) - 1) 
+                               }
+    expr <- gene_expr_score - 0.5
+  } else {
+    expr <- dat
+  }
+  
+  if (reg_up_down) {
+    gene.seeds.up <- apply(expr, 2, function(s) {
+      sorted.genes <- names(s)[order(s, decreasing = TRUE)]
+      out <- intersect(sorted.genes, disease.genes)[1:n_top_expr]
+      # Remove NA when intersection is smaller than number of genes selected
+      out <- out[!is.na(out)]
+      out <- as.numeric(igraph::V(gene.network)$name %in% out)
+      out
+    })
+    
+    gene.seeds.down <- apply(expr, 2, function(s) {
+      sorted.genes <- names(s)[order(s, decreasing = FALSE)]
+      out <- intersect(sorted.genes, disease.genes)[1:n_top_expr]
+      # Remove NA when intersection is smaller than number of genes selected
+      out <- out[!is.na(out)]
+      out <- as.numeric(igraph::V(gene.network)$name %in% out)
+      out
+    })
+    
+    # Combine
+    gene.seeds <- rbind(gene.seeds.up, gene.seeds.down)
+  } else {
+    gene.seeds <- apply(expr, 2, function(s) {
+      sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)]
+      out <- intersect(sorted.genes, disease.genes)[1:n_top_expr]
+      # Remove NA when intersection is smaller than number of genes selected
+      out <- out[!is.na(out)]
+      out <- as.numeric(igraph::V(gene.network)$name %in% out)
+      out
+    })
+  }
+  
+  # Fast matrix based Jaccard calculation
+  A <- t(gene.seeds) %*% gene.seeds
+  B <- t(gene.seeds) %*% (1-gene.seeds)
+  seeds_jaccard <- A / (A + B + t(B))
+  
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  
+  # Set samples with 0 gene seeds to zero
+  seeds_jaccard[is.na(seeds_jaccard)] <- 0
+  gplots::heatmap.2(seeds_jaccard, symm = TRUE, dist = as.dist, density.info = "none", 
+                    trace = "none", main = plot_title, breaks = seq(0,1,0.01), revC = TRUE)
 }

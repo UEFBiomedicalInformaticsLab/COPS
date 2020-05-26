@@ -7,9 +7,14 @@
 expressionToRWFeatures(
   dat,
   disease_id,
-  otp_cutoff = 0.8,
+  otp_score = "association_score.datatypes.rna_expression",
+  otp_cutoff = 0,
   ppi_cutoff = 700,
+  pw_min.size = 5,
   pw_max.size = 200,
+  dat_gene_key = "SYMBOL",
+  gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"),
+  directed_ppi = TRUE,
   ...
 )
 }

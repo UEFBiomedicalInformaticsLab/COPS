@@ -10,13 +10,14 @@ fromGeneToNetworksToPathwayFeatures(
   gene.network,
   list_db_annots,
   top.ranked.genes = 100,
-  min.size = 5,
-  max.size = 200,
-  parallel = 4,
+  parallel = 1,
   verbose = FALSE,
   rwr_restart = 0.33,
-  rwr_norm = "quantile",
+  rwr_norm = "none",
+  rwr_affinity_norm = "quantile",
   rwr_cutoff = 0,
+  kernelized_sorting = FALSE,
+  reg_up_down = FALSE,
   ...
 )
 }
@@ -31,10 +32,6 @@ fromGeneToNetworksToPathwayFeatures(
 
 \item{top.ranked.genes}{integer, controls the number of gene seed candidates to intersect with the disease genes}
 
-\item{min.size}{integer, minimum size of gene sets}
-
-\item{max.size}{integer, maximum size of gene sets}
-
 \item{parallel}{integer, number of threads}
 
 \item{verbose}{boolean, verbosity of \code{dnet::dRWR}}
@@ -46,6 +43,10 @@ fromGeneToNetworksToPathwayFeatures(
 \item{rwr_cutoff}{the cuoff value to select the most visited genes.}
 
 \item{...}{extra arguments are ignored}
+
+\item{min.size}{integer, minimum size of gene sets}
+
+\item{max.size}{integer, maximum size of gene sets}
 }
 \value{
 list of enrichment scores
