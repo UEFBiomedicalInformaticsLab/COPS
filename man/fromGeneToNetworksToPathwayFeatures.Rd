@@ -18,6 +18,7 @@ fromGeneToNetworksToPathwayFeatures(
   rwr_cutoff = 0,
   kernelized_sorting = FALSE,
   reg_up_down = FALSE,
+  return_seeds = FALSE,
   ...
 )
 }

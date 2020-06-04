@@ -289,31 +289,57 @@ clustering_evaluation <- function(dat,
                                   n_clusters = 2:5,
                                   cluster_methods = c("hierarchical","pam","diana","kmeans"),
                                   metric = "euclidean",
+                                  modelNames = NULL, 
                                   ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
+  clvalid_clustering_methods <- intersect(cluster_methods, 
+                                          c("hierarchical", "kmeans", "diana", 
+                                            "fanny", "som", "model", "sota", 
+                                            "pam", "clara", "agnes"))
+  gaussian_mixture_model <- "model" %in% clvalid_clustering_methods
+  
   out <- clValid::clValid(as.matrix(temp),
                           n_clusters,
-                          clMethods = cluster_methods,
+                          clMethods = clvalid_clustering_methods[!clvalid_clustering_methods %in% c("model")],
                           metric = metric,
                           validation="internal",
                           maxitems = Inf)
   names(dimnames(out@measures)) <- c("metric", "k", "m")
+  
+  # Separate Gaussian mixture model call because of extra argument for model type
+  if (gaussian_mixture_model) {
+    out2 <- clValid::clValid(as.matrix(temp),
+                             n_clusters,
+                             clMethods = "model",
+                             metric = metric,
+                             validation="internal",
+                             maxitems = Inf,
+                             modelNames = modelNames)
+    names(dimnames(out2@measures)) <- c("metric", "k", "m")
+  }
+  
   # Extract clusters into array
   clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods)))
   dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods)
   for (j in 1:length(cluster_methods)) {
-    temp <- clValid::clusters(out, cluster_methods[j])
     for (i in 1:length(n_clusters)) {
       if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
+        temp <- clValid::clusters(out, cluster_methods[j])
         temp_k <- cutree(temp, n_clusters[i])
       } else if (cluster_methods[j] == "pam") {
+        temp <- clValid::clusters(out, cluster_methods[j])
         temp_k <- temp[[i]]$clustering
       } else if (cluster_methods[j] == "kmeans") {
+        temp <- clValid::clusters(out, cluster_methods[j])
         temp_k <- temp[[i]]$cluster
       } else if (cluster_methods[j] == "sota") {
+        temp <- clValid::clusters(out, cluster_methods[j])
         temp_k <- temp[[i]]$clust
+      } else if (cluster_methods[j] == "model") {
+        temp <- clValid::clusters(out2, cluster_methods[j])
+        temp_k <- temp[[i]]$classification
       } else {
         stop(paste("Unsupported method:", cluster_methods[j]))
       }
@@ -326,6 +352,10 @@ clustering_evaluation <- function(dat,
                                   reshape2::melt(clusters, value.name = "cluster"), 
                                   by = "id")
   out_list$metrics <- reshape2::melt(out@measures, value.name = "value")
+  if (gaussian_mixture_model) {
+    temp <- reshape2::melt(out2@measures, value.name = "value")
+    out_list$metrics <- rbind(out_list$metrics, temp)
+  }
   # Insert meta data (if present)
   out_list$metrics$run <- dat$run[1]
   out_list$metrics$fold <- dat$fold[1]

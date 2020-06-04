@@ -36,7 +36,8 @@ Imports:
     uwot
 Suggests:
     knitr,
-    swamp
+    swamp,
+    mclust
 VignetteBuilder: knitr
 License: MIT
 Encoding: UTF-8

@@ -11,6 +11,7 @@ clustering_evaluation(
   n_clusters = 2:5,
   cluster_methods = c("hierarchical", "pam", "diana", "kmeans"),
   metric = "euclidean",
+  modelNames = NULL,
   ...
 )
 }

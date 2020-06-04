@@ -316,6 +316,57 @@ expressionToRWFeatures <- function(dat,
   return(out)
 }
 
+#' Empirical cumulative density function transformation
+#'
+#' Estimate each feature (row) distribution using Gaussian kernels with sigma corresponding to sd. 
+#' 
+#'
+#' @param x numerical matrix
+#' @param parallel number of threads
+#'
+#' @return matrix of row-wise ecdf values with dimensions matching input
+#' @export
+ecdf_transform <- function(x, parallel = 1) {
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    # Avoid warnings related to %dopar%
+    foreach::registerDoSEQ()
+  }
+  x_sd <- apply(x, 1, sd)
+  score <- foreach(i = 1:ncol(x), 
+                   .combine = cbind,
+                   .export = c(),
+                   .multicombine = TRUE,
+                   .maxcombine = ncol(x)) %dopar% {
+                     score_i <- x * 0
+                     for (j in (1:ncol(x))[-i]) {
+                       # z-score with respect to each kernel
+                       score_i[,j] <- pnorm((x[,j] - x[,i]) / x_sd)
+                     }
+                     # sum over kernels
+                     apply(score_i, 1, sum) / (ncol(x) - 1) 
+                   }
+  out <- score - 0.5
+  colnames(out) <- colnames(x)
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  return(out)
+}
+
+#' Jaccard index between indicator matrix columns
+#'
+#' @param x 
+#'
+#' @return
+#' @export
+jaccard_matrix <- function(x) {
+  A <- t(x) %*% x
+  B <- t(x) %*% (1-x)
+  return(A / (A + B + t(B)))
+}
+
+
 #' Random walk with restart and FGSEA worker
 #'
 #' Runs random walk in a given network starting from seed genes selected from most over/under expressed in the data intersected with 
@@ -356,36 +407,14 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                                                 rwr_cutoff = 0,
                                                 kernelized_sorting = FALSE,
                                                 reg_up_down = FALSE,
+                                                return_seeds = FALSE,
                                                 ...) {
   sample_names <- colnames(dat)
   dat <- dat[intersect(rownames(dat), disease.genes),]
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
+  
   # Rank disease-genes within each sample
   if (kernelized_sorting) {
-    #gene_expr_score <- dat * 0
-    gene_sd <- apply(dat, 1, sd)
-    #for (i in 1:ncol(dat)) {
-    gene_expr_score <- foreach(i = 1:ncol(dat), 
-            .combine = cbind,
-            .export = c(),
-            .multicombine = TRUE,
-            .maxcombine = ncol(dat)) %dopar% {
-      gene_expr_score_i <- dat * 0
-      for (j in (1:ncol(dat))[-i]) {
-        # z-score with respect to each kernel
-        gene_expr_score_i[,j] <- pnorm((dat[,j] - dat[,i]) / gene_sd)
-      }
-      # sum over kernels
-      #gene_expr_score[,i] <- apply(gene_expr_score_i, 1, sum) / (ncol(dat) - 1) 
-      apply(gene_expr_score_i, 1, sum) / (ncol(dat) - 1) 
-    }
-    expr <- gene_expr_score - 0.5
+    expr <- ecdf_transform(dat, parallel)
   } else {
     expr <- dat
   }
@@ -425,6 +454,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
     
     # Combine
     rwr.top.genes <- rwr.top.genes.up - rwr.top.genes.down
+    gene.seeds <- rbind(gene.seeds.up, gene.seeds.down)
   } else {
     gene.seeds <- apply(expr, 2, function(s) { #, dg, ntop, gn) {
       sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)]
@@ -441,6 +471,14 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
                                 restart = rwr_restart, normalise.affinity.matrix = rwr_affinity_norm, 
                                 parallel = parallel > 1, multicores = parallel, verbose = verbose)
     rownames(rwr.top.genes) = igraph::V(gene.network)$name
+  }
+  
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    # Avoid warnings related to %dopar%
+    foreach::registerDoSEQ()
   }
   
   # Apply FGSEA
@@ -478,11 +516,65 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   genes_out <- as.matrix(rwr.top.genes)
   colnames(genes_out) <- sample_names
   
-  return(list(GENE_RWR = genes_out,
+  out <- list(GENE_RWR = genes_out,
               KEGG_RWR = t(res[,grep("^KEGG", colnames(res))]), 
               GO_RWR = t(res[,grep("^GO", colnames(res))]), 
-              REACTOME_RWR = t(res[,grep("^REACTOME", colnames(res))])))
+              REACTOME_RWR = t(res[,grep("^REACTOME", colnames(res))]))
+  
+  if (return_seeds) {
+    out$GENE_SEEDS <- gene.seeds
+  }
+  
+  return(out)
 }
+
+#' FGSEA wrapper
+#'
+#' @param ranking_matrix 
+#' @param list_db_annots 
+#' @param rwr_cutoff 
+#' @param parallel 
+#'
+#' @return
+#' @export
+fgsea_wrapper <- function(ranking_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1) {
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    # Avoid warnings related to %dopar%
+    foreach::registerDoSEQ()
+  }
+  # Use foreach to speed up per sample FGSEA
+  res <- foreach(genes_i = lapply(1:ncol(ranking_matrix), function(i) ranking_matrix[,i]), 
+                 .combine = rbind,
+                 .export = c(),
+                 .multicombine = TRUE,
+                 .maxcombine = ncol(ranking_matrix)) %dopar% {
+                   # Sum up duplicated gene id:s
+                   genes_i <- tapply(genes_i, names(genes_i), sum)
+                   genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
+                   res_i <- fgsea::fgsea(list_db_annots, 
+                                         genes_i, 
+                                         nperm=10000, 
+                                         maxSize=min(max(sapply(list_db_annots, length)), length(genes_i) - 1), 
+                                         nproc = 1)
+                   #res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
+                   res_out <- rep(NA, length(list_db_annots))
+                   res_out[match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
+                   res_out
+                 }
+  rownames(res) <- colnames(ranking_matrix)
+  colnames(res) <- names(list_db_annots)
+  # Remove pathways with only NA
+  res <- res[, apply(res, 2, function(x) !all(is.na(x)))]
+  res[is.na(res)] <- 0
+  
+  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  return(res)
+}
+
+
 
 #' Visualize gene seed similarity for given settings
 #'
@@ -500,8 +592,6 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
 #'
 #' @return
 #' @export
-#'
-#' @examples
 seed_similarity <- function(dat, disease_targets, n_top_expr, n_top_target, 
                             mart_results, gene.network, plot_title,
                             otp_score = "association_score.datatypes.rna_expression",
