@@ -1,6 +1,14 @@
-
-
-
+#' Pre-process event data for survival analysis
+#'
+#' @param event_data 
+#' @param event_time_name 
+#' @param follow_up_time_name 
+#' @param event_field_name 
+#' @param event_name 
+#' @param event_time_cutoff 
+#'
+#' @return
+#' @export
 survival_preprocess <- function(event_data,
                                 event_time_name = "days_to_death",
                                 follow_up_time_name = "days_to_last_followup",
@@ -20,6 +28,18 @@ survival_preprocess <- function(event_data,
   return(event_data)
 }
 
+#' Likelihood ratio analysis of Cox PH survival models for clustering results
+#'
+#' @param event_data 
+#' @param clusters 
+#' @param survival_time_col 
+#' @param survival_event_col 
+#' @param survival_covariate_names 
+#' @param patient_id 
+#' @param ... 
+#'
+#' @return
+#' @export
 survival_evaluation <- function(event_data, 
                                 clusters, 
                                 survival_time_col = "time", 
