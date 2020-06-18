@@ -354,8 +354,8 @@ dimred_cluster <- function(dat_list,
 #' @importFrom stats sd as.formula
 clusteval_scoring <- function(input,
                               by = c("datname", "drname", "k", "m"),
-                              wsum = (TrainStabilityARI + 1 - ARIbatch_label) / 2,
-                              #wsum = (NMIsubtype_label + 1 - NMIbatch_label) / 2,
+                              wsum = (TrainStabilityARI + 1 - ARI.batch_label) / 2,
+                              #wsum = (NMI.subtype_label + 1 - NMI.batch_label) / 2,
                               chisq_significance_level = 0.05,
                               summarise = TRUE) {
   if (summarise == FALSE) {
@@ -365,21 +365,29 @@ clusteval_scoring <- function(input,
   by_internal <- by[by %in% colnames(input$internal_metrics)]
   mean_internals <- plyr::ddply(input$internal_metrics, 
                                 c(by_internal, "metric"), 
-                                function(x) data.frame(mean = mean(x$value), 
-                                                       sd = sd(x$value)))
+                                function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
+                                                       sd = sd(x$value, na.rm = TRUE)))
   mean_internals <- reshape2::dcast(mean_internals, 
                                     as.formula(paste(paste(by_internal, collapse = "+"), "~ metric")), 
                                     value.var = "mean")
   
   # Average number of chi-squared test pvalues under threshold in all given labels
   by_chisq <- by[by %in% colnames(input$chisq_pval)]
-  chisq_rr <- plyr::ddply(input$chisq_pval, 
-                          c(by_chisq, "label"), 
-                          function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level)))
-  chisq_rr$label <- paste0("ChisqRR", chisq_rr$label)
-  chisq_rr <- reshape2::dcast(chisq_rr, 
-                              as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
-                              value.var = "chisqRR")
+  if (summarise) {
+    chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
+    chisq_rr <- plyr::ddply(input$chisq_pval, c(by_chisq, "label"), chisq_f)
+    chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
+    chisq_rr <- reshape2::dcast(chisq_rr, 
+                                as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                                value.var = "chisqRR")
+  } else {
+    chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
+    chisq_rr <- plyr::ddply(input$chisq_pval, c(by_chisq, "label"), chisq_f)
+    chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
+    chisq_rr <- reshape2::dcast(chisq_rr, 
+                                as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                                value.var = "chisq.p")
+  }
   
   # Batch label associations
   if (!is.null(input$batch_association)) {
@@ -387,15 +395,15 @@ clusteval_scoring <- function(input,
       by_bassoc <- by[by %in% colnames(input$batch_association)]
       bassoc <- plyr::ddply(input$batch_association, 
                               c(by_bassoc, "label"), 
-                              function(x) data.frame(NMI = mean(x$nmi), ARI = mean(x$ari)))
+                              function(x) data.frame(NMI = mean(x$nmi, na.rm = TRUE), ARI = mean(x$ari, na.rm = TRUE)))
       bassoc_nmi <- reshape2::dcast(bassoc, 
                                     as.formula(paste(paste(by_bassoc, collapse = "+"), "~ label")), 
                                     value.var = "NMI")
-      colnames(bassoc_nmi)[!colnames(bassoc_nmi) %in% by_bassoc] <- paste0("NMI", colnames(bassoc_nmi)[!colnames(bassoc_nmi) %in% by_bassoc])
+      colnames(bassoc_nmi)[!colnames(bassoc_nmi) %in% by_bassoc] <- paste0("NMI.", colnames(bassoc_nmi)[!colnames(bassoc_nmi) %in% by_bassoc])
       bassoc_ari <- reshape2::dcast(bassoc, 
                                     as.formula(paste(paste(by_bassoc, collapse = "+"), "~ label")), 
                                     value.var = "ARI")
-      colnames(bassoc_ari)[!colnames(bassoc_ari) %in% by_bassoc] <- paste0("ARI", colnames(bassoc_ari)[!colnames(bassoc_ari) %in% by_bassoc])
+      colnames(bassoc_ari)[!colnames(bassoc_ari) %in% by_bassoc] <- paste0("ARI.", colnames(bassoc_ari)[!colnames(bassoc_ari) %in% by_bassoc])
     } else {
       bassoc_nmi <- NULL
       bassoc_ari <- NULL
@@ -411,15 +419,15 @@ clusteval_scoring <- function(input,
       by_sassoc <- by[by %in% colnames(input$subtype_association)]
       sassoc <- plyr::ddply(input$subtype_association, 
                             c(by_sassoc, "label"), 
-                            function(x) data.frame(NMI = mean(x$nmi), ARI = mean(x$ari)))
+                            function(x) data.frame(NMI = mean(x$nmi, na.rm = TRUE), ARI = mean(x$ari, na.rm = TRUE)))
       sassoc_nmi <- reshape2::dcast(sassoc, 
                                     as.formula(paste(paste(by_sassoc, collapse = "+"), "~ label")), 
                                     value.var = "NMI")
-      colnames(sassoc_nmi)[!colnames(sassoc_nmi) %in% by_sassoc] <- paste0("NMI", colnames(sassoc_nmi)[!colnames(sassoc_nmi) %in% by_sassoc])
+      colnames(sassoc_nmi)[!colnames(sassoc_nmi) %in% by_sassoc] <- paste0("NMI.", colnames(sassoc_nmi)[!colnames(sassoc_nmi) %in% by_sassoc])
       sassoc_ari <- reshape2::dcast(sassoc, 
                                     as.formula(paste(paste(by_sassoc, collapse = "+"), "~ label")), 
                                     value.var = "ARI")
-      colnames(sassoc_ari)[!colnames(sassoc_ari) %in% by_sassoc] <- paste0("ARI", colnames(sassoc_ari)[!colnames(sassoc_ari) %in% by_sassoc])
+      colnames(sassoc_ari)[!colnames(sassoc_ari) %in% by_sassoc] <- paste0("ARI.", colnames(sassoc_ari)[!colnames(sassoc_ari) %in% by_sassoc])
     } else {
       sassoc_nmi <- NULL
       sassoc_ari <- NULL
@@ -441,7 +449,7 @@ clusteval_scoring <- function(input,
     by_survival <- by[by %in% colnames(input$survival)]
     survival <- plyr::ddply(input$survival, 
                             by_survival, 
-                            function(x) data.frame(SurvivalPValue = mean(x$cluster_significance)))
+                            function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
   } else {
     survival <- NULL
   }

@@ -61,20 +61,24 @@ survival_evaluation <- function(event_data,
                    temp$cluster <- clust$cluster[survival_ind[!is.na(survival_ind)]]
                    temp$cluster <- factor(temp$cluster)
                    
-                   covariates_in_temp <- sapply(survival_covariate_names, function(x) length(table(temp[[x]])) > 1)
+                   out_i <- data.frame(clust[1,], cluster_significance = NA)
+                   out_i$id <- NULL
+                   out_i$cluster <- NULL
+                   if (length(table(temp$cluster)) > 1) {
+                     covariates_in_temp <- sapply(survival_covariate_names, function(x) length(table(temp[[x]])) > 1)
+                     
+                     model_formula <- paste0("survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
+                                             paste(c(survival_covariate_names[covariates_in_temp], "cluster"), collapse = " + "))
+                     model <- survival::coxph(as.formula(model_formula), data = temp)
+                     #coef(summary(model))[,"Pr(>|z|)"]
+                     model_formula0 <- paste0("survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
+                                              paste(survival_covariate_names[covariates_in_temp], collapse = " + "))
+                     model0 <- survival::coxph(as.formula(model_formula0), data = temp)
+                     res <- anova(model, model0, test="LRT")
+                     out_i$cluster_significance <- res[["P(>|Chi|)"]][2]
+                   }
                    
-                   model_formula <- paste0("survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
-                                           paste(c(survival_covariate_names[covariates_in_temp], "cluster"), collapse = " + "))
-                   model <- survival::coxph(as.formula(model_formula), data = temp)
-                   #coef(summary(model))[,"Pr(>|z|)"]
-                   model_formula0 <- paste0("survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
-                                           paste(survival_covariate_names[covariates_in_temp], collapse = " + "))
-                   model0 <- survival::coxph(as.formula(model_formula0), data = temp)
-                   res <- anova(model, model0, test="LRT")
-                   res <- data.frame(clust[1,], cluster_significance = res[["P(>|Chi|)"]][2])
-                   res$id <- NULL
-                   res$cluster <- NULL
-                   res
+                   out_i
                  }
   return(out)
 }

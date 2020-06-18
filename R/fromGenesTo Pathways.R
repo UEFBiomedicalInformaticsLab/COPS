@@ -108,7 +108,7 @@ DiffRank <- function(expr, list_db_annots, parallel = 1) {
                 .export = c(),
                 .multicombine = TRUE,
                 .maxcombine = length(list_db_annots)) %dopar% {
-    ind <- which(rownames(expr) %in% list_db_annots[[i]])
+    ind <- which(rownames(expr) %in% i)
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
   }
   if (parallel > 1) parallel::stopCluster(parallel_clust)
