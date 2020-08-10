@@ -104,7 +104,7 @@ dimred_clusteval_pipeline <- function(dat_list,
       #data.table::setDT(subtype_table)
       subtype_table <- data.table::as.data.table(subtype_table)
       if (!all(id %in% subtype_id)) {
-        stop("All batch label sample IDs do not match with data.")
+        stop("All subtype label sample IDs do not match with data.")
       }
       subtype_table$id <- subtype_id
       dat_list[[i]] <- merge(dat_list[[i]], subtype_table, by = "id")
