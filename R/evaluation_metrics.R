@@ -462,7 +462,7 @@ cv_clusteval <- function(dat_embedded, ...) {
   out <- foreach(temp = temp_list,
                  .combine = cfun,
                  .export = c("clustering_evaluation"),
-                 .packages = c("clValid", "reshape2"),
+                 .packages = c("clValid", "reshape2", "mclust"),
                  .multicombine = TRUE,
                  .maxcombine = length(temp_list)) %dopar% {
     temp <- clustering_evaluation(temp, ...)
