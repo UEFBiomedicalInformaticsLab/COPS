@@ -11,6 +11,7 @@ dim_reduction_suite(
   pca_dims = 2:6,
   umap_dims = 2:10,
   tsne_perplexities = c(5, 30, 50),
+  tsne_pca = TRUE,
   umap_neighbors = 20,
   include_original = FALSE,
   ...
@@ -28,6 +29,8 @@ dim_reduction_suite(
 \item{umap_dims}{UMAP specific output dimensions}
 
 \item{tsne_perplexities}{vector of t-SNE perplexity settings to generate embeddings with}
+
+\item{tsne_pca}{whether to apply PCA before t-SNE, massively boosts performance}
 
 \item{umap_neighbors}{scalar UMAP parameter, affects manifold resolution}
 

@@ -16,6 +16,7 @@
 #' @param pca_dims PCA specific output dimensions
 #' @param umap_dims UMAP specific output dimensions
 #' @param tsne_perplexities vector of t-SNE perplexity settings to generate embeddings with
+#' @param tsne_pca whether to apply PCA before t-SNE, massively boosts performance
 #' @param umap_neighbors scalar UMAP parameter, affects manifold resolution
 #' @param include_original if \code{TRUE}, includes original data in output list
 #' @param ... extra arguments are ignored currently
@@ -31,6 +32,7 @@ dim_reduction_suite <- function(dat,
                                 pca_dims = 2:6,
                                 umap_dims = 2:10,
                                 tsne_perplexities = c(5,30,50),
+                                tsne_pca = TRUE, 
                                 umap_neighbors = 20,
                                 include_original = FALSE,
                                 ...) {
@@ -70,11 +72,19 @@ dim_reduction_suite <- function(dat,
         temp <- pca_temp$ind$coord[,1:d]
         colnames(temp) <- paste0("dim", 1:d)
       } else if (m == "tsne") {
-        temp <- Rtsne::Rtsne(dat,
+        if (tsne_pca) {
+          tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(100, dim(dat)[2]), graph = FALSE)
+          tsne_input <- tsne_pca_temp$ind$coord
+        } else {
+          tsne_input <- dat
+        }
+        temp <- Rtsne::Rtsne(tsne_input,
                              dims = 2,
                              perplexity = d,
-                             initial_dims = min(50, dim(dat)[2]),
+                             #initial_dims = min(100, dim(dat)[2]),
                              check_duplicates = FALSE,
+                             pca = FALSE,
+                             partial_pca = FALSE,
                              verbose = FALSE)$Y
         colnames(temp) <- paste0("dim", 1:2)
         #rownames(temp) <- colnames(dat)
@@ -82,7 +92,7 @@ dim_reduction_suite <- function(dat,
         temp <- uwot::umap(dat,
                            n_neighbors = umap_neighbors,
                            n_components = d,
-                           pca = min(50, dim(dat)[2]),
+                           pca = min(100, dim(dat)[2]),
                            verbose = FALSE,
                            init = "normlaplacian")
         colnames(temp) <- paste0("dim", 1:d)
