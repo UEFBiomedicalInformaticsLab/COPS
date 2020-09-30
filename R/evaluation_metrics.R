@@ -431,7 +431,7 @@ clustering_evaluation <- function(dat,
         clusters[,j,i] <- clust_k$classification
       }
     } else {
-      stop(paste("Unsupported method:", cluster_methods_expanded[j]))
+      stop(paste("Unsupported method:", cluster_methods_expanded[i]))
     }
   }
   

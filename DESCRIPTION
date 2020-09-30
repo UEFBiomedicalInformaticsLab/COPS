@@ -12,7 +12,7 @@ Imports:
     AnnotationDbi,
     aricode,
     biomaRt,
-    clValid,
+    ClusterR,
     clusteval,
     data.table,
     dnet,
