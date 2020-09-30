@@ -2,7 +2,7 @@
 #'
 #' Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 #' Based on \url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.95.1128}.
-#' Can be used to measure batch effect.
+#' Can be used to measure batch effect. TODO: check if implementation is proper
 #'
 #' @param data_matrix numeric matrix, samples on columns
 #' @param batch_label categorical variable, must be vector
@@ -10,6 +10,7 @@
 #' @return Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
 #' @export
 DSC <- function(data_matrix, batch_label) {
+  # Incorrect implementation for Sw? No batch label involved??
   # Dispersion within batches
   Sw <- scale(t(data_matrix), center = TRUE, scale = FALSE)**2 / dim(data_matrix)[2] # vectorized
   Dw <- sqrt(sum(Sw))
@@ -261,19 +262,22 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' \itemize{
 #' \item "hierarchical" -
 #' \item "diana" -
-#' \item "agnes" -
 #' \item "kmeans" -
-#' \item "pam" -
-#' \item "sota" -
+#' \item "model" -
 #' }
-#' The clustering methods are interfaced through \code{\link[clValid]{clValid}} so please refer to
-#' their documentation for options on metrics.
 #'
 #' @param dat data matrix with samples on columns
 #' @param batch_label_names character vector containing column names corresponding to batch labels
 #' @param n_clusters vector of integers, numbers of clusters to be generated
 #' @param cluster_methods vector of clustering method names, see details for options
-#' @param metric distance metric used for clustering, see details for options
+#' @param subtype_label_names 
+#' @param distance_metric 
+#' @param correlation_method 
+#' @param hierarchical_linkage 
+#' @param gmm_modelNames 
+#' @param kmeans_num_init 
+#' @param kmeans_max_iters 
+#' @param kmeans_tol 
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} containing clusters, metrics, and
@@ -281,81 +285,200 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #'         if batch_label was supplied
 #' @export
 #' @importFrom stats chisq.test cutree
-#' @importFrom clValid clValid clusters
 #' @importFrom aricode NMI ARI
+#' @importFrom flashClust flashClust
+#' @importFrom ClusterR KMeans_rcpp
+#' @importFrom mclust Mclust
+#' @importFrom cluster silhouette
 clustering_evaluation <- function(dat,
                                   batch_label_names = NULL,
                                   subtype_label_names = NULL,
                                   n_clusters = 2:5,
-                                  cluster_methods = c("hierarchical","pam","diana","kmeans"),
-                                  metric = "euclidean",
-                                  modelNames = NULL, 
+                                  cluster_methods = c("hierarchical","diana","kmeans"),
+                                  distance_metric = "euclidean",
+                                  correlation_method = "spearman",
+                                  hierarchical_linkage = "complete",
+                                  gmm_modelNames = NULL, 
+                                  kmeans_num_init = 100,
+                                  kmeans_max_iters = 100,
+                                  kmeans_tol = 0.0001,
                                   ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
-  clvalid_clustering_methods <- intersect(cluster_methods, 
-                                          c("hierarchical", "kmeans", "diana", 
-                                            "fanny", "som", "model", "sota", 
-                                            "pam", "clara", "agnes"))
-  gaussian_mixture_model <- "model" %in% clvalid_clustering_methods
   
-  out <- clValid::clValid(as.matrix(temp),
-                          n_clusters,
-                          clMethods = clvalid_clustering_methods[!clvalid_clustering_methods %in% c("model")],
-                          metric = metric,
-                          validation="internal",
-                          maxitems = Inf)
-  names(dimnames(out@measures)) <- c("metric", "k", "m")
-  
-  # Separate Gaussian mixture model call because of extra argument for model type
-  if (gaussian_mixture_model) {
-    out2 <- clValid::clValid(as.matrix(temp),
-                             n_clusters,
-                             clMethods = "model",
-                             metric = metric,
-                             validation="internal",
-                             maxitems = Inf,
-                             modelNames = modelNames)
-    names(dimnames(out2@measures)) <- c("metric", "k", "m")
-  }
-  
-  # Extract clusters into array
-  clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods)))
-  dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods)
-  for (j in 1:length(cluster_methods)) {
-    for (i in 1:length(n_clusters)) {
-      if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
-        temp <- clValid::clusters(out, cluster_methods[j])
-        temp_k <- cutree(temp, n_clusters[i])
-      } else if (cluster_methods[j] == "pam") {
-        temp <- clValid::clusters(out, cluster_methods[j])
-        temp_k <- temp[[i]]$clustering
-      } else if (cluster_methods[j] == "kmeans") {
-        temp <- clValid::clusters(out, cluster_methods[j])
-        temp_k <- temp[[i]]$cluster
-      } else if (cluster_methods[j] == "sota") {
-        temp <- clValid::clusters(out, cluster_methods[j])
-        temp_k <- temp[[i]]$clust
-      } else if (cluster_methods[j] == "model") {
-        temp <- clValid::clusters(out2, cluster_methods[j])
-        temp_k <- temp[[i]]$classification
-      } else {
-        stop(paste("Unsupported method:", cluster_methods[j]))
-      }
-      clusters[,i,j] <- temp_k
+  # Old code relying on clValid
+  if (FALSE) {
+    clvalid_clustering_methods <- intersect(cluster_methods, 
+                                            c("hierarchical", "kmeans", "diana", 
+                                              "fanny", "som", "model", "sota", 
+                                              "pam", "clara", "agnes"))
+    gaussian_mixture_model <- "model" %in% clvalid_clustering_methods
+    
+    out <- clValid::clValid(as.matrix(temp),
+                            n_clusters,
+                            clMethods = clvalid_clustering_methods[!clvalid_clustering_methods %in% c("model")],
+                            metric = metric,
+                            validation="internal",
+                            maxitems = Inf)
+    names(dimnames(out@measures)) <- c("metric", "k", "m")
+    
+    # Separate Gaussian mixture model call because of extra argument for model type
+    if (gaussian_mixture_model) {
+      out2 <- clValid::clValid(as.matrix(temp),
+                               n_clusters,
+                               clMethods = "model",
+                               metric = metric,
+                               validation="internal",
+                               maxitems = Inf,
+                               modelNames = modelNames)
+      names(dimnames(out2@measures)) <- c("metric", "k", "m")
     }
   }
+  
+  # Handle case with multiple linkage methods
+  cluster_methods_expanded <- cluster_methods
+  multiple_linkages <- "hierarchical" %in% cluster_methods & length(hierarchical_linkage) > 1
+  if (multiple_linkages) {
+    cluster_methods_expanded <- c(cluster_methods[cluster_methods != "hierarchical"], 
+                                  paste0("hierarchical_", hierarchical_linkage))
+  }
+  
+  # Allocate array for clustering results
+  clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods_expanded)))
+  dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods_expanded)
+  
+  # Metrics collected to data.frame
+  metrics <- data.frame()
+  
+  hierarchical_methods <- any(c("hierarchical", "diana", "agnes") %in% cluster_methods_expanded)
+  # Create dissimilarity matrix
+  if (distance_metric == "euclidean") {
+    diss <- dist(temp)
+  } else if(distance_metric == "correlation") {
+    diss <- as.dist(0.5 - cor(t(temp), method = correlation_method)/2)
+  } else {
+    stop(paste("Unsupported distance metric:", distance_metric))
+  }
+  
+  for (i in 1:length(cluster_methods_expanded)) {
+    if (grepl("^hierarchical", cluster_methods_expanded[i])) {
+      if (!multiple_linkages) {
+        if (hierarchical_linkage == "ward") {
+          clust_i <- flashClust::flashClust(diss**2, method = hierarchical_linkage)
+        } else {
+          clust_i <- flashClust::flashClust(diss, method = hierarchical_linkage)
+        }
+      } else {
+        linkage_i <- gsub("^hierarchical_", "", cluster_methods_expanded[i])
+        if (linkage_i == "ward") {
+          if (distance_metric != "euclidean") stop("Ward linkage should be used with euclidean distance")
+          clust_i <- flashClust::flashClust(diss**2, method = linkage_i)
+        } else {
+          clust_i <- flashClust::flashClust(diss, method = linkage_i)
+        }
+      }
+      #coph_score <- cor(cophenetic(clust_i), diss)
+      for (j in 1:length(n_clusters)) {
+        temp_k <- cutree(clust_i, n_clusters[j])
+        silh_k <- cluster::silhouette(x = temp_k, dist = diss)
+        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
+        #metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+        #                                     metric = "CopheneticCorrelation", value = coph_score))
+        #irr::icc
+        clusters[,j,i] <- temp_k
+      }
+    } else if (cluster_methods_expanded[i] == "diana") {
+      clust_i <- cluster::diana(x = diss, diss = TRUE)
+      #coph_score <- cor(cophenetic(clust_i), diss)
+      for (j in 1:length(n_clusters)) {
+        temp_k <- cutree(clust_i, n_clusters[j])
+        silh_k <- cluster::silhouette(x = temp_k, dist = diss)
+        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
+        #metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+        #                                     metric = "CopheneticCorrelation", value = coph_score))
+        #irr::icc
+        clusters[,j,i] <- temp_k
+      }
+    #} else if (cluster_methods_expanded[i] == "agnes") {
+    #  
+    #} else if (cluster_methods_expanded[i] == "pam") {
+    #  
+    } else if (cluster_methods_expanded[i] == "kmeans") {
+      if (distance_metric != "euclidean") stop("Only euclidean distance is supported by k-means")
+      for (j in 1:length(n_clusters)) {
+        clust_k <- ClusterR::KMeans_rcpp(data = temp, clusters = n_clusters[j], 
+                                         num_init = kmeans_num_init, max_iters = kmeans_max_iters,
+                                         tol = kmeans_tol)
+        silh_k <- cluster::silhouette(x = clust_k$clusters, dist = diss)
+        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
+        #irr::icc
+        clusters[,j,i] <- clust_k$clusters
+      }
+    #} else if (cluster_methods_expanded[i] == "sota") {
+    #  
+    } else if (cluster_methods_expanded[i] == "model") {
+      if (distance_metric != "euclidean") stop("Only euclidean distance is supported by GMM")
+      for (j in 1:length(n_clusters)) {
+        clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, verbose = FALSE)
+        silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
+        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
+        #irr::icc
+        clusters[,j,i] <- clust_k$classification
+      }
+    } else {
+      stop(paste("Unsupported method:", cluster_methods_expanded[j]))
+    }
+  }
+  
+  if (FALSE) {
+    for (j in 1:length(cluster_methods)) {
+      for (i in 1:length(n_clusters)) {
+        if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
+          
+          temp <- clValid::clusters(out, cluster_methods[j])
+          temp_k <- cutree(temp, n_clusters[i])
+        } else if (cluster_methods[j] == "pam") {
+          temp <- clValid::clusters(out, cluster_methods[j])
+          temp_k <- temp[[i]]$clustering
+        } else if (cluster_methods[j] == "kmeans") {
+          temp <- clValid::clusters(out, cluster_methods[j])
+          temp_k <- temp[[i]]$cluster
+        } else if (cluster_methods[j] == "sota") {
+          temp <- clValid::clusters(out, cluster_methods[j])
+          temp_k <- temp[[i]]$clust
+        } else if (cluster_methods[j] == "model") {
+          temp <- clValid::clusters(out2, cluster_methods[j])
+          temp_k <- temp[[i]]$classification
+        } else {
+          stop(paste("Unsupported method:", cluster_methods[j]))
+        }
+        clusters[,i,j] <- temp_k
+      }
+    }
+  }
+  
   out_list <- list()
+  
   # Combine outputs with metadata
   out_list$clusters <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
                                   reshape2::melt(clusters, value.name = "cluster"), 
                                   by = "id")
-  out_list$metrics <- reshape2::melt(out@measures, value.name = "value")
-  if (gaussian_mixture_model) {
-    temp <- reshape2::melt(out2@measures, value.name = "value")
-    out_list$metrics <- rbind(out_list$metrics, temp)
+  
+  if (FALSE) {
+    out_list$metrics <- reshape2::melt(out@measures, value.name = "value")
+    if (gaussian_mixture_model) {
+      temp <- reshape2::melt(out2@measures, value.name = "value")
+      out_list$metrics <- rbind(out_list$metrics, temp)
+    }
   }
+  
+  out_list$metrics <- metrics
+  
   # Insert meta data (if present)
   out_list$metrics$run <- dat$run[1]
   out_list$metrics$fold <- dat$fold[1]
@@ -462,7 +585,7 @@ cv_clusteval <- function(dat_embedded, ...) {
   out <- foreach(temp = temp_list,
                  .combine = cfun,
                  .export = c("clustering_evaluation"),
-                 .packages = c("clValid", "reshape2", "mclust"),
+                 .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
                  .multicombine = TRUE,
                  .maxcombine = length(temp_list)) %dopar% {
     temp <- clustering_evaluation(temp, ...)

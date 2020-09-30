@@ -45,23 +45,28 @@ survival_evaluation <- function(event_data,
                                 survival_time_col = "time", 
                                 survival_event_col = "event", 
                                 survival_covariate_names = c("age", "stage"),
-                                patient_id = "patient", 
+                                row_id = "ID", 
+                                by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 ...) {
-  clust_list <- split(clusters, by = c("run", "fold", "datname", "drname", "k", "m"))
+  if (data.table::is.data.table(clusters)) {
+    clust_list <- split(clusters, by = by)
+  } else {
+    clust_list <- split(clusters, clusters[, by])
+  }
   
   out <- foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
-                 .export = c(),
+                 .export = c("by"),
                  .packages = c("survival"),
                  .multicombine = TRUE,
                  .maxcombine = length(clust_list)) %dopar% {
-                   survival_ind <- match(event_data[[patient_id]], substr(clust$id, 1, 12))
+                   survival_ind <- match(event_data[[row_id]], clust$id)
                    temp <- event_data[!is.na(survival_ind),]
                    temp$cluster <- NA
                    temp$cluster <- clust$cluster[survival_ind[!is.na(survival_ind)]]
                    temp$cluster <- factor(temp$cluster)
                    
-                   out_i <- data.frame(clust[1,], cluster_significance = NA)
+                   out_i <- data.frame(clust[1,..by], cluster_significance = NA)
                    out_i$id <- NULL
                    out_i$cluster <- NULL
                    if (length(table(temp$cluster)) > 1) {

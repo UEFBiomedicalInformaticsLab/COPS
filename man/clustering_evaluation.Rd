@@ -9,9 +9,14 @@ clustering_evaluation(
   batch_label_names = NULL,
   subtype_label_names = NULL,
   n_clusters = 2:5,
-  cluster_methods = c("hierarchical", "pam", "diana", "kmeans"),
-  metric = "euclidean",
-  modelNames = NULL,
+  cluster_methods = c("hierarchical", "diana", "kmeans"),
+  distance_metric = "euclidean",
+  correlation_method = "spearman",
+  hierarchical_linkage = "complete",
+  gmm_modelNames = NULL,
+  kmeans_num_init = 100,
+  kmeans_max_iters = 100,
+  kmeans_tol = 1e-04,
   ...
 )
 }
@@ -20,11 +25,25 @@ clustering_evaluation(
 
 \item{batch_label_names}{character vector containing column names corresponding to batch labels}
 
+\item{subtype_label_names}{}
+
 \item{n_clusters}{vector of integers, numbers of clusters to be generated}
 
 \item{cluster_methods}{vector of clustering method names, see details for options}
 
-\item{metric}{distance metric used for clustering, see details for options}
+\item{distance_metric}{}
+
+\item{correlation_method}{}
+
+\item{hierarchical_linkage}{}
+
+\item{gmm_modelNames}{}
+
+\item{kmeans_num_init}{}
+
+\item{kmeans_max_iters}{}
+
+\item{kmeans_tol}{}
 
 \item{...}{extra arguments are ignored currently}
 }
@@ -41,11 +60,7 @@ Supported clustering methods are:
 \itemize{
 \item "hierarchical" -
 \item "diana" -
-\item "agnes" -
 \item "kmeans" -
-\item "pam" -
-\item "sota" -
+\item "model" -
 }
-The clustering methods are interfaced through \code{\link[clValid]{clValid}} so please refer to
-their documentation for options on metrics.
 }

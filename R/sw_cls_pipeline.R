@@ -3,9 +3,9 @@
 #' Combines \code{\link{cv_fold}}, \code{\link{cv_dimred}}, \code{\link{cv_clusteval}} and
 #' \code{\link{stability_eval}}.
 #'
-#' @param dat_list list of pre-processed data sets to run pipeline for
-#' @param nfolds number of cross-validation folds
-#' @param nruns number of cross-validation replicates
+#' @param dat_list list of pre-processed data sets, 
+#' @param nfolds number of cross-validation folds for stability evaluation and metric estimates
+#' @param nruns number of cross-validation replicates for stability evaluation and metric estimates
 #' @param batch_label vector or matrix with categorical variables on columns
 #' @param subtype_label vector or matrix with categorical variables on columns
 #' @param verbose if \code{TRUE}, prints progress notifications
@@ -104,10 +104,10 @@ dimred_clusteval_pipeline <- function(dat_list,
       #data.table::setDT(subtype_table)
       subtype_table <- data.table::as.data.table(subtype_table)
       if (!all(id %in% subtype_id)) {
-        stop("All subtype label sample IDs do not match with data.")
+        warning("All subtype label sample IDs do not match with data.")
       }
       subtype_table$id <- subtype_id
-      dat_list[[i]] <- merge(dat_list[[i]], subtype_table, by = "id")
+      dat_list[[i]] <- plyr::join(dat_list[[i]], subtype_table, by = "id")
     }
   }
   
@@ -446,10 +446,16 @@ clusteval_scoring <- function(input,
   
   # Survival likelihood ratio test
   if (!is.null(input$survival)) {
-    by_survival <- by[by %in% colnames(input$survival)]
-    survival <- plyr::ddply(input$survival, 
-                            by_survival, 
-                            function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
+    if (summarise) {
+      warning("Currently summary of survival p-values is not implemented.")
+    } else {
+      #by_survival <- by[by %in% colnames(input$survival)]
+      #survival <- plyr::ddply(input$survival, 
+      #                        by_survival, 
+      #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
+      survival <- input$survival
+      colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
+    }
   } else {
     survival <- NULL
   }

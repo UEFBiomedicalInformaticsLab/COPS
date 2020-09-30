@@ -17,11 +17,11 @@ dimred_clusteval_pipeline(
 )
 }
 \arguments{
-\item{dat_list}{list of pre-processed data sets to run pipeline for}
+\item{dat_list}{list of pre-processed data sets,}
 
-\item{nfolds}{number of cross-validation folds}
+\item{nfolds}{number of cross-validation folds for stability evaluation and metric estimates}
 
-\item{nruns}{number of cross-validation replicates}
+\item{nruns}{number of cross-validation replicates for stability evaluation and metric estimates}
 
 \item{batch_label}{vector or matrix with categorical variables on columns}
 

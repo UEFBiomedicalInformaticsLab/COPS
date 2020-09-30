@@ -10,7 +10,8 @@ survival_evaluation(
   survival_time_col = "time",
   survival_event_col = "event",
   survival_covariate_names = c("age", "stage"),
-  patient_id = "patient",
+  row_id = "ID",
+  by = c("run", "fold", "datname", "drname", "k", "m"),
   ...
 )
 }
@@ -25,9 +26,9 @@ survival_evaluation(
 
 \item{survival_covariate_names}{}
 
-\item{patient_id}{}
-
 \item{...}{}
+
+\item{patient_id}{}
 }
 \value{
 
