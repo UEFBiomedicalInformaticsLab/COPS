@@ -35,6 +35,7 @@ dim_reduction_suite <- function(dat,
                                 tsne_pca = TRUE, 
                                 umap_neighbors = 20,
                                 include_original = FALSE,
+                                initial_dims = 50,
                                 ...) {
   # TODO: redirect extra arguments
   # eargs <- list(...)
@@ -72,8 +73,9 @@ dim_reduction_suite <- function(dat,
         temp <- pca_temp$ind$coord[,1:d]
         colnames(temp) <- paste0("dim", 1:d)
       } else if (m == "tsne") {
+        if (3 * d < dim(dat)[1] - 1) stop("t-SNE perplexity is too high.")
         if (tsne_pca) {
-          tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(100, dim(dat)[2]), graph = FALSE)
+          tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(initial_dims, dim(dat)[2]), graph = FALSE)
           tsne_input <- tsne_pca_temp$ind$coord
         } else {
           tsne_input <- dat
@@ -92,7 +94,7 @@ dim_reduction_suite <- function(dat,
         temp <- uwot::umap(dat,
                            n_neighbors = umap_neighbors,
                            n_components = d,
-                           pca = min(100, dim(dat)[2]),
+                           pca = min(initial_dims, dim(dat)[2]),
                            verbose = FALSE,
                            init = "normlaplacian")
         colnames(temp) <- paste0("dim", 1:d)

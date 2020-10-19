@@ -14,11 +14,14 @@ survival_preprocess <- function(event_data,
                                 follow_up_time_name = "days_to_last_followup",
                                 event_field_name = "vital_status",
                                 event_name = "Dead", 
-                                event_time_cutoff = Inf) {
+                                event_time_cutoff = Inf,
+                                event_time_lower_cutoff = 0) {
   event_data[[event_time_name]] <- as.numeric(event_data[[event_time_name]])
   event_data[[follow_up_time_name]] <- as.numeric(event_data[[follow_up_time_name]])
   clinical_filter <- (event_data[[event_time_name]] <= event_time_cutoff | is.na(event_data[[event_time_name]])) & 
-                     (event_data[[follow_up_time_name]] <= event_time_cutoff | is.na(event_data[[follow_up_time_name]]))
+                     (event_data[[event_time_name]] > event_time_lower_cutoff | is.na(event_data[[event_time_name]])) & 
+                     (event_data[[follow_up_time_name]] <= event_time_cutoff | is.na(event_data[[follow_up_time_name]])) & 
+                     (event_data[[follow_up_time_name]] > event_time_lower_cutoff | is.na(event_data[[follow_up_time_name]]))
   event_data <- event_data[clinical_filter,]
   
   event_data$time <- event_data[[follow_up_time_name]]

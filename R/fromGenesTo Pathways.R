@@ -495,7 +495,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
     # Sum up duplicated gene id:s
     genes_i <- tapply(genes_i, names(genes_i), sum)
     genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
-    res_i <- fgsea::fgsea(list_db_annots, 
+    res_i <- fgsea::fgseaSimple(list_db_annots, 
                           genes_i, 
                           nperm=10000, 
                           maxSize=min(max(sapply(list_db_annots, length)), length(genes_i) - 1), 
@@ -547,27 +547,33 @@ fgsea_wrapper <- function(ranking_matrix, list_db_annots, rwr_cutoff = 0, parall
   }
   # Use foreach to speed up per sample FGSEA
   res <- foreach(genes_i = lapply(1:ncol(ranking_matrix), function(i) ranking_matrix[,i]), 
-                 .combine = rbind,
+                 .combine = rbind, #list, #rbind,
                  .export = c(),
                  .multicombine = TRUE,
                  .maxcombine = ncol(ranking_matrix)) %dopar% {
                    # Sum up duplicated gene id:s
                    genes_i <- tapply(genes_i, names(genes_i), sum)
                    genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
-                   res_i <- fgsea::fgsea(list_db_annots, 
+                   res_i <- fgsea::fgseaSimple(list_db_annots, 
                                          genes_i, 
                                          nperm=10000, 
                                          maxSize=min(max(sapply(list_db_annots, length)), length(genes_i) - 1), 
                                          nproc = 1)
                    #res[i,match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
                    res_out <- rep(NA, length(list_db_annots))
-                   res_out[match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$padj)) 
+                   res_out[match(res_i$pathway, names(list_db_annots))] <- res_i$NES * (-log10(res_i$pval)) 
+                   
+                   #res_out <- res_i
+                   
                    res_out
                  }
   rownames(res) <- colnames(ranking_matrix)
   colnames(res) <- names(list_db_annots)
   # Remove pathways with only NA
   res <- res[, apply(res, 2, function(x) !all(is.na(x)))]
+  #for (i in 1:nrow(res)) {
+  #  res[i, is.na(res[i,])] <- 0
+  #}
   res[is.na(res)] <- 0
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)

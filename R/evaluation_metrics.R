@@ -424,6 +424,9 @@ clustering_evaluation <- function(dat,
       if (distance_metric != "euclidean") stop("Only euclidean distance is supported by GMM")
       for (j in 1:length(n_clusters)) {
         clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, verbose = FALSE)
+        if (is.null(clust_k)) stop(paste0("GMM fitting failed (model: ", gmm_modelNames, ", samples: ", 
+                                          dim(temp)[1], ", dimensions = ", dim(temp)[2], ", clusters: ",
+                                          n_clusters[j], ")"))
         silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
         metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                              metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
