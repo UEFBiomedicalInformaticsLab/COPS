@@ -4,10 +4,10 @@
 \alias{fgsea_wrapper}
 \title{FGSEA wrapper}
 \usage{
-fgsea_wrapper(ranking_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1)
+fgsea_wrapper(data_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1, ...)
 }
 \arguments{
-\item{ranking_matrix}{}
+\item{data_matrix}{}
 
 \item{list_db_annots}{}
 

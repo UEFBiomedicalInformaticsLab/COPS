@@ -14,6 +14,7 @@ dim_reduction_suite(
   tsne_pca = TRUE,
   umap_neighbors = 20,
   include_original = FALSE,
+  initial_dims = 50,
   ...
 )
 }

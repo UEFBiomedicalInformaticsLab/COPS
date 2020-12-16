@@ -28,6 +28,7 @@ dimred_clusteval_pipeline <- function(dat_list,
                                       survival_data = NULL,
                                       verbose = TRUE,
                                       parallel = 1,
+                                      pathway_enrichment_method = "none",
                                       #dim_reduction = TRUE,
                                       #pre_clust_cv = FALSE,
                                       ...) {
@@ -55,8 +56,17 @@ dimred_clusteval_pipeline <- function(dat_list,
     if (is.null(subtype_label_names)) subtype_label_names <- "subtype_label"
   }
   
+  if (pathway_enrichment_method != "none") {
+    # Optionally: handle RWRFGSEA separately since it is a true single sample method (when not using ecdf).
+    #if (pathway_enrichment_method == RWRFGSEA_method_name) 
+    
+    # Collect gene names
+    gene_id_list <- lapply(dat_list, rownames)
+  }
+  
   # Convert data to data.table to optimize memory usage
   for (i in 1:length(dat_list)) {
+    
     id <- colnames(dat_list[[i]])
     
     dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
@@ -114,12 +124,28 @@ dimred_clusteval_pipeline <- function(dat_list,
   # Create cross validation folds
   cv_index <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ..., batch_label = batch_label)
   
-  # Dimensionality reduction
-  dimred_start <- Sys.time()
-  if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-  dat_embedded <- cv_dimred(dat_list, cv_index, ...)
-  if(verbose) print(paste("Finished dimensionality reduction in",
-                          time_taken_string(dimred_start))); flush.console()
+  # Pathway enrichment
+  if (pathway_enrichment_method != "none") {
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting pathway enrichment ..."); flush.console()
+    dat_pw <- cv_pathway_enrichment(dat_list, cv_index, gene_id_list, enrichment_method = pathway_enrichment_method, ...)
+    if(verbose) print(paste("Finished pathway enrichment in",
+                            time_taken_string(dimred_start))); flush.console()
+    
+    # Dimensionality reduction for pathway enriched features
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
+    dat_embedded <- cv_dimred(dat_pw, cv_index, cv_split_data = FALSE, ...)
+    if(verbose) print(paste("Finished dimensionality reduction in",
+                            time_taken_string(dimred_start))); flush.console()
+  } else{
+    # Dimensionality reduction
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
+    dat_embedded <- cv_dimred(dat_list, cv_index, ...)
+    if(verbose) print(paste("Finished dimensionality reduction in",
+                            time_taken_string(dimred_start))); flush.console()
+  }
   
   # Clustering evaluation
   clusteval_start <- Sys.time()

@@ -1,3 +1,162 @@
+cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, ...) {
+  temp_list <- list()
+  for (i in 1:length(cv_index)) {
+    temp <- cv_index[[i]]
+    datname <- names(cv_index)[i]
+    temp$datname <- datname
+    if (is.null(temp$datname)) temp$datname <- i
+    temp <- split(temp, by = c("run", "fold"))
+    temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
+    temp <- lapply(temp, function(x) list(expr = x, gene_ids = gene_id_list[[i]]))
+    temp_list <- c(temp_list, temp)
+  }
+  
+  out <- foreach(i = temp_list, 
+                 .combine = c,
+                 .export = c("genes_to_pathways"), #"dat_list"),
+                 .packages = c("GSVA", "fgsea", "dnet", "msigdbr", "AnnotationDbi", "org.Hs.eg.db")) %dopar% {
+                   sel <- grep("^dim[0-9]+$", colnames(i$expr))
+                   temp <- i$expr[, sel]
+                   colnames(temp) <- i$gene_ids
+                   pw_temp <- genes_to_pathways(t(temp), ...)
+                   pw_temp <- lapply(pw_temp, function(x) {
+                     temp2 <- as.data.frame(t(x))
+                     colnames(temp2) <- paste0("dim", 1:ncol(temp2)) # replace pw names with dimX for compatibility
+                     return(cbind(i$expr[,-sel], temp2))
+                   })
+                   for (j in 1:length(pw_temp)) {
+                     pw_temp[[j]]$datname <- names(pw_temp)[j]
+                   }
+                   pw_temp
+                 }
+  return(out)
+}
+
+#' Transform a gene-level data matrix into path-level information
+#' 
+#' Utility function to extract pathway-based features from gene expression data using GSVA.
+#' 
+#' @param dat a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
+#' @param min.size a numeric value indicating the minimum size of gene sets included
+#' @param max.size a numeric value indicating the maximum size of gene sets included
+#' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
+#' @param verbose controls verbosity
+#' @param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
+#' @param gs_subcats a character vector indicating msigdbr gene set subcategory names to include in the analysis
+#' @param method 
+#' @param db_annots 
+#' @param batch_label 
+#' @param key_name for gene id translation, the ids should match data ids rownames \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} 
+#' @param ... 
+#' 
+#' @return a list of three data frames:\cr
+#'        - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
+#'        - \strong{GO_PW}: a character variable containing gene symbols;\cr
+#'        - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
+#' @export
+#' @importFrom AnnotationDbi mapIds
+#' @importFrom org.Hs.eg.db org.Hs.eg.db
+#' @importFrom dplyr filter
+#' @importFrom msigdbr msigdbr
+#' @importFrom GSVA gsva
+genes_to_pathways <- function(dat, 
+                              enrichment_method = "GSVA",
+                              db_annots = NULL,
+                              batch_label_pw = NULL, 
+                              min.size = 5, 
+                              max.size = 200, 
+                              parallel = 1,
+                              verbose = FALSE,
+                              key_name = "SYMBOL",
+                              kcdf = "Gaussian",
+                              gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"),
+                              rwr_ecdf = FALSE,
+                              ...
+) {
+  #dat <- t(dat)
+  if (is.null(db_annots)) {
+    # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
+    db_annots = msigdbr::msigdbr(species = "Homo sapiens")
+    db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
+  }
+  if (key_name != "SYMBOL") {
+    db_annots$gene_id <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, db_annots$human_gene_symbol, "SYMBOL", key_name)))
+  } else {
+    db_annots$gene_id <- db_annots$human_gene_symbol
+  }
+  
+  list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_id)
+  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) <= max.size & sapply(list_db_annots, length) >= min.size)]
+  
+  if(!is.null(batch_label_pw)) {
+    # Batch-wise enrichment analysis
+    if (any(table(batch_label_pw) < 10)) {
+      warning("Batch-wise pathway enrichment results may be unreliable since some batches have fewer than 10 samples.")
+    }
+    if (any(table(batch_label_pw) < 2)) {
+      stop("Batch-wise pathway enrichment failed, all batches must have at least 1 sample.")
+    }
+    batch_dat_list <- lapply(unique(batch_label_pw), function(x) dat[, which(x == as.character(batch_label_pw)), drop = FALSE])
+    
+    if (enrichment_method == "GSVA") {
+      f <- function(x) suppressWarnings(GSVA::gsva(x, list_db_annots, mx.diff=TRUE, 
+                                    verbose=FALSE, parallel.sz=parallel, 
+                                    min.sz=min.size, max.sz=max.size, 
+                                    kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+      enriched_dat <- lapply(list_dat, f)
+    } else if (enrichment_method == "DiffRank") {
+      f <- function(x) COPS::DiffRank(x, list_db_annots, parallel)
+      enriched_dat <- lapply(list_dat, f)
+    } else if (enrichment_method == RWRFGSEA_method_name) {
+      if (ecdf_transform) list_dat <- lapply(list_dat, COPS::ecdf_transform, parallel = parallel)
+      f <- function(x) {
+        rwr_res <- COPS::rwr_wrapper(x, parallel = parallel, ...)
+        fgsea_res <- t(COPS::fgsea_wrapper(rwr_res, list_db_annots, parallel = parallel, ...))
+        return(fgsea_res)
+      }
+      enriched_dat <- lapply(list_dat, f)
+    } else {
+      stop(paste("Unsupported pathway enrichment method:", enrichment_method))
+    }
+    enriched_dat <- Reduce(plyr::rbind.fill.matrix, enriched_dat)
+  } else {
+    # Regular enrichment analysis
+    if (enrichment_method == "GSVA") {
+      enriched_dat <- suppressWarnings(GSVA::gsva(dat, list_db_annots, mx.diff=TRUE, 
+                                                  verbose=FALSE, parallel.sz=parallel, 
+                                                  min.sz=min.size, max.sz=max.size, 
+                                                  kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+    } else if (enrichment_method == "DiffRank") {
+      enriched_dat <- COPS::DiffRank(dat, list_db_annots, parallel)
+    } else if (enrichment_method == RWRFGSEA_method_name) {
+      rwr_res <- COPS::rwr_wrapper(dat, parallel = parallel, ...)
+      enriched_dat <- t(COPS::fgsea_wrapper(rwr_res, list_db_annots, parallel = parallel, ...))
+    } else {
+      stop(paste("Unsupported pathway enrichment method:", enrichment_method))
+    }
+  }
+  
+  # Format output
+  if (enrichment_method ==  "GSVA") {
+    out <- list()
+    out$KEGG_GSVA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),]
+    out$GO_GSVA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),]
+    out$REACTOME_GSVA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),]
+  } else if (enrichment_method ==  RWRFGSEA_method_name) {
+    out <- list()
+    out$KEGG_RWRFGSEA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),]
+    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),]
+    out$REACTOME_RWRFGSEA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),]
+  } else {
+    # DiffRank already separates the databases
+    out <- enriched_dat
+  }
+  
+  return(out)
+}
+
+RWRFGSEA_method_name <- "RWRFGSEA"
+
 #' Transform a gene-level data matrix into path-level information
 #' 
 #' Utility function to extract pathway-based features from gene expression data using GSVA.
@@ -19,44 +178,33 @@
 #' @export
 #' @importFrom AnnotationDbi mapIds
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
-#' @importFrom dplyr filter
-#' @importFrom msigdbr msigdbr
 #' @importFrom GSVA gsva
-fromGeneToPathwayFeatures <- function(dat, study_batch = NULL, 
-                                      min.size = 5, max.size = 200, 
-                                      parallel = 4,
-                                      verbose = FALSE,
-                                      key_name = "ENSEMBL",
-                                      kcdf = "Gaussian",
-                                      gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME")
-                                      #rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
-                                      ) {
-  # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
-  db_annots = msigdbr::msigdbr(species = "Homo sapiens")
-  db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
-  list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_symbol)
-  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) < max.size)]
-  
-  ke_pathways <- NULL
-  go_pathways <- NULL
-  re_pathways <- NULL
+GSVA <- function(dat, 
+                 list_db_annots, 
+                 kcdf = "Gaussian", 
+                 parallel = 1,
+                 #rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
+                 ...
+) {
+  out <- t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
+                                verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
   if(!is.null(study_batch)) {
     if(verbose) print("The dataset in input corresponds to the original dataset")
     list_dat <- lapply(unique(study_batch), function(x) dat[,which(x == as.character(study_batch)), drop = FALSE])
     ke_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
       if (key_name != "SYMBOL") rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", key_name)))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
+                                    verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
     }))
     go_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
       if (key_name != "SYMBOL") rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", key_name)))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("GO_", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
+                                    verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
     }))
     re_pathways <- Reduce(plyr::rbind.fill.matrix, lapply(list_dat, function(s) {
       if (key_name != "SYMBOL") rownames(s) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(s), "SYMBOL", key_name)))
       t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
-                 verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
+                                    verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
     }))
     ke_pathways <- t(ke_pathways)
     go_pathways <- t(go_pathways)
@@ -68,11 +216,11 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
   else {
     if (key_name != "SYMBOL") rownames(dat) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", key_name)))
     ke_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+                                               verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
     go_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("GO", names(list_db_annots))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf =  kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+                                               verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf =  kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
     re_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
-                        verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+                                               verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
   }
   colnames(ke_pathways) <- colnames(dat)
   colnames(go_pathways) <- colnames(dat)
@@ -83,7 +231,7 @@ fromGeneToPathwayFeatures <- function(dat, study_batch = NULL,
               REACTOME_PW = re_pathways))
 }
 
-#' Single sample gene set enrichment based on expression rank analysis
+#' Expression rank based single sample gene set enrichment analysis
 #' 
 #' DiffRank by Wang et al. BMC Medical Genomics 2019
 #' 
@@ -109,10 +257,12 @@ DiffRank <- function(expr, list_db_annots, parallel = 1) {
                 .multicombine = TRUE,
                 .maxcombine = length(list_db_annots)) %dopar% {
     ind <- which(rownames(expr) %in% i)
+    # Compare mean ranks of pw genes vs non-pw genes
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
   }
   if (parallel > 1) parallel::stopCluster(parallel_clust)
   rownames(out) <- names(list_db_annots)
+  out <- out[!apply(out, 1, function(x) all(is.na(x))),]
   return(list(KEGG_DiffRank = out[grep("^KEGG", rownames(out)),], 
               GO_DiffRank = out[grep("^GO", rownames(out)),], 
               REACTOME_DiffRank = out[grep("^REACTOME", rownames(out)),]))
@@ -414,7 +564,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   
   # Rank disease-genes within each sample
   if (kernelized_sorting) {
-    expr <- ecdf_transform(dat, parallel)
+    expr <- COPS::ecdf_transform(dat, parallel)
   } else {
     expr <- dat
   }
@@ -528,16 +678,92 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
   return(out)
 }
 
+
+#' Random walk with restart
+#' 
+#' Converts gene expression values to network affinity values
+#'
+#' @param expr 
+#' @param gene_network 
+#' @param seed_size 
+#' @param absolute_dysregulation 
+#' @param parallel 
+#' @param rwr_restart_probability 
+#' @param rwr_adjacency_normalization 
+#' @param rwr_affinity_normalization 
+#'
+#' @return
+#' @export
+rwr_wrapper <- function(expr, 
+                        gene_network, 
+                        seed_size = nrow(expr)/3, 
+                        absolute_dysregulation = FALSE, 
+                        parallel = 1, 
+                        rwr_restart_probability = 0.75, 
+                        rwr_adjacency_normalization = "laplacian",
+                        rwr_affinity_normalization = "none",
+                        ...) {
+  #expr <- t(expr)
+  if (absolute_dysregulation) {
+    # Absolute 'dysregulation'
+    gene_ranking <- apply(abs(expr), 2, function(x) order(order(x)))
+    rownames(gene_ranking) <- rownames(expr)
+    
+    rwr <- dnet::dRWR(gene_network, 
+                      setSeeds = gene_ranking > nrow(gene_ranking) - seed_size, 
+                      normalise = rwr_adjacency_normalization,
+                      restart = rwr_restart_probability, 
+                      normalise.affinity.matrix = rwr_affinity_normalization, 
+                      parallel = parallel > 1, 
+                      multicores = parallel, 
+                      verbose = FALSE)
+    rownames(rwr) <- names(igraph::V(gene_network))
+    colnames(rwr) <- colnames(expr)
+    
+    out <- rwr
+  } else { 
+    # Separate up and down regulated
+    gene_ranking <- apply(expr, 2, function(x) order(order(x)))
+    rownames(gene_ranking) <- rownames(expr)
+    
+    rwr.up <- dnet::dRWR(gene_network, 
+                         setSeeds = gene_ranking > nrow(gene_ranking) - seed_size, 
+                         normalise = rwr_adjacency_normalization,
+                         restart = rwr_restart_probability, 
+                         normalise.affinity.matrix = rwr_affinity_normalization, 
+                         parallel = parallel > 1, 
+                         multicores = parallel, 
+                         verbose = FALSE)
+    rwr.down <- dnet::dRWR(gene_network, 
+                           setSeeds = gene_ranking < seed_size, 
+                           normalise = rwr_adjacency_normalization,
+                           restart = rwr_restart_probability, 
+                           normalise.affinity.matrix = rwr_affinity_normalization, 
+                           parallel = parallel > 1, 
+                           multicores = parallel, 
+                           verbose = FALSE)
+    rownames(rwr.up) <- names(igraph::V(gene_network))
+    rownames(rwr.down) <- names(igraph::V(gene_network))
+    colnames(rwr.up) <- colnames(expr)
+    colnames(rwr.down) <- colnames(expr)
+    
+    out <- rwr.up - rwr.down
+  }
+  
+  return(out)
+  
+}
+
 #' FGSEA wrapper
 #'
-#' @param ranking_matrix 
+#' @param data_matrix 
 #' @param list_db_annots 
 #' @param rwr_cutoff 
 #' @param parallel 
 #'
 #' @return
 #' @export
-fgsea_wrapper <- function(ranking_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1) {
+fgsea_wrapper <- function(data_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1, ...) {
   if (parallel > 1) {
     parallel_clust <- parallel::makeCluster(parallel)
     doParallel::registerDoParallel(parallel_clust)
@@ -546,11 +772,11 @@ fgsea_wrapper <- function(ranking_matrix, list_db_annots, rwr_cutoff = 0, parall
     foreach::registerDoSEQ()
   }
   # Use foreach to speed up per sample FGSEA
-  res <- foreach(genes_i = lapply(1:ncol(ranking_matrix), function(i) ranking_matrix[,i]), 
+  res <- foreach(genes_i = lapply(1:ncol(data_matrix), function(i) data_matrix[,i]), 
                  .combine = rbind, #list, #rbind,
                  .export = c(),
                  .multicombine = TRUE,
-                 .maxcombine = ncol(ranking_matrix)) %dopar% {
+                 .maxcombine = ncol(data_matrix)) %dopar% {
                    # Sum up duplicated gene id:s
                    genes_i <- tapply(genes_i, names(genes_i), sum)
                    genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
@@ -567,7 +793,7 @@ fgsea_wrapper <- function(ranking_matrix, list_db_annots, rwr_cutoff = 0, parall
                    
                    res_out
                  }
-  rownames(res) <- colnames(ranking_matrix)
+  rownames(res) <- colnames(data_matrix)
   colnames(res) <- names(list_db_annots)
   # Remove pathways with only NA
   res <- res[, apply(res, 2, function(x) !all(is.na(x)))]
@@ -683,3 +909,25 @@ seed_similarity <- function(dat, disease_targets, n_top_expr, n_top_target,
   gplots::heatmap.2(seeds_jaccard, symm = TRUE, dist = as.dist, density.info = "none", 
                     trace = "none", main = plot_title, breaks = seq(0,1,0.01), revC = TRUE)
 }
+
+
+
+#' Unweighted gene co-expression network constructor
+#' 
+#' Thresholded correlation. Uses \code{WGCNA::signumAdjacencyFunction}.
+#'
+#' @param dat 
+#' @param correlation_method 
+#' @param cor_threshold 
+#'
+#' @return
+#' @export
+coexpression_network_unweighted <- function(dat, 
+                                            correlation_method = "spearman", 
+                                            cor_threshold = 0.5) {
+  cor_mat <- cor(t(dat), method = correlation_method)
+  coexpr_net <- WGCNA::signumAdjacencyFunction(cor_mat, threshold = cor_threshold)
+  coexpr_net <- igraph::graph_from_adjacency_matrix(coexpr_net, mode = "undirected", weighted = NULL)
+  return(coexpr_net)
+}
+

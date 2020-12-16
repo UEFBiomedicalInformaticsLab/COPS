@@ -119,16 +119,23 @@ dim_reduction_suite <- function(dat,
 #'
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table
-cv_dimred <- function(dat_list, cv_index, ...) {
+cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
   temp_list <- list()
-  for (i in 1:length(cv_index)) {
-    temp <- cv_index[[i]]
-    datname <- names(cv_index)[i]
-    temp$datname <- datname
-    if (is.null(temp$datname)) temp$datname <- i
-    temp <- split(temp, by = c("run", "fold"))
-    temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
-    temp_list <- c(temp_list, temp)
+  if (cv_split_data) {
+    for (i in 1:length(cv_index)) {
+      temp <- cv_index[[i]]
+      datname <- names(cv_index)[i]
+      temp$datname <- datname
+      if (is.null(temp$datname)) temp$datname <- i
+      temp <- split(temp, by = c("run", "fold"))
+      temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
+      temp_list <- c(temp_list, temp)
+    }
+  } else {
+    for (i in 1:length(dat_list)) {
+      temp <- split(dat_list[[i]], dat_list[[i]][,c("run", "fold")])
+      temp_list <- c(temp_list, temp)
+    }
   }
   
   out <- foreach(i = temp_list, 

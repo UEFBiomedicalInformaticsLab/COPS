@@ -307,35 +307,6 @@ clustering_evaluation <- function(dat,
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
   
-  # Old code relying on clValid
-  if (FALSE) {
-    clvalid_clustering_methods <- intersect(cluster_methods, 
-                                            c("hierarchical", "kmeans", "diana", 
-                                              "fanny", "som", "model", "sota", 
-                                              "pam", "clara", "agnes"))
-    gaussian_mixture_model <- "model" %in% clvalid_clustering_methods
-    
-    out <- clValid::clValid(as.matrix(temp),
-                            n_clusters,
-                            clMethods = clvalid_clustering_methods[!clvalid_clustering_methods %in% c("model")],
-                            metric = metric,
-                            validation="internal",
-                            maxitems = Inf)
-    names(dimnames(out@measures)) <- c("metric", "k", "m")
-    
-    # Separate Gaussian mixture model call because of extra argument for model type
-    if (gaussian_mixture_model) {
-      out2 <- clValid::clValid(as.matrix(temp),
-                               n_clusters,
-                               clMethods = "model",
-                               metric = metric,
-                               validation="internal",
-                               maxitems = Inf,
-                               modelNames = modelNames)
-      names(dimnames(out2@measures)) <- c("metric", "k", "m")
-    }
-  }
-  
   # Handle case with multiple linkage methods
   cluster_methods_expanded <- cluster_methods
   multiple_linkages <- "hierarchical" %in% cluster_methods & length(hierarchical_linkage) > 1

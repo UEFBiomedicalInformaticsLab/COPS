@@ -13,6 +13,7 @@ dimred_clusteval_pipeline(
   survival_data = NULL,
   verbose = TRUE,
   parallel = 1,
+  pathway_enrichment_method = "none",
   ...
 )
 }

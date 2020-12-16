@@ -2,7 +2,7 @@
 % Please edit documentation in R/fromGenesTo Pathways.R
 \name{DiffRank}
 \alias{DiffRank}
-\title{Single sample gene set enrichment based on expression rank analysis}
+\title{Expression rank based single sample gene set enrichment analysis}
 \usage{
 DiffRank(expr, list_db_annots, parallel = 1)
 }

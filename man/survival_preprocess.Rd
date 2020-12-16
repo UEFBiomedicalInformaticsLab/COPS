@@ -10,7 +10,8 @@ survival_preprocess(
   follow_up_time_name = "days_to_last_followup",
   event_field_name = "vital_status",
   event_name = "Dead",
-  event_time_cutoff = Inf
+  event_time_cutoff = Inf,
+  event_time_lower_cutoff = 0
 )
 }
 \arguments{
