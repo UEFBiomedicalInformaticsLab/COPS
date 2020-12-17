@@ -57,7 +57,8 @@ dim_reduction_suite <- function(dat,
         dims <- output_dimensions
       }
     } else if (m == "tsne") {
-      # Rtsne throws error if perplexity is too high compared to data size
+      # Rtsne throws error if perplexity is too high compared to data size 
+      # We can remove the offending values (possibly yielding 0 t-SNE based reductions)
       dims <- tsne_perplexities[3 * tsne_perplexities < nrow(dat) - 1]
     } else {
       warning(paste("Unsupported method:", m))
@@ -73,7 +74,7 @@ dim_reduction_suite <- function(dat,
         temp <- pca_temp$ind$coord[,1:d]
         colnames(temp) <- paste0("dim", 1:d)
       } else if (m == "tsne") {
-        if (3 * d < dim(dat)[1] - 1) stop("t-SNE perplexity is too high.")
+        if (3 * d > dim(dat)[1] - 1) stop("t-SNE perplexity is too high.")
         if (tsne_pca) {
           tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(initial_dims, dim(dat)[2]), graph = FALSE)
           tsne_input <- tsne_pca_temp$ind$coord
