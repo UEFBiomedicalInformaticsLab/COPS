@@ -21,6 +21,7 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, ...) {
                    pw_temp <- genes_to_pathways(t(temp), ...)
                    pw_temp <- lapply(pw_temp, function(x) {
                      temp2 <- as.data.frame(t(x))
+                     if (ncol(temp2)>0) stop("Pathway enrichment failed for some subset.")
                      colnames(temp2) <- paste0("dim", 1:ncol(temp2)) # replace pw names with dimX for compatibility
                      return(cbind(i$expr[,-sel], temp2))
                    })
