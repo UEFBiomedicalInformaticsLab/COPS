@@ -139,14 +139,14 @@ genes_to_pathways <- function(dat,
   # Format output
   if (enrichment_method ==  "GSVA") {
     out <- list()
-    out$KEGG_GSVA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),]
-    out$GO_GSVA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),]
-    out$REACTOME_GSVA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),]
+    out$KEGG_GSVA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
+    out$GO_GSVA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),, drop = FALSE]
+    out$REACTOME_GSVA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
   } else if (enrichment_method ==  RWRFGSEA_method_name) {
     out <- list()
-    out$KEGG_RWRFGSEA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),]
-    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),]
-    out$REACTOME_RWRFGSEA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),]
+    out$KEGG_RWRFGSEA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
+    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),, drop = FALSE]
+    out$REACTOME_RWRFGSEA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
   } else {
     # DiffRank already separates the databases
     out <- enriched_dat
@@ -180,14 +180,17 @@ RWRFGSEA_method_name <- "RWRFGSEA"
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
 #' @importFrom GSVA gsva
 GSVA <- function(dat, 
-                 list_db_annots, 
+                 list_db_annots = NULL,
+                 batch_label_pw = NULL, 
+                 min.size = 5, 
+                 max.size = 200, 
+                 study_batch = NULL,
+                 key_name = "SYMBOL",
                  kcdf = "Gaussian", 
                  parallel = 1,
                  #rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
                  ...
 ) {
-  out <- t(suppressWarnings(GSVA::gsva(s, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                                verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz=max.size, kcdf = kcdf)))#, rnaseq = rnaseq))) # later version for rnaseq?
   if(!is.null(study_batch)) {
     if(verbose) print("The dataset in input corresponds to the original dataset")
     list_dat <- lapply(unique(study_batch), function(x) dat[,which(x == as.character(study_batch)), drop = FALSE])
@@ -216,11 +219,11 @@ GSVA <- function(dat,
   else {
     if (key_name != "SYMBOL") rownames(dat) <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db, rownames(dat), "SYMBOL", key_name)))
     ke_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("KEGG", names(list_db_annots))], mx.diff=TRUE, 
-                                               verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+                                               verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
     go_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("GO", names(list_db_annots))], mx.diff=TRUE, 
-                                               verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf =  kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+                                               verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz = max.size, kcdf =  kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
     re_pathways <- suppressWarnings(GSVA::gsva(dat, list_db_annots[grep("REACTOME", names(list_db_annots))], mx.diff=TRUE, 
-                                               verbose=FALSE, parallel.sz=parallel, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
+                                               verbose=FALSE, parallel.sz=parallel, min.sz=min.size, max.sz = max.size, kcdf = kcdf))#, rnaseq = rnaseq)) # later version for rnaseq?
   }
   colnames(ke_pathways) <- colnames(dat)
   colnames(go_pathways) <- colnames(dat)
