@@ -1,3 +1,17 @@
+# Some globals:
+RWRFGSEA_method_name <- "RWRFGSEA"
+
+#' Pathway enrichment analysis on cross-validated data sets
+#' 
+#' This function wraps the pathway enrichment based data transformations included in this package for use in the pipeline. 
+#'
+#' @param dat_list list of data sets
+#' @param cv_index list of data.frames corresponding to cross-validation fold indicaters as produced by \code{\link[COPS]{cv_fold}}
+#' @param gene_id_list list of gene name vectors of the corresponding columns in dat_list
+#' @param ... arguments passed on to \code{\link[COPS]{genes_to_pathways}}
+#'
+#' @return
+#' @export
 cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, ...) {
   temp_list <- list()
   for (i in 1:length(cv_index)) {
@@ -29,7 +43,7 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, ...) {
                        return(data.frame())
                      }
                    })
-                   pw_temp <- pw_temp[sapply(pw_temp, ncol) > 0]
+                   pw_temp <- pw_temp[sapply(pw_temp, ncol) > 0] # Unsafe if reference fold is removed, but other folds remain
                    for (j in 1:length(pw_temp)) {
                      pw_temp[[j]]$datname <- names(pw_temp)[j]
                    }
@@ -40,25 +54,23 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, ...) {
 
 #' Transform a gene-level data matrix into path-level information
 #' 
-#' Utility function to extract pathway-based features from gene expression data using GSVA.
+#' This is a utility function which wraps several methods to extract pathway-based features from gene expression data
 #' 
 #' @param dat a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
+#' @param enrichment_method options: DiffRank GSVA, RWRFGSEA
+#' @param db_annots data.frame of pathway annotations or gene sets (e.g. as returned by \code{\link[msigdbr]{msigdbr}})
+#' @param batch_label_pw batch labels for batch-wise enrichment, ignored if NULL
 #' @param min.size a numeric value indicating the minimum size of gene sets included
 #' @param max.size a numeric value indicating the maximum size of gene sets included
 #' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #' @param verbose controls verbosity
+#' @param key_name column name to look for if gene id translation is needed, ids should match data ids rownames \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} 
 #' @param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
-#' @param gs_subcats a character vector indicating msigdbr gene set subcategory names to include in the analysis
-#' @param method 
-#' @param db_annots 
-#' @param batch_label 
-#' @param key_name for gene id translation, the ids should match data ids rownames \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} 
-#' @param ... 
+#' @param gs_subcats a character vector indicating \code{\link[msigdbr]{msigdbr}}) gene set subcategory names to include in the analysis
+#' @param rwr_ecdf controls whether a kernel based empirical density function is used when selecting gene seeds for RWR in \code{\link[COPS]{rwr_wrapper}}
+#' @param ... extra arguments are passed to \code{\link[COPS]{rwr_wrapper}} and \code{\link[COPS]{fgsea_wrapper}}
 #' 
-#' @return a list of three data frames:\cr
-#'        - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
-#'        - \strong{GO_PW}: a character variable containing gene symbols;\cr
-#'        - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
+#' @return a list of data.frames corresponding to the transformed features based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
 #' @export
 #' @importFrom AnnotationDbi mapIds
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
@@ -161,11 +173,11 @@ genes_to_pathways <- function(dat,
   return(out)
 }
 
-RWRFGSEA_method_name <- "RWRFGSEA"
 
-#' Transform a gene-level data matrix into path-level information
+
+#' Pathway enrichment by using GSVA
 #' 
-#' Utility function to extract pathway-based features from gene expression data using GSVA.
+#' Utility function wrapping GSVA, batch-wise enrichment and gene key matching. 
 #' 
 #' @param dat a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
 #' @param study_batch factor indicating the individual studies. 
@@ -177,10 +189,7 @@ RWRFGSEA_method_name <- "RWRFGSEA"
 #' @param kcdf distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel
 #' @param gs_subcats a character vector indicating msigdbr gene set subcategory names to include in the analysis
 #' 
-#' @return a list of three data frames:\cr
-#'        - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
-#'        - \strong{GO_PW}: a character variable containing gene symbols;\cr
-#'        - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
+#' @return a list of data.frames corresponding to the transformed features based on the given gene sets split into KEGG, GO and REACTOME
 #' @export
 #' @importFrom AnnotationDbi mapIds
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
@@ -194,6 +203,7 @@ GSVA <- function(dat,
                  key_name = "SYMBOL",
                  kcdf = "Gaussian", 
                  parallel = 1,
+                 verbose = FALSE, 
                  #rnaseq = FALSE # not implemented (bioconductor GSVA behind GitHub)
                  ...
 ) {
@@ -244,8 +254,9 @@ GSVA <- function(dat,
 #' 
 #' DiffRank by Wang et al. BMC Medical Genomics 2019
 #' 
-#' @param expr gene expression
-#' @param list_db_annots list of gene sets
+#' @param expr gene expression matrix, samples on columns and genes on rows
+#' @param list_db_annots list of gene sets with gene names that correspond to rows in \strong{expr}
+#' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #' 
 #' @return 
 #' @export
@@ -515,7 +526,7 @@ ecdf_transform <- function(x, parallel = 1) {
 
 #' Jaccard index between indicator matrix columns
 #'
-#' @param x 
+#' @param x indicator or binary feature matrix
 #'
 #' @return
 #' @export
@@ -690,7 +701,7 @@ fromGeneToNetworksToPathwayFeatures <- function(dat,
 
 #' Random walk with restart
 #' 
-#' Converts gene expression values to network affinity values
+#' Transforms gene expression values to network node affinity values
 #'
 #' @param expr 
 #' @param gene_network 
@@ -712,6 +723,7 @@ rwr_wrapper <- function(expr,
                         rwr_adjacency_normalization = "laplacian",
                         rwr_affinity_normalization = "none",
                         ...) {
+  #gene_filter_up <- setdiff(rownames(tbrca_norm_deg)[tbrca_norm_deg$logFC > 0], rownames(tbrca_norm)[zero_var])
   #expr <- t(expr)
   if (absolute_dysregulation) {
     # Absolute 'dysregulation'
@@ -744,7 +756,7 @@ rwr_wrapper <- function(expr,
                          multicores = parallel, 
                          verbose = FALSE)
     rwr.down <- dnet::dRWR(gene_network, 
-                           setSeeds = gene_ranking < seed_size, 
+                           setSeeds = gene_ranking > seed_size - seed_size, 
                            normalise = rwr_adjacency_normalization,
                            restart = rwr_restart_probability, 
                            normalise.affinity.matrix = rwr_affinity_normalization, 
@@ -764,15 +776,18 @@ rwr_wrapper <- function(expr,
 }
 
 #' FGSEA wrapper
+#' 
+#' Wrapper for fast pre-ranked gene set enrichment analysis (\code{\link[fgsea]{fgseaSimple}})
 #'
-#' @param data_matrix 
-#' @param list_db_annots 
-#' @param rwr_cutoff 
+#' @param data_matrix numeric values used for ranking, assumes samples on columns
+#' @param list_db_annots list of gene sets or pathway annotations
+#' @param value_cutoff cutoff for inclusion in analysis
 #' @param parallel 
+#' @param ...
 #'
 #' @return
 #' @export
-fgsea_wrapper <- function(data_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1, ...) {
+fgsea_wrapper <- function(data_matrix, list_db_annots, value_cutoff = 0, parallel = 1, ...) {
   if (parallel > 1) {
     parallel_clust <- parallel::makeCluster(parallel)
     doParallel::registerDoParallel(parallel_clust)
@@ -788,7 +803,7 @@ fgsea_wrapper <- function(data_matrix, list_db_annots, rwr_cutoff = 0, parallel 
                  .maxcombine = ncol(data_matrix)) %dopar% {
                    # Sum up duplicated gene id:s
                    genes_i <- tapply(genes_i, names(genes_i), sum)
-                   genes_i <- genes_i[abs(genes_i) > rwr_cutoff]
+                   genes_i <- genes_i[abs(genes_i) > value_cutoff]
                    res_i <- fgsea::fgseaSimple(list_db_annots, 
                                          genes_i, 
                                          nperm=10000, 
@@ -816,118 +831,13 @@ fgsea_wrapper <- function(data_matrix, list_db_annots, rwr_cutoff = 0, parallel 
 }
 
 
-
-#' Visualize gene seed similarity for given settings
-#'
-#' @param dat 
-#' @param disease_targets 
-#' @param n_top_expr 
-#' @param n_top_target 
-#' @param mart_results 
-#' @param gene.network 
-#' @param plot_title 
-#' @param otp_score 
-#' @param kernelized_sorting 
-#' @param reg_up_down 
-#' @param parallel 
-#'
-#' @return
-#' @export
-seed_similarity <- function(dat, disease_targets, n_top_expr, n_top_target, 
-                            mart_results, gene.network, plot_title,
-                            otp_score = "association_score.datatypes.rna_expression",
-                            kernelized_sorting = FALSE, 
-                            reg_up_down = FALSE,
-                            parallel = 1) {
-  gene.diseases <- disease_targets[order(disease_targets[[otp_score]], 
-                                         decreasing = TRUE),]
-  disease.genes <- mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
-                                                      mart_results$entrezgene_id)]
-  disease.genes <- disease.genes[!is.na(disease.genes)][1:min(n_top_target, sum(disease_targets[[otp_score]] > 0))]
-  
-  dat <- dat[intersect(rownames(dat), disease.genes),]
-  
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    foreach::registerDoSEQ()
-  }
-  # Rank disease-genes within each sample
-  if (kernelized_sorting) {
-    gene_sd <- apply(dat, 1, sd)
-    gene_expr_score <- foreach(i = 1:ncol(dat), 
-                               .combine = cbind,
-                               .export = c(),
-                               .multicombine = TRUE,
-                               .maxcombine = ncol(dat)) %dopar% {
-                                 gene_expr_score_i <- dat * 0
-                                 for (j in (1:ncol(dat))[-i]) {
-                                   # z-score with respect to each kernel
-                                   gene_expr_score_i[,j] <- pnorm((dat[,j] - dat[,i]) / gene_sd)
-                                 }
-                                 # sum over kernels
-                                 apply(gene_expr_score_i, 1, sum) / (ncol(dat) - 1) 
-                               }
-    expr <- gene_expr_score - 0.5
-  } else {
-    expr <- dat
-  }
-  
-  if (reg_up_down) {
-    gene.seeds.up <- apply(expr, 2, function(s) {
-      sorted.genes <- names(s)[order(s, decreasing = TRUE)]
-      out <- intersect(sorted.genes, disease.genes)[1:n_top_expr]
-      # Remove NA when intersection is smaller than number of genes selected
-      out <- out[!is.na(out)]
-      out <- as.numeric(igraph::V(gene.network)$name %in% out)
-      out
-    })
-    
-    gene.seeds.down <- apply(expr, 2, function(s) {
-      sorted.genes <- names(s)[order(s, decreasing = FALSE)]
-      out <- intersect(sorted.genes, disease.genes)[1:n_top_expr]
-      # Remove NA when intersection is smaller than number of genes selected
-      out <- out[!is.na(out)]
-      out <- as.numeric(igraph::V(gene.network)$name %in% out)
-      out
-    })
-    
-    # Combine
-    gene.seeds <- rbind(gene.seeds.up, gene.seeds.down)
-  } else {
-    gene.seeds <- apply(expr, 2, function(s) {
-      sorted.genes <- names(s)[order(abs(s), decreasing = TRUE)]
-      out <- intersect(sorted.genes, disease.genes)[1:n_top_expr]
-      # Remove NA when intersection is smaller than number of genes selected
-      out <- out[!is.na(out)]
-      out <- as.numeric(igraph::V(gene.network)$name %in% out)
-      out
-    })
-  }
-  
-  # Fast matrix based Jaccard calculation
-  A <- t(gene.seeds) %*% gene.seeds
-  B <- t(gene.seeds) %*% (1-gene.seeds)
-  seeds_jaccard <- A / (A + B + t(B))
-  
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
-  
-  # Set samples with 0 gene seeds to zero
-  seeds_jaccard[is.na(seeds_jaccard)] <- 0
-  gplots::heatmap.2(seeds_jaccard, symm = TRUE, dist = as.dist, density.info = "none", 
-                    trace = "none", main = plot_title, breaks = seq(0,1,0.01), revC = TRUE)
-}
-
-
-
 #' Unweighted gene co-expression network constructor
 #' 
-#' Thresholded correlation. Uses \code{WGCNA::signumAdjacencyFunction}.
+#' Generates a gene co-expression network by thresholding gene expression correlations with \code{\link[WGCNA]{signumAdjacencyFunction}}.
 #'
-#' @param dat 
-#' @param correlation_method 
-#' @param cor_threshold 
+#' @param dat gene expression data, samples on columns
+#' @param correlation_method correlation method
+#' @param cor_threshold numeric threshold used to define edges/links (see \code{\link[WGCNA]{pickHardThreshold}})
 #'
 #' @return
 #' @export

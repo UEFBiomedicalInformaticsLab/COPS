@@ -14,10 +14,12 @@ fgsea_wrapper(data_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1, ...)
 \item{rwr_cutoff}{}
 
 \item{parallel}{}
+
+\item{...}{}
 }
 \value{
 
 }
 \description{
-FGSEA wrapper
+Wrapper for fast pre-ranked gene set enrichment analysis (\code{\link[fgsea]{fgseaSimple}})
 }

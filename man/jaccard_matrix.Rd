@@ -7,7 +7,7 @@
 jaccard_matrix(x)
 }
 \arguments{
-\item{x}{}
+\item{x}{indicator or binary feature matrix}
 }
 \value{
 

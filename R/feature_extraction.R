@@ -27,7 +27,7 @@
 #' @importFrom Rtsne Rtsne
 #' @importFrom uwot umap
 dim_reduction_suite <- function(dat,
-                                dimred_methods = c("pca", "umap"), # TODO: fix Rtsne issue 
+                                dimred_methods = c("pca", "umap"), 
                                 output_dimensions = NULL, 
                                 pca_dims = 2:6,
                                 umap_dims = 2:10,

@@ -7,7 +7,7 @@
 rwr_wrapper(
   expr,
   gene_network,
-  seed_size = nrow(x)/3,
+  seed_size = nrow(expr)/3,
   absolute_dysregulation = FALSE,
   parallel = 1,
   rwr_restart_probability = 0.75,
@@ -37,5 +37,5 @@ rwr_wrapper(
 
 }
 \description{
-Converts gene expression values to network affinity values
+Transforms gene expression values to network node affinity values
 }

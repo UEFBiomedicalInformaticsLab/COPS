@@ -7,9 +7,11 @@
 DiffRank(expr, list_db_annots, parallel = 1)
 }
 \arguments{
-\item{expr}{gene expression}
+\item{expr}{gene expression matrix, samples on columns and genes on rows}
 
-\item{list_db_annots}{list of gene sets}
+\item{list_db_annots}{list of gene sets with gene names that correspond to rows in \strong{expr}}
+
+\item{parallel}{a numeric value indicating the number of processors to use when doing the calculations in parallel.}
 }
 \value{
 

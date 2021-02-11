@@ -290,6 +290,7 @@ dimred_cluster <- function(dat_list,
                             cluster_method = "kmeans",
                             k = 2,
                             metric = "euclidean") {
+  # TODO: change this to not use clValid
   if (!is.null(best)) {
     dat <- dat_list[[best$datname]]
     

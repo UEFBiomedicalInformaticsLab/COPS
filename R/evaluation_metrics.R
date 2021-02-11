@@ -409,33 +409,6 @@ clustering_evaluation <- function(dat,
     }
   }
   
-  if (FALSE) {
-    for (j in 1:length(cluster_methods)) {
-      for (i in 1:length(n_clusters)) {
-        if (cluster_methods[j] %in% c("hierarchical", "diana", "agnes")) {
-          
-          temp <- clValid::clusters(out, cluster_methods[j])
-          temp_k <- cutree(temp, n_clusters[i])
-        } else if (cluster_methods[j] == "pam") {
-          temp <- clValid::clusters(out, cluster_methods[j])
-          temp_k <- temp[[i]]$clustering
-        } else if (cluster_methods[j] == "kmeans") {
-          temp <- clValid::clusters(out, cluster_methods[j])
-          temp_k <- temp[[i]]$cluster
-        } else if (cluster_methods[j] == "sota") {
-          temp <- clValid::clusters(out, cluster_methods[j])
-          temp_k <- temp[[i]]$clust
-        } else if (cluster_methods[j] == "model") {
-          temp <- clValid::clusters(out2, cluster_methods[j])
-          temp_k <- temp[[i]]$classification
-        } else {
-          stop(paste("Unsupported method:", cluster_methods[j]))
-        }
-        clusters[,i,j] <- temp_k
-      }
-    }
-  }
-  
   out_list <- list()
   
   # Combine outputs with metadata

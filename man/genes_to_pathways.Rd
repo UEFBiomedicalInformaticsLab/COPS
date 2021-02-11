@@ -23,7 +23,11 @@ genes_to_pathways(
 \arguments{
 \item{dat}{a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.}
 
-\item{db_annots}{}
+\item{enrichment_method}{options: DiffRank GSVA, RWRFGSEA}
+
+\item{db_annots}{data.frame of pathway annotations or gene sets (e.g. as returned by \code{\link[msigdbr]{msigdbr}})}
+
+\item{batch_label_pw}{batch labels for batch-wise enrichment, ignored if NULL}
 
 \item{min.size}{a numeric value indicating the minimum size of gene sets included}
 
@@ -33,24 +37,19 @@ genes_to_pathways(
 
 \item{verbose}{controls verbosity}
 
-\item{key_name}{for gene id translation, the ids should match data ids rownames \code{\link[org.Hs.eg.db]{org.Hs.eg.db}}}
+\item{key_name}{column name to look for if gene id translation is needed, ids should match data ids rownames \code{\link[org.Hs.eg.db]{org.Hs.eg.db}}}
 
 \item{kcdf}{distribution name for \code{\link[GSVA]{gsva}} empirical distribution kernel}
 
-\item{gs_subcats}{a character vector indicating msigdbr gene set subcategory names to include in the analysis}
+\item{gs_subcats}{a character vector indicating \code{\link[msigdbr]{msigdbr}}) gene set subcategory names to include in the analysis}
 
-\item{...}{}
+\item{rwr_ecdf}{controls whether a kernel based empirical density function is used when selecting gene seeds for RWR in \code{\link[COPS]{rwr_wrapper}}}
 
-\item{method}{}
-
-\item{batch_label}{}
+\item{...}{extra arguments are passed to \code{\link[COPS]{rwr_wrapper}} and \code{\link[COPS]{fgsea_wrapper}}}
 }
 \value{
-a list of three data frames:\cr
-       - \strong{KEGG_PW}: a character variable containing entrez gene ids;\cr
-       - \strong{GO_PW}: a character variable containing gene symbols;\cr
-       - \strong{REACTOME_PW}: a numeric variable containing gene-disease scores.
+a list of data.frames corresponding to the transformed features based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
 }
 \description{
-Utility function to extract pathway-based features from gene expression data using GSVA.
+This is a utility function which wraps several methods to extract pathway-based features from gene expression data
 }
