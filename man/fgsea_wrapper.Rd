@@ -4,14 +4,14 @@
 \alias{fgsea_wrapper}
 \title{FGSEA wrapper}
 \usage{
-fgsea_wrapper(data_matrix, list_db_annots, rwr_cutoff = 0, parallel = 1, ...)
+fgsea_wrapper(data_matrix, list_db_annots, value_cutoff = 0, parallel = 1, ...)
 }
 \arguments{
-\item{data_matrix}{}
+\item{data_matrix}{numeric values used for ranking, assumes samples on columns}
 
-\item{list_db_annots}{}
+\item{list_db_annots}{list of gene sets or pathway annotations}
 
-\item{rwr_cutoff}{}
+\item{value_cutoff}{cutoff for inclusion in analysis}
 
 \item{parallel}{}
 

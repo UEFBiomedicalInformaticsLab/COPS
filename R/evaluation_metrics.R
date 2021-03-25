@@ -302,6 +302,7 @@ clustering_evaluation <- function(dat,
                                   kmeans_num_init = 100,
                                   kmeans_max_iters = 100,
                                   kmeans_tol = 0.0001,
+                                  gmm_shrinkage = 0.01,
                                   ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
@@ -394,7 +395,9 @@ clustering_evaluation <- function(dat,
     } else if (cluster_methods_expanded[i] == "model") {
       if (distance_metric != "euclidean") stop("Only euclidean distance is supported by GMM")
       for (j in 1:length(n_clusters)) {
-        clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, verbose = FALSE)
+        clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, 
+                                  prior = priorControl(functionName="defaultPrior", shrinkage = gmm_shrinkage), 
+                                  verbose = FALSE)
         if (is.null(clust_k)) stop(paste0("GMM fitting failed (model: ", gmm_modelNames, ", samples: ", 
                                           dim(temp)[1], ", dimensions = ", dim(temp)[2], ", clusters: ",
                                           n_clusters[j], ")"))

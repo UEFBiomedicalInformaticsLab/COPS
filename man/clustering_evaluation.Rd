@@ -17,6 +17,7 @@ clustering_evaluation(
   kmeans_num_init = 100,
   kmeans_max_iters = 100,
   kmeans_tol = 1e-04,
+  gmm_shrinkage = 0.01,
   ...
 )
 }

@@ -11,15 +11,15 @@ coexpression_network_unweighted(
 )
 }
 \arguments{
-\item{dat}{}
+\item{dat}{gene expression data, samples on columns}
 
-\item{correlation_method}{}
+\item{correlation_method}{correlation method}
 
-\item{cor_threshold}{}
+\item{cor_threshold}{numeric threshold used to define edges/links (see \code{\link[WGCNA]{pickHardThreshold}})}
 }
 \value{
 
 }
 \description{
-Thresholded correlation. Uses \code{WGCNA::signumAdjacencyFunction}.
+Generates a gene co-expression network by thresholding gene expression correlations with \code{\link[WGCNA]{signumAdjacencyFunction}}.
 }
