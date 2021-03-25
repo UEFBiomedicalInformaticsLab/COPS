@@ -398,14 +398,20 @@ clustering_evaluation <- function(dat,
         clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, 
                                   prior = priorControl(functionName="defaultPrior", shrinkage = gmm_shrinkage), 
                                   verbose = FALSE)
-        if (is.null(clust_k)) stop(paste0("GMM fitting failed (model: ", gmm_modelNames, ", samples: ", 
+        if (is.null(clust_k)) {
+          # Fail
+          warning(paste0("GMM fitting failed (model: ", gmm_modelNames, ", samples: ", 
                                           dim(temp)[1], ", dimensions = ", dim(temp)[2], ", clusters: ",
                                           n_clusters[j], ")"))
-        silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        #irr::icc
-        clusters[,j,i] <- clust_k$classification
+          clusters[,j,i] <- NA
+        } else {
+          # Success
+          silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
+          metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
+                                               metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
+          #irr::icc
+          clusters[,j,i] <- clust_k$classification
+        }
       }
     } else {
       stop(paste("Unsupported method:", cluster_methods_expanded[i]))
@@ -418,14 +424,7 @@ clustering_evaluation <- function(dat,
   out_list$clusters <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
                                   reshape2::melt(clusters, value.name = "cluster"), 
                                   by = "id")
-  
-  if (FALSE) {
-    out_list$metrics <- reshape2::melt(out@measures, value.name = "value")
-    if (gaussian_mixture_model) {
-      temp <- reshape2::melt(out2@measures, value.name = "value")
-      out_list$metrics <- rbind(out_list$metrics, temp)
-    }
-  }
+  out_list$clusters <- out_list$clusters[is.na(out_list$clusters$cluster),] # potential issue with reference fold missing later
   
   out_list$metrics <- metrics
   
