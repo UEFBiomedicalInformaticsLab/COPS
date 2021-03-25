@@ -424,7 +424,7 @@ clustering_evaluation <- function(dat,
   out_list$clusters <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
                                   reshape2::melt(clusters, value.name = "cluster"), 
                                   by = "id")
-  out_list$clusters <- out_list$clusters[is.na(out_list$clusters$cluster),] # potential issue with reference fold missing later
+  out_list$clusters <- out_list$clusters[!is.na(out_list$clusters$cluster),] # potential issue with reference fold missing later
   
   out_list$metrics <- metrics
   
