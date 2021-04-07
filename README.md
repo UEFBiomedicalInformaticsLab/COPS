@@ -1,24 +1,5 @@
-# COPS - Clustering algorithms for Omics-driven Patient Stratification
+# Benchmark branch of COPS
 
-The COPS package provides a suite of feature reduction and clustering analysis tools for disease subtype discovery from 
-omics data. The tools are wrapped in a convenient pipeline. 
+This branch of the repository will include code used in performing a benchmark analysis of dimensionality reduction and pathway enrichment based clustering results in TCGA BRCA and PRAD RNA-Seq data for an upcoming article. 
 
-## Currently implemented
-### Knowledge driven feature extraction
-* pathway and network analysis
-### Dimensionality reduction techniques
-* PCA
-* t-SNE
-* UMAP
-### Single-omic clustering algorithms
-* k-means, pam
-* hierarchical, diana, agnes 
-* sota
-### Multi-omics clustering algoritmhs
-### Performance metrics
-* external: clustering stability
-* internal: silhouette, Dunn, connectivity
-* batch effect: chi squared test rejection rate, DSC, kBET, PCA
-
-## Vignette
-[link](https://htmlpreview.github.io/?https://github.com/vittoriofortino84/COPS/blob/master/vignettes/Introduction.html)
+This branch also includes the specific version of COPS used in the analysis.
