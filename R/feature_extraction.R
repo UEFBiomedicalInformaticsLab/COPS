@@ -4,6 +4,7 @@
 #'
 #' Method options
 #' \itemize{
+#' \item "none" - Returns original data as is
 #' \item "pca" - Principal Component Analysis
 #' \item "tsne" - t-distributed stochastic neighbor embedding
 #' \item "umap" - Uniform Manifold Approximation and Projection for Dimension Reduction
@@ -18,7 +19,6 @@
 #' @param tsne_perplexities vector of t-SNE perplexity settings to generate embeddings with
 #' @param tsne_pca whether to apply PCA before t-SNE, massively boosts performance
 #' @param umap_neighbors scalar UMAP parameter, affects manifold resolution
-#' @param include_original if \code{TRUE}, includes original data in output list
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} of embeddings, elements are named based on methods used
@@ -29,20 +29,20 @@
 dim_reduction_suite <- function(dat,
                                 dimred_methods = c("pca", "umap"), 
                                 output_dimensions = NULL, 
-                                pca_dims = 2:6,
-                                umap_dims = 2:10,
-                                tsne_perplexities = c(5,30,50),
+                                pca_dims = c(2),
+                                umap_dims = c(2),
+                                tsne_perplexities = c(45),
                                 tsne_pca = TRUE, 
                                 umap_neighbors = 20,
-                                include_original = FALSE,
                                 initial_dims = 50,
                                 ...) {
   # TODO: redirect extra arguments
   # eargs <- list(...)
 
   out <- list()
-  if (include_original) {
+  if ("none" %in% dimred_methods) {
     out$original <- dat
+    dimred_methods <- dimred_methods[dimred_methods != "none"]
   }
   
   for (m in dimred_methods) {
@@ -126,8 +126,8 @@ cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
     for (i in 1:length(cv_index)) {
       temp <- cv_index[[i]]
       datname <- names(cv_index)[i]
+      if (is.null(datname)) datname <- i
       temp$datname <- datname
-      if (is.null(temp$datname)) temp$datname <- i
       temp <- split(temp, by = c("run", "fold"))
       temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
       temp_list <- c(temp_list, temp)

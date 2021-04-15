@@ -3,24 +3,59 @@
 #' Combines \code{\link{cv_fold}}, \code{\link{cv_dimred}}, \code{\link{cv_clusteval}} and
 #' \code{\link{stability_eval}}.
 #'
-#' @param dat_list list of pre-processed data sets, 
+#' @param dat a single matrix or list of data matrices corresponding to the same data but different pre-processing.  
 #' @param nfolds number of cross-validation folds for stability evaluation and metric estimates
 #' @param nruns number of cross-validation replicates for stability evaluation and metric estimates
 #' @param batch_label vector or matrix with categorical variables on columns
 #' @param subtype_label vector or matrix with categorical variables on columns
+#' @param survival_data data for survival analysis, see \code{\link{survival_preprocess}} for details
 #' @param verbose if \code{TRUE}, prints progress notifications
 #' @param parallel sets up and registers \code{parallel} number of threads for supported operations
+#' @param pathway_enrichment_method \code{enrichment_method} for \code{\link{genes_to_pathways}}
 #' @param ... extra arguments are passed to pipeline components where appropriate
 #'
 #' @return Returns a \code{list} of pipeline component outputs for given settings and input data sets
 #' @export
-#'
+#' 
+#' @examples library(parallel)
+#' library(COPS)
+#' 
+#' # DR-CL
+#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
+#' batch_label = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("pca", "umap", "tsne"), 
+#' cluster_methods = c("hierarchical", "kmeans"), 
+#' metric = "euclidean", 
+#' n_clusters = 2:4)
+#' 
+#' # CL
+#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
+#' batch_label = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("none"), 
+#' cluster_methods = c("hierarchical"), 
+#' metric = "correlation", 
+#' n_clusters = 2:4)
+#' 
+#' # BK-CL
+#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
+#' batch_label = ad_studies, 
+#' pathway_enrichment_method = "DiffRank", 
+#' gene_key_expr = "ENSEMBL", 
+#' gs_subcats = "CP:KEGG", 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("none"), 
+#' cluster_methods = c("hierarchical"), 
+#' metric = "correlation", 
+#' n_clusters = 2:4)
+#' 
 #' @importFrom parallel makeCluster stopCluster
 #' @importFrom doParallel registerDoParallel
 #' @importFrom foreach registerDoSEQ
 #' @importFrom utils flush.console
 #' @importFrom data.table as.data.table setDT setkey
-dimred_clusteval_pipeline <- function(dat_list, 
+dimred_clusteval_pipeline <- function(dat, 
                                       nfolds, 
                                       nruns, 
                                       batch_label = NULL,
@@ -32,6 +67,12 @@ dimred_clusteval_pipeline <- function(dat_list,
                                       #dim_reduction = TRUE,
                                       #pre_clust_cv = FALSE,
                                       ...) {
+  if ("list" %in% class(dat)) {
+    dat_list <- dat
+  } else {
+    dat_list <- list(dat)
+  }
+  
   pipeline_start <- Sys.time()
   if (parallel > 1) {
     parallel_clust <- parallel::makeCluster(parallel)
@@ -57,10 +98,7 @@ dimred_clusteval_pipeline <- function(dat_list,
   }
   
   if (pathway_enrichment_method != "none") {
-    # Optionally: handle RWRFGSEA separately since it is a true single sample method (when not using ecdf).
-    #if (pathway_enrichment_method == RWRFGSEA_method_name) 
-    
-    # Collect gene names
+    # Collect gene names for later
     gene_id_list <- lapply(dat_list, rownames)
   }
   
@@ -126,11 +164,15 @@ dimred_clusteval_pipeline <- function(dat_list,
   
   # Pathway enrichment
   if (pathway_enrichment_method != "none") {
-    dimred_start <- Sys.time()
+    if (length(dat_list) > 1) {
+      stop("Multiple data sets with pathway enrichment enabled is not implemented.")
+      # TODO: make it compatible. Currently datname is being used as pwname. 
+    }
+    pw_start <- Sys.time()
     if(verbose) print("Starting pathway enrichment ..."); flush.console()
     dat_pw <- cv_pathway_enrichment(dat_list, cv_index, gene_id_list, enrichment_method = pathway_enrichment_method, ...)
     if(verbose) print(paste("Finished pathway enrichment in",
-                            time_taken_string(dimred_start))); flush.console()
+                            time_taken_string(pw_start))); flush.console()
     
     # Dimensionality reduction for pathway enriched features
     dimred_start <- Sys.time()
@@ -186,86 +228,18 @@ dimred_clusteval_pipeline <- function(dat_list,
   return(out)
 }
 
-#' Cross-validation fold permutation
-#' 
-#' Creates cross-validation folds of data for downstream analysis. 
-#'
-#' @param dat_list list of data matrices with samples on columns
-#' @param nfolds number of cross-validation folds
-#' @param nruns number of cross-validation replicates
-#' @param batch_label batch_label vector or \code{data.frame} with column \code{"batch_label"}
-#' @param stratified_cv if \code{TRUE}, try to maximize separation of batch labels within folds
-#' @param mixed_cv if \code{TRUE}, try to minimize separation of batch labels within folds
-#' @param ... extra arguments are ignored
-#'
-#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
-#'         duplicated rows of the original data corresponding to different folds.
-#' @export
-#'
-#' @importFrom plyr join
-cv_fold <- function(dat_list, 
-                    nfolds = 5, 
-                    nruns = 2, 
-                    #batch_label = NULL, 
-                    stratified_cv = FALSE, 
-                    mixed_cv = FALSE,
-                    ...) {
-  out <- list()
-  for (i in 1:length(dat_list)) {
-    folded <- list()
-    for (j in 1:nruns) {
-      if (!is.null(dat_list[[i]]$batch_label) & (stratified_cv | mixed_cv)) {
-        a_ind <- lapply(table(dat_list[[i]]$batch_label), function(x) sample(1:x, x))
-        b_ind <- sample(1:length(unique(dat_list[[i]]$batch_label)), length(unique(dat_list[[i]]$batch_label)))
-        c_ind <- cumsum(table(dat_list[[i]]$batch_label)[unique(dat_list[[i]]$batch_label)[b_ind]])
-        cv_index <- c()
-        for (u in 1:length(b_ind)) {
-          un <- unique(dat_list[[i]]$batch_label)[b_ind[u]]
-          cv_index[dat_list[[i]]$batch_label == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
-        }
-        if (stratified_cv) {
-          # Stratified cv folds such that holdout set labels mostly do not match to rest of data
-          cv_index <- cv_index %/% -(length(dat_list[[i]]$batch_label) %/% -nfolds) + 1
-        } else {
-          # Mixed cv folds such that labels are evenly distributed within folds
-          cv_index <- cv_index %% nfolds + 1
-        }
-      } else {
-        # Completely random folds
-        cv_index <- sample(1:nrow(dat_list[[i]])) %% nfolds + 1
-      }
-      # Got index, create folds +1 extra "fold" with whole data
-      # TODO: reference is the same accross all runs, maybe include it only once? 
-      #       Possible incompatibility with external methods.
-      folded[[j]] <- list()
-      for (f in 1:(nfolds+1)) {
-        # TODO: fix downstream support so that test set can be included too
-        #tempfold <- dat_list[[i]][cv_index != f, ]
-        #tempfold$fold <- f
-        #tempfold$run <- j
-        #tempfold$cv_index <- cv_index[cv_index != f]
-        folded[[j]][[f]] <- data.table(fold = f, run = j, 
-                                       cv_index = cv_index[cv_index != f], 
-                                       id = dat_list[[i]]$id[cv_index != f])
-      }
-      folded[[j]] <- data.table::rbindlist(folded[[j]])
-    }
-    out[[i]] <- data.table::rbindlist(folded)
-  }
-  names(out) <- names(dat_list)
-  return(out)
-}
-
 #' Reduce dimensionality and cluster input data
 #'
 #' Convenience function that runs a specific setting of the dimensionality reduction
 #' and clustering analysis pipeline. Accepts \code{\link{clusteval_scoring}} output
 #' \code{$best} as input.
+#' 
+#' Functionally similar to \code{\link{dimred_clusteval_pipeline}}, but does not use cross-validation. 
 #'
 #' @param dat_list \code{list} of pre-processed data sets, original input to pipeline or
 #'                 containing element \code{data_id} corresponding to the preferred input
 #' @param best a single row \code{data.frame} which specifies the preferred methods
-#' @param data_id name or index of preferred element of \code{dat_list}
+#' @param enrichment_method name or index of preferred element of \code{dat_list}
 #' @param dimred_method name of dimensionality reduction method for
 #'                      \code{\link{dim_reduction_suite}}
 #' @param dimred_dim number of dimensions parameter for \code{\link{dim_reduction_suite}}
@@ -279,17 +253,30 @@ cv_fold <- function(dat_list,
 #'         corresponding to clustering on \code{$embedding} using
 #'         \code{\link[clValid]{clValid}}.
 #' @export
+#' 
+#' @examples library(parallel)
+#' library(COPS)
+#' 
+#' # DR-CL
+#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
+#' batch_label = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("pca", "umap", "tsne"), 
+#' cluster_methods = c("hierarchical", "kmeans"), 
+#' metric = "euclidean", 
+#' n_clusters = 2:4)
+#' 
 #' @importFrom clValid clValid clusters
 #' @importFrom stats cutree
 dimred_cluster <- function(dat_list,
-                            best = NULL,
-                            data_id = 1,
-                            dimred_method = "pca",
-                            dimred_dim = 2,
-                            dimred_perp = 30,
-                            cluster_method = "kmeans",
-                            k = 2,
-                            metric = "euclidean") {
+                           best = NULL,
+                           data_id = 1,
+                           dimred_method = "pca",
+                           dimred_dim = 2,
+                           dimred_perp = 30,
+                           cluster_method = "kmeans",
+                           k = 2,
+                           metric = "euclidean") {
   # TODO: change this to not use clValid
   if (!is.null(best)) {
     dat <- dat_list[[best$datname]]
@@ -322,8 +309,7 @@ dimred_cluster <- function(dat_list,
     embed <- dim_reduction_suite(t(dat),
                                  dimred_methods = dimred_method,
                                  output_dimensions = dimred_dim,
-                                 tsne_perplexities = dimred_perp,
-                                 include_original = FALSE)[[1]]
+                                 tsne_perplexities = dimred_perp)[[1]]
   }
   
   out <- suppressWarnings(clValid::clValid(embed,
@@ -353,36 +339,34 @@ dimred_cluster <- function(dat_list,
 
 #' Scoring of dimensionality reduction and clustering pipeline output
 #'
-#' Computes averages of metrics given in pipeline output and also returns the
+#' Computes averages of metrics from pipeline output and also returns the
 #' best combination based on a weighted sum of metrics.
 #'
-#' Default weights have
-#' been chosen to emphasize stability and  presence of batch effect. The
-#' internal metrics have wildly varying scales and thus the weights will
-#' need to be guessed manually almost always.
+#' Metrics are renamed for convenience: 
+#' \itemize{
+#'   \item [Train/Test]Stability[Jaccard/ARI/NMI]
+#'   \item [NMI/ARI/ChisqRR].<batch>
+#'   \item [NMI/ARI].<subtype>
+#'   \item ...
+#' }
 #'
 #' @param input \code{\link{dimred_clusteval_pipeline}} output
 #' @param by character vector containing column names to group analysis by
-#' @param chisq_significance_level p-value cutoff for computing rejection rate of
-#'                                 \code{chisq.test}
-#' @param w_connectivity weight for \code{\link[clValid]{connectivity}} score
-#' @param w_dunn weight for \code{\link[clValid]{dunn}} score
-#' @param w_silhouette weight for \code{silhouette} score
-#' @param w_stability weight for \code{\link{stability_eval}} score
-#' @param w_batch_effect weight for \code{chisq.test} rejection rate,
-#'                       ignored unless batch_label was supplied as vector or
-#'                       contained column named "batch_label"
+#' @param wsum an expression that indicates how a combined score is computed 
+#' @param chisq_significance_level p-value cutoff for computing rejection rate of \code{chisq.test}
+#' @param summarise If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. By default the metrics 
+#'   are averaged across runs and folds. 
 #'
 #' @return Returns a \code{list} containing a \code{data.frame} \code{$all} of all scores and
-#'         a single row \code{$best} with the best score
+#'         a single row \code{$best} with the best score according to \code{wsum}.
 #' @export
+#' 
 #' @importFrom plyr join ddply
 #' @importFrom reshape2 melt dcast
 #' @importFrom stats sd as.formula
 clusteval_scoring <- function(input,
                               by = c("datname", "drname", "k", "m"),
-                              wsum = (TrainStabilityARI + 1 - ARI.batch_label) / 2,
-                              #wsum = (NMI.subtype_label + 1 - NMI.batch_label) / 2,
+                              wsum = TrainStabilityJaccard + Silhouette,
                               chisq_significance_level = 0.05,
                               summarise = TRUE) {
   if (summarise == FALSE) {

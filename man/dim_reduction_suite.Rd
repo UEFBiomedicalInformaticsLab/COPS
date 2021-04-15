@@ -8,12 +8,11 @@ dim_reduction_suite(
   dat,
   dimred_methods = c("pca", "umap"),
   output_dimensions = NULL,
-  pca_dims = 2:6,
-  umap_dims = 2:10,
-  tsne_perplexities = c(5, 30, 50),
+  pca_dims = c(2),
+  umap_dims = c(2),
+  tsne_perplexities = c(45),
   tsne_pca = TRUE,
   umap_neighbors = 20,
-  include_original = FALSE,
   initial_dims = 50,
   ...
 )
@@ -35,8 +34,6 @@ dim_reduction_suite(
 
 \item{umap_neighbors}{scalar UMAP parameter, affects manifold resolution}
 
-\item{include_original}{if \code{TRUE}, includes original data in output list}
-
 \item{...}{extra arguments are ignored currently}
 }
 \value{
@@ -48,6 +45,7 @@ Applies multiple dimensionality reduction techniques to input data.
 \details{
 Method options
 \itemize{
+\item "none" - Returns original data as is
 \item "pca" - Principal Component Analysis
 \item "tsne" - t-distributed stochastic neighbor embedding
 \item "umap" - Uniform Manifold Approximation and Projection for Dimension Reduction
