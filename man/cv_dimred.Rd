@@ -7,9 +7,13 @@
 cv_dimred(dat_list, cv_index, cv_split_data = TRUE, ...)
 }
 \arguments{
-\item{dat_list}{list of data sets}
+\item{dat_list}{A list of data sets.}
 
-\item{...}{arguments passed to \code{\link{dim_reduction_suite}}}
+\item{cv_index}{A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.}
+
+\item{cv_split_data}{Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.}
+
+\item{...}{Extra arguments are passed to \code{\link{dim_reduction_suite}}.}
 }
 \value{
 list of data sets

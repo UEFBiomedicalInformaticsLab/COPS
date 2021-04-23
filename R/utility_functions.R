@@ -5,7 +5,6 @@
 #' @param dat_list list of data matrices with samples on columns
 #' @param nfolds number of cross-validation folds
 #' @param nruns number of cross-validation replicates
-#' @param batch_label batch_label vector or \code{data.frame} with column \code{"batch_label"}
 #' @param stratified_cv if \code{TRUE}, try to maximize separation of batch labels within folds
 #' @param mixed_cv if \code{TRUE}, try to minimize separation of batch labels within folds
 #' @param ... extra arguments are ignored
@@ -18,7 +17,6 @@
 cv_fold <- function(dat_list, 
                     nfolds = 5, 
                     nruns = 2, 
-                    #batch_label = NULL, 
                     stratified_cv = FALSE, 
                     mixed_cv = FALSE,
                     ...) {
@@ -48,7 +46,8 @@ cv_fold <- function(dat_list,
       }
       # Got index, create folds +1 extra "fold" with whole data
       # TODO: The reference fold is the same accross all runs, maybe include it only once? 
-      #       Possible incompatibility with external methods. Some methods are stochastic. 
+      #       Possible incompatibility with external methods. 
+      #       Also note that some methods are stochastic. 
       folded[[j]] <- list()
       for (f in 1:(nfolds+1)) {
         # TODO: fix downstream support so that test set can be included too
@@ -277,16 +276,22 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
 
 #' Gene expression to gene seeds to RWR on PPI into FGSEA scores
 #'
-#' Conveniently wraps \code{\link{fromGeneToNetworksToPathwayFeatures}} using 
+#' Conveniently wraps \code{\link{RWRFGSEA}} using 
 #' \code{\link{retrieveDiseaseGenesOT}} for disease associated genes, 
 #' \code{STRINGdb} human PPI as a network, \code{msigdbr} for gene set annotations and 
-#' \code{biomaRt} for harmonization.
+#' \code{biomaRt} for matching gene annotations. 
 #'
-#' @param dat a gene expression matrix with samples on columns
-#' @param disease_id integer ID in Open Targets platform
-#' @param otp_cutoff numeric association score cutoff for Open Targets platform
-#' @param ppi_cutoff numeric PPI link score cutoff
-#' @param ... extra arguments are passed on to \code{\link{fromGeneToNetworksToPathwayFeatures}}
+#' @param dat A gene expression matrix with samples on columns.
+#' @param disease_id Integer ID in Open Targets platform.
+#' @param otp_score Name of association score column in Open Targets.
+#' @param otp_cutoff Numeric association score cutoff for Open Targets platform genes.
+#' @param ppi_cutoff Numeric PPI link score cutoff.
+#' @param pw_min.size Minimum gene set size to use.
+#' @param pw_max.size Maximum gene set size to use. 
+#' @param dat_gene_key Data gene annotation type.
+#' @param gs_subcats Gene set subcategories in \code{\link[msigdbr]{msigdbr}} to retrieve for enrichment analysis. 
+#' @param directed_ppi Whether to generate a directed network.
+#' @param ... extra arguments are passed on to \code{\link{RWRFGSEA}}
 #'
 #' @return list of enrichment scores
 #' @export

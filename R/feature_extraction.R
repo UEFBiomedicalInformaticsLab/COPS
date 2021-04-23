@@ -11,15 +11,16 @@
 #' }
 #' By default also appends original data to outputs.
 #'
-#' @param dat data matrix, features on columns and samples on rows
-#' @param dimred_methods vector of method names, see details for options
-#' @param output_dimensions vector of dimensionalities to compute using each applicable method
-#' @param pca_dims PCA specific output dimensions
-#' @param umap_dims UMAP specific output dimensions
-#' @param tsne_perplexities vector of t-SNE perplexity settings to generate embeddings with
-#' @param tsne_pca whether to apply PCA before t-SNE, massively boosts performance
-#' @param umap_neighbors scalar UMAP parameter, affects manifold resolution
-#' @param ... extra arguments are ignored currently
+#' @param dat Data matrix, features on columns and samples on rows.
+#' @param dimred_methods Vector of method names, see details for options.
+#' @param output_dimensions Vector of dimensionalities to compute using each applicable method.
+#' @param pca_dims PCA specific output dimensions.
+#' @param umap_dims UMAP specific output dimensions.
+#' @param tsne_perplexities Vector of t-SNE perplexity settings to generate embeddings with.
+#' @param tsne_pca Whether to apply PCA before t-SNE, which massively boosts performance.
+#' @param umap_neighbors UMAP parameter, affects manifold computation.
+#' @param initial_dims Number of principal components used in t-SNE and UMAP.
+#' @param ... Extra arguments are ignored.
 #'
 #' @return Returns a \code{list} of embeddings, elements are named based on methods used
 #' @export
@@ -112,8 +113,10 @@ dim_reduction_suite <- function(dat,
 
 #' Dimensionality reduction on cross-validated data sets
 #'
-#' @param dat_list list of data sets
-#' @param ... arguments passed to \code{\link{dim_reduction_suite}}
+#' @param dat_list A list of data sets.
+#' @param cv_index A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.
+#' @param cv_split_data Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.
+#' @param ... Extra arguments are passed to \code{\link{dim_reduction_suite}}.
 #'
 #' @return list of data sets
 #' @export

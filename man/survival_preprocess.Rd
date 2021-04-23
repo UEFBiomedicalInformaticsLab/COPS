@@ -15,17 +15,19 @@ survival_preprocess(
 )
 }
 \arguments{
-\item{event_data}{}
+\item{event_data}{A data.frame that contains survival times, event data and covariates.}
 
-\item{event_time_name}{}
+\item{event_time_name}{Name of the column that contains time to event.}
 
-\item{follow_up_time_name}{}
+\item{follow_up_time_name}{Name of the column that contains time to end of followup for a censored data point.}
 
-\item{event_field_name}{}
+\item{event_field_name}{Name of the column that contains event indicators.}
 
-\item{event_name}{}
+\item{event_name}{Event column value that corresponds to the event of interest.}
 
-\item{event_time_cutoff}{}
+\item{event_time_cutoff}{Upper cutoff value for time.}
+
+\item{event_time_lower_cutoff}{Lower cutoff value for time.}
 }
 \value{
 

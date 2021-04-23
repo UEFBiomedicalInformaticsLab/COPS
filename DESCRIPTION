@@ -38,13 +38,16 @@ Imports:
     reshape2,
     Rtsne,
     STRINGdb,
+    survival,
     uwot
 Suggests:
+    caret,
+    dynamicTreeCut,
     knitr,
     swamp,
-    caret,
     TCGAutils,
-    TCGAbiolinks
+    TCGAbiolinks,
+    WGCNA
 VignetteBuilder: knitr
 License: MIT
 Encoding: UTF-8

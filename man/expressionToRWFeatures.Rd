@@ -19,22 +19,34 @@ expressionToRWFeatures(
 )
 }
 \arguments{
-\item{dat}{a gene expression matrix with samples on columns}
+\item{dat}{A gene expression matrix with samples on columns.}
 
-\item{disease_id}{integer ID in Open Targets platform}
+\item{disease_id}{Integer ID in Open Targets platform.}
 
-\item{otp_cutoff}{numeric association score cutoff for Open Targets platform}
+\item{otp_score}{Name of association score column in Open Targets.}
 
-\item{ppi_cutoff}{numeric PPI link score cutoff}
+\item{otp_cutoff}{Numeric association score cutoff for Open Targets platform genes.}
 
-\item{...}{extra arguments are passed on to \code{\link{fromGeneToNetworksToPathwayFeatures}}}
+\item{ppi_cutoff}{Numeric PPI link score cutoff.}
+
+\item{pw_min.size}{Minimum gene set size to use.}
+
+\item{pw_max.size}{Maximum gene set size to use.}
+
+\item{dat_gene_key}{Data gene annotation type.}
+
+\item{gs_subcats}{Gene set subcategories in \code{\link[msigdbr]{msigdbr}} to retrieve for enrichment analysis.}
+
+\item{directed_ppi}{Whether to generate a directed network.}
+
+\item{...}{extra arguments are passed on to \code{\link{RWRFGSEA}}}
 }
 \value{
 list of enrichment scores
 }
 \description{
-Conveniently wraps \code{\link{fromGeneToNetworksToPathwayFeatures}} using 
+Conveniently wraps \code{\link{RWRFGSEA}} using 
 \code{\link{retrieveDiseaseGenesOT}} for disease associated genes, 
 \code{STRINGdb} human PPI as a network, \code{msigdbr} for gene set annotations and 
-\code{biomaRt} for harmonization.
+\code{biomaRt} for matching gene annotations.
 }

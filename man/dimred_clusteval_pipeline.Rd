@@ -11,6 +11,7 @@ dimred_clusteval_pipeline(
   batch_label = NULL,
   subtype_label = NULL,
   survival_data = NULL,
+  module_eigs = NULL,
   verbose = TRUE,
   parallel = 1,
   pathway_enrichment_method = "none",
@@ -18,21 +19,23 @@ dimred_clusteval_pipeline(
 )
 }
 \arguments{
-\item{dat}{a single matrix or list of data matrices corresponding to the same data but different pre-processing.}
+\item{dat}{A single matrix or list of data matrices corresponding to the same data but different pre-processing.}
 
-\item{nfolds}{number of cross-validation folds for stability evaluation and metric estimates}
+\item{nfolds}{Number of cross-validation folds for stability evaluation and metric estimates.}
 
-\item{nruns}{number of cross-validation replicates for stability evaluation and metric estimates}
+\item{nruns}{Number of cross-validation replicates for stability evaluation and metric estimates.}
 
-\item{batch_label}{vector or matrix with categorical variables on columns}
+\item{batch_label}{Vector or matrix with categorical variables on columns.}
 
-\item{subtype_label}{vector or matrix with categorical variables on columns}
+\item{subtype_label}{Vector or matrix with categorical variables on columns.}
 
-\item{survival_data}{data for survival analysis, see \code{\link{survival_preprocess}} for details}
+\item{survival_data}{Data for survival analysis, see \code{\link{survival_preprocess}} for details.}
 
-\item{verbose}{if \code{TRUE}, prints progress notifications}
+\item{module_eigs}{Module eigen genes for gene module correlation evaluation (see \code{\link{gene_module_score}} for details).}
 
-\item{parallel}{sets up and registers \code{parallel} number of threads for supported operations}
+\item{verbose}{If \code{TRUE}, prints progress notifications.}
+
+\item{parallel}{Sets up and registers \code{parallel} number of threads for supported operations.}
 
 \item{pathway_enrichment_method}{\code{enrichment_method} for \code{\link{genes_to_pathways}}}
 

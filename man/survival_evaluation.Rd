@@ -16,19 +16,21 @@ survival_evaluation(
 )
 }
 \arguments{
-\item{event_data}{}
+\item{event_data}{A data.frame that contains survival times, event data and covariates.}
 
-\item{clusters}{}
+\item{clusters}{A data.frame or data.table containing clustering information.}
 
-\item{survival_time_col}{}
+\item{survival_time_col}{Name of the column in \code{event_data} that contains survival time.}
 
-\item{survival_event_col}{}
+\item{survival_event_col}{Name of the column in \code{event_data} that contains event indicators.}
 
-\item{survival_covariate_names}{}
+\item{survival_covariate_names}{Nme of covariate columns.}
 
-\item{...}{}
+\item{row_id}{Name of column in \code{event_data} that matches sample IDs in \code{clusters}.}
 
-\item{patient_id}{}
+\item{by}{Vector of column names that identify a single clustering result in \code{clusters}.}
+
+\item{...}{Extra arguments are ignored.}
 }
 \value{
 

@@ -18,23 +18,25 @@ dim_reduction_suite(
 )
 }
 \arguments{
-\item{dat}{data matrix, features on columns and samples on rows}
+\item{dat}{Data matrix, features on columns and samples on rows.}
 
-\item{dimred_methods}{vector of method names, see details for options}
+\item{dimred_methods}{Vector of method names, see details for options.}
 
-\item{output_dimensions}{vector of dimensionalities to compute using each applicable method}
+\item{output_dimensions}{Vector of dimensionalities to compute using each applicable method.}
 
-\item{pca_dims}{PCA specific output dimensions}
+\item{pca_dims}{PCA specific output dimensions.}
 
-\item{umap_dims}{UMAP specific output dimensions}
+\item{umap_dims}{UMAP specific output dimensions.}
 
-\item{tsne_perplexities}{vector of t-SNE perplexity settings to generate embeddings with}
+\item{tsne_perplexities}{Vector of t-SNE perplexity settings to generate embeddings with.}
 
-\item{tsne_pca}{whether to apply PCA before t-SNE, massively boosts performance}
+\item{tsne_pca}{Whether to apply PCA before t-SNE, which massively boosts performance.}
 
-\item{umap_neighbors}{scalar UMAP parameter, affects manifold resolution}
+\item{umap_neighbors}{UMAP parameter, affects manifold computation.}
 
-\item{...}{extra arguments are ignored currently}
+\item{initial_dims}{Number of principal components used in t-SNE and UMAP.}
+
+\item{...}{Extra arguments are ignored.}
 }
 \value{
 Returns a \code{list} of embeddings, elements are named based on methods used

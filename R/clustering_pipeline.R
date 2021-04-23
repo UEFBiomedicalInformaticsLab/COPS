@@ -3,14 +3,15 @@
 #' Combines \code{\link{cv_fold}}, \code{\link{cv_dimred}}, \code{\link{cv_clusteval}} and
 #' \code{\link{stability_eval}}.
 #'
-#' @param dat a single matrix or list of data matrices corresponding to the same data but different pre-processing.  
-#' @param nfolds number of cross-validation folds for stability evaluation and metric estimates
-#' @param nruns number of cross-validation replicates for stability evaluation and metric estimates
-#' @param batch_label vector or matrix with categorical variables on columns
-#' @param subtype_label vector or matrix with categorical variables on columns
-#' @param survival_data data for survival analysis, see \code{\link{survival_preprocess}} for details
-#' @param verbose if \code{TRUE}, prints progress notifications
-#' @param parallel sets up and registers \code{parallel} number of threads for supported operations
+#' @param dat A single matrix or list of data matrices corresponding to the same data but different pre-processing.  
+#' @param nfolds Number of cross-validation folds for stability evaluation and metric estimates.
+#' @param nruns Number of cross-validation replicates for stability evaluation and metric estimates.
+#' @param batch_label Vector or matrix with categorical variables on columns.
+#' @param subtype_label Vector or matrix with categorical variables on columns.
+#' @param survival_data Data for survival analysis, see \code{\link{survival_preprocess}} for details.
+#' @param module_eigs Module eigen genes for gene module correlation evaluation (see \code{\link{gene_module_score}} for details).
+#' @param verbose If \code{TRUE}, prints progress notifications.
+#' @param parallel Sets up and registers \code{parallel} number of threads for supported operations.
 #' @param pathway_enrichment_method \code{enrichment_method} for \code{\link{genes_to_pathways}}
 #' @param ... extra arguments are passed to pipeline components where appropriate
 #'
@@ -55,12 +56,14 @@
 #' @importFrom foreach registerDoSEQ
 #' @importFrom utils flush.console
 #' @importFrom data.table as.data.table setDT setkey
+#' @importFrom plyr join
 dimred_clusteval_pipeline <- function(dat, 
                                       nfolds, 
                                       nruns, 
                                       batch_label = NULL,
                                       subtype_label = NULL,
                                       survival_data = NULL,
+                                      module_eigs = NULL,
                                       verbose = TRUE,
                                       parallel = 1,
                                       pathway_enrichment_method = "none",
@@ -130,10 +133,10 @@ dimred_clusteval_pipeline <- function(dat,
       #data.table::setDT(batch_table)
       batch_table <- data.table::as.data.table(batch_table)
       if (!all(id %in% batch_id)) {
-        stop("All batch label sample IDs do not match with data.")
+        stop("All sample IDs in data do not match with batch label sample IDs.")
       }
       batch_table$id <- batch_id
-      dat_list[[i]] <- merge(dat_list[[i]], batch_table, by = "id")
+      dat_list[[i]] <- plyr::join(dat_list[[i]], batch_table, by = "id")
     }
     
     if (!is.null(subtype_label)) {
@@ -160,7 +163,7 @@ dimred_clusteval_pipeline <- function(dat,
   }
   
   # Create cross validation folds
-  cv_index <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ..., batch_label = batch_label)
+  cv_index <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
   
   # Pathway enrichment
   if (pathway_enrichment_method != "none") {
@@ -192,7 +195,10 @@ dimred_clusteval_pipeline <- function(dat,
   # Clustering evaluation
   clusteval_start <- Sys.time()
   if(verbose) print("Starting clustering analysis ..."); flush.console()
-  dat_clustered <- cv_clusteval(dat_embedded, ..., batch_label_names = batch_label_names, subtype_label_names = subtype_label_names)
+  dat_clustered <- cv_clusteval(dat_embedded, 
+                                ..., 
+                                batch_label_names = batch_label_names, 
+                                subtype_label_names = subtype_label_names)
   if(verbose) print(paste("Finished clustering analysis in",
                           time_taken_string(clusteval_start))); flush.console()
   
@@ -212,6 +218,15 @@ dimred_clusteval_pipeline <- function(dat,
                             time_taken_string(survival_analysis_start))); flush.console()
   }
   
+  # Gene module correlation evaluation
+  if (!is.null(module_eigs)) {
+    module_analysis_start <- Sys.time()
+    if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
+    dat_gm_score <- module_evaluation(dat_clustered$clusters, module_eigs, ...)
+    if(verbose) print(paste("Finished module correlation analysis in",
+                            time_taken_string(module_analysis_start))); flush.console()
+  }
+  
   # Return
   out <- list(embedding = dat_embedded, 
               clusters = dat_clustered$clusters, 
@@ -221,6 +236,7 @@ dimred_clusteval_pipeline <- function(dat,
               subtype_association = dat_clustered$subtype_association,
               stability = dat_stability)
   if (!is.null(survival_data)) out$survival <- dat_survival
+  if (!is.null(module_eigs)) out$modules <- dat_gm_score
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
   if(verbose) print(paste("Finished pipeline in",
@@ -228,113 +244,34 @@ dimred_clusteval_pipeline <- function(dat,
   return(out)
 }
 
-#' Reduce dimensionality and cluster input data
-#'
-#' Convenience function that runs a specific setting of the dimensionality reduction
-#' and clustering analysis pipeline. Accepts \code{\link{clusteval_scoring}} output
-#' \code{$best} as input.
+
+#' @describeIn clusteval_scoring Retrieves best clustering from CV results based on scores. 
+#' In practice retrieves reference fold result from first run matching the best results. 
 #' 
-#' Functionally similar to \code{\link{dimred_clusteval_pipeline}}, but does not use cross-validation. 
-#'
-#' @param dat_list \code{list} of pre-processed data sets, original input to pipeline or
-#'                 containing element \code{data_id} corresponding to the preferred input
-#' @param best a single row \code{data.frame} which specifies the preferred methods
-#' @param enrichment_method name or index of preferred element of \code{dat_list}
-#' @param dimred_method name of dimensionality reduction method for
-#'                      \code{\link{dim_reduction_suite}}
-#' @param dimred_dim number of dimensions parameter for \code{\link{dim_reduction_suite}}
-#' @param dimred_perp perplexity parameter for \code{\link{dim_reduction_suite}}
-#' @param cluster_method clustering method name
-#' @param k number of clusters parameter
-#' @param metric distance metric parameter for clustering
-#'
-#' @return Returns a \code{list} with \code{$embedding} corresponding to the embedding
-#'         generated using \code{\link{dim_reduction_suite}} and \code{$clustering}
-#'         corresponding to clustering on \code{$embedding} using
-#'         \code{\link[clValid]{clValid}}.
+#' @param res result from \code{\link{dimred_clusteval_pipeline}}
+#' @param scores scores from \code{\link{clusteval_scoring}}
+#' 
 #' @export
-#' 
-#' @examples library(parallel)
-#' library(COPS)
-#' 
-#' # DR-CL
-#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-#' batch_label = ad_studies, 
-#' parallel = 2, nruns = 2, nfolds = 5, 
-#' dimred_methods = c("pca", "umap", "tsne"), 
-#' cluster_methods = c("hierarchical", "kmeans"), 
-#' metric = "euclidean", 
-#' n_clusters = 2:4)
-#' 
-#' @importFrom clValid clValid clusters
-#' @importFrom stats cutree
-dimred_cluster <- function(dat_list,
-                           best = NULL,
-                           data_id = 1,
-                           dimred_method = "pca",
-                           dimred_dim = 2,
-                           dimred_perp = 30,
-                           cluster_method = "kmeans",
-                           k = 2,
-                           metric = "euclidean") {
-  # TODO: change this to not use clValid
-  if (!is.null(best)) {
-    dat <- dat_list[[best$datname]]
-    
-    # Get dimensionality reduction method from name
-    temp <- regexpr("^[A-Za-z]*", best$drname)
-    dimred_method <- substr(best$drname, temp,
-                            temp + attributes(temp)$match.length - 1)
-    # Get number of dimensions from name
-    temp <- regexpr("[0-9]*$", best$drname)
-    dimred_dim <- substr(best$drname, temp,
-                         temp + attributes(temp)$match.length - 1)
-    dimred_dim <- as.numeric(dimred_dim)
-    dimred_perp <- dimred_dim
-    
-    cluster_method <- as.character(best$m)
-    k <- best$k
-  } else {
-    if (is.list(dat_list)) {
-      dat <- dat_list[[data_id]]
-    } else if (is.matrix(dat_list)|is.data.frame(dat_list)) {
-      dat <- dat_list
-    } else {
-      stop("Unsupported data format")
+get_best_result <- function(res,
+                            scores) {
+  if (all(c("run", "fold") %in% colnames(res$best))) {
+    stop("Please summarise CV results in order to avoid ambiguity.")
+  }
+  reference_fold <- unique(res$clusters$fold)[which(!unique(res$clusters$fold) %in% unique(res$clusters$cv_index))]
+  clust_ref <- as.data.frame(res$clusters[res$clusters$fold == reference_fold & res$clusters$run == 1,])
+  clust_ref <- clust_ref[,-which(colnames(res$clusters) %in% c("fold", "run", "cv_index"))]
+  
+  out <- list()
+  out$clusters <- plyr::join(scores$best[c("datname", "drname", "k", "m")], clust_ref)
+  
+  for (i in which(names(res$embedding) == scores$best$drname)) {
+    if(res$embedding[[i]]$run[1] == 1 & 
+       res$embedding[[i]]$fold[1] == reference_fold &
+       res$embedding[[i]]$datname[1] == scores$best$datname) {
+      out$embedding <- res$embedding[[i]][,-which(colnames(res$embedding[[i]]) %in% c("fold", "run", "cv_index"))]
     }
   }
-  if (dimred_method == "original") {
-    embed <- t(dat)
-  } else {
-    embed <- dim_reduction_suite(t(dat),
-                                 dimred_methods = dimred_method,
-                                 output_dimensions = dimred_dim,
-                                 tsne_perplexities = dimred_perp)[[1]]
-  }
-  
-  out <- suppressWarnings(clValid::clValid(embed,
-                                           nClust = k,
-                                           clMethods = cluster_method,
-                                           metric = metric,
-                                           validation=c("internal"),
-                                           maxitems = Inf))
-  
-  # TODO: create generic unpacker for clValid output or use clustering methods directly
-  temp <- clValid::clusters(out, cluster_method)
-  
-  if (cluster_method %in% c("hierarchical", "diana", "agnes")) {
-    cluster <- cutree(temp, k)
-  } else if (cluster_method == "pam") {
-    cluster <- temp[[1]]$clustering
-  } else if (cluster_method == "kmeans") {
-    cluster <- temp[[1]]$cluster
-  } else if (cluster_method == "sota") {
-    cluster <- temp[[1]]$clust
-  } else {
-    stop(paste("Unsupported clustering method:", as.character(cluster_method)))
-  }
-  
-  return(list(embedding = embed, clustering = cluster))
+  return(out)
 }
 
 #' Scoring of dimensionality reduction and clustering pipeline output
@@ -350,7 +287,7 @@ dimred_cluster <- function(dat_list,
 #'   \item ...
 #' }
 #'
-#' @param input \code{\link{dimred_clusteval_pipeline}} output
+#' @param res \code{\link{dimred_clusteval_pipeline}} output
 #' @param by character vector containing column names to group analysis by
 #' @param wsum an expression that indicates how a combined score is computed 
 #' @param chisq_significance_level p-value cutoff for computing rejection rate of \code{chisq.test}
@@ -361,10 +298,27 @@ dimred_cluster <- function(dat_list,
 #'         a single row \code{$best} with the best score according to \code{wsum}.
 #' @export
 #' 
+#' @examples library(COPS)
+#' library(parallel)
+#' 
+#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
+#' batch_label = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("pca", "umap", "tsne"), 
+#' cluster_methods = c("hierarchical", "kmeans"), 
+#' metric = "euclidean",
+#' n_clusters = 2:4)
+#' 
+#' scores <- clusteval_scoring(res, wsum = Silhouette - NMI.batch_label, summarise = TRUE)
+#' 
+#' best <- get_best_result(res, scores)
+#' head(best$embedding)
+#' head(best$clusters)
+#' 
 #' @importFrom plyr join ddply
 #' @importFrom reshape2 melt dcast
 #' @importFrom stats sd as.formula
-clusteval_scoring <- function(input,
+clusteval_scoring <- function(res,
                               by = c("datname", "drname", "k", "m"),
                               wsum = TrainStabilityJaccard + Silhouette,
                               chisq_significance_level = 0.05,
@@ -373,8 +327,8 @@ clusteval_scoring <- function(input,
     by <- c(by, "run", "fold")
   }
   # Internal metrics
-  by_internal <- by[by %in% colnames(input$internal_metrics)]
-  mean_internals <- plyr::ddply(input$internal_metrics, 
+  by_internal <- by[by %in% colnames(res$internal_metrics)]
+  mean_internals <- plyr::ddply(res$internal_metrics, 
                                 c(by_internal, "metric"), 
                                 function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
                                                        sd = sd(x$value, na.rm = TRUE)))
@@ -383,17 +337,17 @@ clusteval_scoring <- function(input,
                                     value.var = "mean")
   
   # Average number of chi-squared test pvalues under threshold in all given labels
-  by_chisq <- by[by %in% colnames(input$chisq_pval)]
+  by_chisq <- by[by %in% colnames(res$chisq_pval)]
   if (summarise) {
     chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
-    chisq_rr <- plyr::ddply(input$chisq_pval, c(by_chisq, "label"), chisq_f)
+    chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
     chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
     chisq_rr <- reshape2::dcast(chisq_rr, 
                                 as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
                                 value.var = "chisqRR")
   } else {
     chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
-    chisq_rr <- plyr::ddply(input$chisq_pval, c(by_chisq, "label"), chisq_f)
+    chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
     chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
     chisq_rr <- reshape2::dcast(chisq_rr, 
                                 as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
@@ -401,10 +355,10 @@ clusteval_scoring <- function(input,
   }
   
   # Batch label associations
-  if (!is.null(input$batch_association)) {
-    if (nrow(input$batch_association) > 0) {
-      by_bassoc <- by[by %in% colnames(input$batch_association)]
-      bassoc <- plyr::ddply(input$batch_association, 
+  if (!is.null(res$batch_association)) {
+    if (nrow(res$batch_association) > 0) {
+      by_bassoc <- by[by %in% colnames(res$batch_association)]
+      bassoc <- plyr::ddply(res$batch_association, 
                               c(by_bassoc, "label"), 
                               function(x) data.frame(NMI = mean(x$nmi, na.rm = TRUE), ARI = mean(x$ari, na.rm = TRUE)))
       bassoc_nmi <- reshape2::dcast(bassoc, 
@@ -425,10 +379,10 @@ clusteval_scoring <- function(input,
   }
   
   # Subtype label associations
-  if (!is.null(input$subtype_association)) {
-    if (nrow(input$subtype_association) > 0) {
-      by_sassoc <- by[by %in% colnames(input$subtype_association)]
-      sassoc <- plyr::ddply(input$subtype_association, 
+  if (!is.null(res$subtype_association)) {
+    if (nrow(res$subtype_association) > 0) {
+      by_sassoc <- by[by %in% colnames(res$subtype_association)]
+      sassoc <- plyr::ddply(res$subtype_association, 
                             c(by_sassoc, "label"), 
                             function(x) data.frame(NMI = mean(x$nmi, na.rm = TRUE), ARI = mean(x$ari, na.rm = TRUE)))
       sassoc_nmi <- reshape2::dcast(sassoc, 
@@ -449,30 +403,48 @@ clusteval_scoring <- function(input,
   }
   
   # Stability
-  #by_stability <- by[by %in% colnames(input$stability)]
-  stability <- input$stability
+  #by_stability <- by[by %in% colnames(res$stability)]
+  stability <- res$stability
   stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
   colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
                                                "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
   
   # Survival likelihood ratio test
-  if (!is.null(input$survival)) {
+  if (!is.null(res$survival)) {
     if (summarise) {
       warning("Currently summary of survival p-values is not implemented.")
     } else {
-      #by_survival <- by[by %in% colnames(input$survival)]
-      #survival <- plyr::ddply(input$survival, 
+      #by_survival <- by[by %in% colnames(res$survival)]
+      #survival <- plyr::ddply(res$survival, 
       #                        by_survival, 
       #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
-      survival <- input$survival
+      survival <- res$survival
       colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
     }
   } else {
     survival <- NULL
   }
   
+  # Survival likelihood ratio test
+  if (!is.null(res$modules)) {
+    by_modules <- by[by %in% colnames(res$modules)]
+    modules <- plyr::ddply(res$modules, 
+                            by_modules, 
+                            function(x) data.frame(Module_score = mean(x$Module_score, na.rm = TRUE)))
+  } else {
+    modules <- NULL
+  }
+  
   # Combine all metrics
-  out <- list(mean_internals, chisq_rr, bassoc_nmi, bassoc_ari, sassoc_nmi, sassoc_ari, stability, survival)
+  out <- list(mean_internals, 
+              chisq_rr, 
+              bassoc_nmi, 
+              bassoc_ari, 
+              sassoc_nmi, 
+              sassoc_ari, 
+              stability, 
+              survival, 
+              modules)
   out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   
   # Scoring

@@ -17,7 +17,7 @@ class_associations(dat, class, n_pc_max = 10, ...)
 }
 \value{
 Returns a \code{list} containing \code{\link[kBET]{batch_sil}},
-        \code{\link[KBET]{pcRegression}} and \code{\link{DSC}}
+        \code{\link[kBET]{pcRegression}} and \code{\link{DSC}}
         computed for each column of \code{class}
 }
 \description{

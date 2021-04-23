@@ -83,74 +83,25 @@ scores <- clusteval_scoring(method_evaluations)
 scores$all[1:10]
 
 # Generate embedding and clustering based on best setting
-best <- dimred_cluster(list(ad = ad_ge_micro_zscore), scores$best)
+#best <- dimred_cluster(list(ad = ad_ge_micro_zscore), scores$best)
 
 ```
 
 ### Plot study and cluster associations in best embedding using swamp
 ```{r figure1, fig.height = 6, fig.width = 6, fig.align = "center", warning = FALSE}
-swamp::confounding(data.frame(best$embedding, factor(best$clustering), ad_studies))
+#swamp::confounding(data.frame(best$embedding, factor(best$clustering), ad_studies))
 ```
 
 ### More associations in best embedding
 ```{r ca_embedding}
-class_associations(t(best$embedding), cbind(clust = best$clustering, study = ad_studies))
+#class_associations(t(best$embedding), cbind(clust = best$clustering, study = ad_studies))
 ```
 
 ### Associations in original data
 ```{r ca_original}
-class_associations(list(ad = ad_ge_micro_zscore)[[scores$best$datname]],
-                   cbind(clust = best$clustering, study = ad_studies))
+#class_associations(list(ad = ad_ge_micro_zscore)[[scores$best$datname]],
+#                   cbind(clust = best$clustering, study = ad_studies))
 ```
 
-### Export data for external dimensionality reduction methods
-```{r vae_preparation, eval = FALSE}
-write.csv(t(ad_ge_micro_zscore), file = "ad_gexpr.csv")
-write.csv(ad_studies, file = "ad_batches.csv")
-```
 
-### External dimensionality reduction method
-Here we assume that you are using our python package in a command line environment.
-```bash
-python VAE/parameter_search.py data/ad_batches.csv data/batches.csv output/testrun -c -r 2 --epochs=2000
-```
 
-### Import data from external method
-```{r vae_analysis, eval = FALSE}
-filename_embed <- "testrun_embeddings.csv"
-filename_param <- "testrun_params.csv"
-
-vae_embeddings <- read.csv(filename_embed, header = FALSE, comment.char = "#")
-vae_params <- read.csv(filename_param, header = FALSE, comment.char = "#")
-# Manual handling of headers
-f = file(filename_embed, 'r')
-colnames(vae_embeddings) <- gsub("[ #]", "", strsplit(readLines(f, n=1), ",")[[1]])
-close(f)
-f = file(filename_param, 'r')
-colnames(vae_params) <- gsub("[ #]", "", strsplit(readLines(f, n=1), ",")[[1]])
-close(f)
-
-vae_embeddings <- plyr::join(vae_embeddings, batch_label, by = "id")
-vae_embeddings$instance <- cumsum(c(1, diff(vae_embeddings$run)<0))
-test <- tapply(vae_embeddings$dim1, vae_embeddings[c("instance", "run", "fold")], var)
-
-vae_embeddings_clean <- vae_embeddings[!vae_embeddings$instance %in% which(apply(is.na(test), 1, any)),]
-
-vae_list <- split(vae_embeddings_clean, vae_embeddings_clean$instance)
-names(vae_list)<- paste0("VAE", 1:length(vae_list))
-
-parallel_clust <- parallel::makeCluster(80)
-doParallel::registerDoParallel(parallel_clust)
-vae_clust <- cv_clusteval(vae_list, batch_label_names = "batch_label", 
-                          cluster_methods = c("hierarchical", "kmeans", "pam", "sota", "diana", "agnes"), 
-                          metric = "euclidean", n_clusters = 2:6)
-
-vae_stab <- stability_eval(vae_clust$clusters)
-
-write.csv(vae_clust$clusters, file = "output/GPUsearch200305_clustering.csv")
-write.csv(vae_clust$metrics, file = "output/GPUsearch200305_metrics.csv")
-write.csv(vae_clust$chisq_pval, file = "output/GPUsearch200305_chisq_pval.csv")
-write.csv(vae_stab, file = "output/GPUsearch200305_stability.csv")
-
-parallel::stopCluster(parallel_clust)
-```
