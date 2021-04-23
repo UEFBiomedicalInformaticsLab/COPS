@@ -2,7 +2,7 @@
 #'
 #' Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 #' Based on \url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.95.1128}.
-#' Can be used to measure batch effect. TODO: check if implementation is proper
+#' Can be used to measure batch effect. TODO: fix implementation
 #'
 #' @param data_matrix numeric matrix, samples on columns
 #' @param batch_label categorical variable, must be vector
@@ -10,6 +10,7 @@
 #' @return Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
 #' @export
 DSC <- function(data_matrix, batch_label) {
+  stop("Not implemented")
   # Incorrect implementation for Sw? No batch label involved??
   # Dispersion within batches
   Sw <- scale(t(data_matrix), center = TRUE, scale = FALSE)**2 / dim(data_matrix)[2] # vectorized
@@ -213,7 +214,7 @@ stability_eval <- function(clust,
 #' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{list} containing \code{\link[kBET]{batch_sil}},
-#'         \code{\link[KBET]{pcRegression}} and \code{\link{DSC}}
+#'         \code{\link[kBET]{pcRegression}} and \code{\link{DSC}}
 #'         computed for each column of \code{class}
 #' @export
 #' @importFrom FactoMineR PCA
@@ -225,7 +226,7 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 
   pca_silh <- list()
   pca_reg <- list()
-  DSC_res <- c()
+  #DSC_res <- c()
   for (i in 1:ncol(class)) {
     # PCA based
     dat_pca <- FactoMineR::PCA(t(dat),
@@ -240,7 +241,7 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
                                        n_top = min(n_pc_max, nrow(dat))))
 
     # Other
-    DSC_res[i] <- DSC(dat, class[,i])
+    #DSC_res[i] <- DSC(dat, class[,i])
   }
   if (!is.null(dimnames(class))) {
     names(pca_silh) <- dimnames(class)[[2]]
@@ -248,8 +249,8 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
     names(DSC_res) <- dimnames(class)[[2]]
   }
   out <- list(PCA_silhouette = pca_silh,
-              PCA_regression = pca_reg,
-              DSC = DSC_res)
+              PCA_regression = pca_reg)#,
+              #DSC = DSC_res)
   return(out)
 }
 
@@ -266,25 +267,26 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' \item "model" -
 #' }
 #'
-#' @param dat data matrix with samples on columns
-#' @param batch_label_names character vector containing column names corresponding to batch labels
-#' @param n_clusters vector of integers, numbers of clusters to be generated
-#' @param cluster_methods vector of clustering method names, see details for options
-#' @param subtype_label_names 
-#' @param distance_metric 
-#' @param correlation_method 
-#' @param hierarchical_linkage 
-#' @param gmm_modelNames 
-#' @param kmeans_num_init 
-#' @param kmeans_max_iters 
-#' @param kmeans_tol 
+#' @param dat A data matrix with samples on columns.
+#' @param batch_label_names A character vector containing column names corresponding to batch labels.
+#' @param n_clusters A vector of integers, numbers of clusters to be generated.
+#' @param cluster_methods A vector of clustering method names, see details for options.
+#' @param subtype_label_names A character vector containing column names corresponding to batch labels.
+#' @param distance_metric Either "euclidean" or "correlation".
+#' @param correlation_method Method for \code{\link[stats]{cor]}}.
+#' @param hierarchical_linkage See \code{\link[flashClust]{flashClust}}.
+#' @param kmeans_num_init See \code{\link[ClusterR]{KMeans_rcpp}}.
+#' @param kmeans_max_iters See \code{\link[ClusterR]{KMeans_rcpp}}.
+#' @param kmeans_tol See \code{\link[ClusterR]{KMeans_rcpp}}.
+#' @param gmm_modelNames Sepcifies model type for \code{\link[mclust]{Mclust}}
+#' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} containing clusters, metrics, and
 #'         \code{\link[stats]{chisq.test}} p-values
 #'         if batch_label was supplied
 #' @export
-#' @importFrom stats chisq.test cutree
+#' @importFrom stats chisq.test cutree cor dist as.dist
 #' @importFrom aricode NMI ARI
 #' @importFrom flashClust flashClust
 #' @importFrom ClusterR KMeans_rcpp
@@ -298,10 +300,10 @@ clustering_evaluation <- function(dat,
                                   distance_metric = "euclidean",
                                   correlation_method = "spearman",
                                   hierarchical_linkage = "complete",
-                                  gmm_modelNames = NULL, 
                                   kmeans_num_init = 100,
                                   kmeans_max_iters = 100,
                                   kmeans_tol = 0.0001,
+                                  gmm_modelNames = NULL, 
                                   gmm_shrinkage = 0.01,
                                   ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
@@ -492,6 +494,104 @@ clustering_evaluation <- function(dat,
   return(out_list)
 }
 
+#' Gene module score
+#' 
+#' Metric based on gene module eigen gene correlation
+#' 
+#' @param clust A \code{data.frame} with columns "id" and "cluster".
+#' @param module_eigs Gene module eigen-genes for each sample (samples x modules).
+#' @param threshold Threshold for counting correlations.
+#' @param nan.substitute Substituted value when dividing by zero when there are no correlated clusters for a module.
+#' 
+#' @export
+#' @examples library(COPS)
+#' library(WGCNA)
+#' library(parallel)
+#' 
+#' # Generate module eigen genes with WGCNA
+#' gene_correlation <- cor(t(ad_ge_micro_zscore), method =  "spearman")
+#' adj <- WGCNA::adjacency.fromSimilarity(gene_correlation, power = 2)
+#' TOM <- WGCNA::TOMsimilarity(adj, TOMType = "unsigned")
+#' geneTree <- flashClust::flashClust(as.dist(1 - TOM), method="average")
+#' dynamicMods <- dynamicTreeCut::cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 20)
+#' adj_modules <- WGCNA::adjacency.fromSimilarity(gene_correlation[dynamicMods != 0, dynamicMods != 0], power = 2)
+#' MEList <- WGCNA::moduleEigengenes(t(ad_ge_micro_zscore[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
+#' MEs <- MEList$eigengenes
+#' 
+#' # Compute the module score
+#' clust <- cutree(hclust(as.dist(1-cor(ad_ge_micro_zscore, method = "spearman")), method = "average"), k = 3)
+#' clust <- data.frame(id = names(clust), cluster = clust)
+#' 
+#' score <- gene_module_score(clust, MEs)
+#' 
+#' # Within full pipeline
+#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
+#' batch_label = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("pca", "umap", "tsne"), 
+#' cluster_methods = c("hierarchical", "kmeans"), 
+#' metric = "euclidean", 
+#' n_clusters = 2:4, 
+#' module_eigs = MEs)
+#' 
+#' scores <- clusteval_scoring(res, wsum = Silhouette - Module_score, summarise = TRUE)
+gene_module_score <- function(clust, 
+                              module_eigs, 
+                              threshold = 0.3, 
+                              nan.substitute = 0) {
+  clust_cor <- lapply(as.data.frame(module_eigs[clust$id,]), 
+                                    function(x) sapply(unique(clust$cluster), 
+                                                       function(y) cor(x, clust$cluster == y)))
+  clust_cor_mat <- Reduce("rbind", clust_cor)
+  clust_cor_mat_pos <- clust_cor_mat > threshold
+  clust_cor_mat_neg <- clust_cor_mat < -threshold
+  
+  score <- apply(clust_cor_mat_pos, 1, function(x) min(1, sum(x)))
+  score <- score + apply(clust_cor_mat_neg, 1, function(x) min(1, sum(x)))
+  score <- score / apply(clust_cor_mat_pos + clust_cor_mat_neg, 1, sum)
+  score[is.nan(score)] <- nan.substitute
+  score <- mean(score, na.rm = TRUE)
+  return(score)
+}
+
+#' Gene module correlation score for multiple clustering results
+#' 
+#' Runs \code{\link{gene_module_score}} in parallel. 
+#' 
+#' Assumes that a parallel backend has been registered for \code{foreach}.
+#'
+#' @param clusters A data.table or data.frame with clustering information. 
+#' @param module_eigs See \code{\link{gene_module_score}}.
+#' @param threshold See \code{\link{gene_module_score}}.
+#' @param nan.substitute See \code{\link{gene_module_score}}.
+#' @param by Column names that identify a single clustering result.
+#' @param ... Extra arguments are ignored.
+#'
+#' @return
+#' @export
+module_evaluation <- function(clusters, 
+                              module_eigs, 
+                              threshold = 0.3, 
+                              nan.substitute = 0, 
+                              by = c("run", "fold", "datname", "drname", "k", "m"), 
+                              ...) {
+  if (data.table::is.data.table(clusters)) {
+    clust_list <- split(clusters, by = by)
+  } else {
+    clust_list <- split(clusters, clusters[, by])
+  }
+  
+  out <- foreach(clust = clust_list,
+                 .combine = function(...) data.table::rbindlist(list(...)),
+                 .packages = c(),
+                 .multicombine = TRUE,
+                 .maxcombine = length(clust_list)) %dopar% {
+                   gm_score <- gene_module_score(clust, module_eigs, threshold, nan.substitute)
+                   gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
+                   gm_score
+                 }
+  return(out)
+}
 
 #' Clustering analysis on cross-validated data sets
 #'

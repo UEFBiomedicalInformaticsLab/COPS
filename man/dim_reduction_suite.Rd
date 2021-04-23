@@ -8,36 +8,35 @@ dim_reduction_suite(
   dat,
   dimred_methods = c("pca", "umap"),
   output_dimensions = NULL,
-  pca_dims = 2:6,
-  umap_dims = 2:10,
-  tsne_perplexities = c(5, 30, 50),
+  pca_dims = c(2),
+  umap_dims = c(2),
+  tsne_perplexities = c(45),
   tsne_pca = TRUE,
   umap_neighbors = 20,
-  include_original = FALSE,
   initial_dims = 50,
   ...
 )
 }
 \arguments{
-\item{dat}{data matrix, features on columns and samples on rows}
+\item{dat}{Data matrix, features on columns and samples on rows.}
 
-\item{dimred_methods}{vector of method names, see details for options}
+\item{dimred_methods}{Vector of method names, see details for options.}
 
-\item{output_dimensions}{vector of dimensionalities to compute using each applicable method}
+\item{output_dimensions}{Vector of dimensionalities to compute using each applicable method.}
 
-\item{pca_dims}{PCA specific output dimensions}
+\item{pca_dims}{PCA specific output dimensions.}
 
-\item{umap_dims}{UMAP specific output dimensions}
+\item{umap_dims}{UMAP specific output dimensions.}
 
-\item{tsne_perplexities}{vector of t-SNE perplexity settings to generate embeddings with}
+\item{tsne_perplexities}{Vector of t-SNE perplexity settings to generate embeddings with.}
 
-\item{tsne_pca}{whether to apply PCA before t-SNE, massively boosts performance}
+\item{tsne_pca}{Whether to apply PCA before t-SNE, which massively boosts performance.}
 
-\item{umap_neighbors}{scalar UMAP parameter, affects manifold resolution}
+\item{umap_neighbors}{UMAP parameter, affects manifold computation.}
 
-\item{include_original}{if \code{TRUE}, includes original data in output list}
+\item{initial_dims}{Number of principal components used in t-SNE and UMAP.}
 
-\item{...}{extra arguments are ignored currently}
+\item{...}{Extra arguments are ignored.}
 }
 \value{
 Returns a \code{list} of embeddings, elements are named based on methods used
@@ -48,6 +47,7 @@ Applies multiple dimensionality reduction techniques to input data.
 \details{
 Method options
 \itemize{
+\item "none" - Returns original data as is
 \item "pca" - Principal Component Analysis
 \item "tsne" - t-distributed stochastic neighbor embedding
 \item "umap" - Uniform Manifold Approximation and Projection for Dimension Reduction

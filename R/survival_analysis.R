@@ -1,11 +1,12 @@
 #' Pre-process event data for survival analysis
 #'
-#' @param event_data 
-#' @param event_time_name 
-#' @param follow_up_time_name 
-#' @param event_field_name 
-#' @param event_name 
-#' @param event_time_cutoff 
+#' @param event_data A data.frame that contains survival times, event data and covariates.
+#' @param event_time_name Name of the column that contains time to event. 
+#' @param follow_up_time_name Name of the column that contains time to end of followup for a censored data point. 
+#' @param event_field_name Name of the column that contains event indicators.
+#' @param event_name Event column value that corresponds to the event of interest.
+#' @param event_time_cutoff Upper cutoff value for time.
+#' @param event_time_lower_cutoff Lower cutoff value for time.
 #'
 #' @return
 #' @export
@@ -33,16 +34,19 @@ survival_preprocess <- function(event_data,
 
 #' Likelihood ratio analysis of Cox PH survival models for clustering results
 #'
-#' @param event_data 
-#' @param clusters 
-#' @param survival_time_col 
-#' @param survival_event_col 
-#' @param survival_covariate_names 
-#' @param patient_id 
-#' @param ... 
+#' @param event_data A data.frame that contains survival times, event data and covariates.
+#' @param clusters A data.frame or data.table containing clustering information.
+#' @param survival_time_col Name of the column in \code{event_data} that contains survival time. 
+#' @param survival_event_col Name of the column in \code{event_data} that contains event indicators.
+#' @param survival_covariate_names Nme of covariate columns. 
+#' @param row_id Name of column in \code{event_data} that matches sample IDs in \code{clusters}.
+#' @param by Vector of column names that identify a single clustering result in \code{clusters}.
+#' @param ... Extra arguments are ignored.
 #'
 #' @return
 #' @export
+#' 
+#' @importFrom survival Surv coxph
 survival_evaluation <- function(event_data, 
                                 clusters, 
                                 survival_time_col = "time", 

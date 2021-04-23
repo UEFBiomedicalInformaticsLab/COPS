@@ -13,38 +13,40 @@ clustering_evaluation(
   distance_metric = "euclidean",
   correlation_method = "spearman",
   hierarchical_linkage = "complete",
-  gmm_modelNames = NULL,
   kmeans_num_init = 100,
   kmeans_max_iters = 100,
   kmeans_tol = 1e-04,
+  gmm_modelNames = NULL,
   gmm_shrinkage = 0.01,
   ...
 )
 }
 \arguments{
-\item{dat}{data matrix with samples on columns}
+\item{dat}{A data matrix with samples on columns.}
 
-\item{batch_label_names}{character vector containing column names corresponding to batch labels}
+\item{batch_label_names}{A character vector containing column names corresponding to batch labels.}
 
-\item{subtype_label_names}{}
+\item{subtype_label_names}{A character vector containing column names corresponding to batch labels.}
 
-\item{n_clusters}{vector of integers, numbers of clusters to be generated}
+\item{n_clusters}{A vector of integers, numbers of clusters to be generated.}
 
-\item{cluster_methods}{vector of clustering method names, see details for options}
+\item{cluster_methods}{A vector of clustering method names, see details for options.}
 
-\item{distance_metric}{}
+\item{distance_metric}{Either "euclidean" or "correlation".}
 
-\item{correlation_method}{}
+\item{correlation_method}{Method for \code{\link[stats]{cor]}}.}
 
-\item{hierarchical_linkage}{}
+\item{hierarchical_linkage}{See \code{\link[flashClust]{flashClust}}.}
 
-\item{gmm_modelNames}{}
+\item{kmeans_num_init}{See \code{\link[ClusterR]{KMeans_rcpp}}.}
 
-\item{kmeans_num_init}{}
+\item{kmeans_max_iters}{See \code{\link[ClusterR]{KMeans_rcpp}}.}
 
-\item{kmeans_max_iters}{}
+\item{kmeans_tol}{See \code{\link[ClusterR]{KMeans_rcpp}}.}
 
-\item{kmeans_tol}{}
+\item{gmm_modelNames}{Sepcifies model type for \code{\link[mclust]{Mclust}}}
+
+\item{gmm_shrinkage}{Shrinkage parameter for \code{\link[mclust]{priorControl}}.}
 
 \item{...}{extra arguments are ignored currently}
 }
