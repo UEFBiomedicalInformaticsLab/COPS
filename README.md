@@ -31,7 +31,7 @@ devtools::install_github("vittoriofortino84/COPS")
 * k-means
 * hierarchical, diana
 * GMM
-### Multi-omics clustering algoritmhs
+### Multi-omics clustering algorithms
 ### Performance metrics
 * external: survival analysis, cNMI, ARI, NMI
 * internal: silhouette, clustering stability, gene module correlation
