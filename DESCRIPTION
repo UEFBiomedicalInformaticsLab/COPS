@@ -44,6 +44,7 @@ Suggests:
     caret,
     dynamicTreeCut,
     knitr,
+    markdown,
     swamp,
     TCGAutils,
     TCGAbiolinks,
