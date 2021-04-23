@@ -3,6 +3,8 @@
 #       e.g. dir.create(..., recursive = TRUE, showWarnings = FALSE).
 # TODO: read folders from configuration
 
+source config.sh
+
 ## TCGA breast cancer
 # No gene filters DR
 Rscript brca/brca_dimred.R --no-restore --no-save
