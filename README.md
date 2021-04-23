@@ -3,6 +3,21 @@
 The COPS package provides a suite of feature reduction and clustering analysis tools for disease subtype discovery from 
 omics data. The tools are wrapped in a convenient pipeline. 
 
+## Installation
+
+```R
+# Tested on linux 5.4.105-1, R 4.0.4 and Bioconductor 3.12
+install.packages("devtools")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+BiocManager::install(c("Rgraphviz", "graph", "supraHex", "STRINGdb", "GSVA", 
+                       "fgsea", "biomaRt", "AnnotationDbi", "org.Hs.eg.db"))
+devtools::install_github("theislab/kBet")
+devtools::install_github("vittoriofortino84/COPS")
+```
+
 ## Currently implemented
 ### Knowledge driven feature extraction
 * pathway and network analysis
