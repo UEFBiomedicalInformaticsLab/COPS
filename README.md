@@ -20,20 +20,22 @@ devtools::install_github("vittoriofortino84/COPS")
 
 ## Currently implemented
 ### Knowledge driven feature extraction
-* pathway and network analysis
+* GSVA
+* DiffRank
+* RWR-FGSEA
 ### Dimensionality reduction techniques
 * PCA
 * t-SNE
 * UMAP
 ### Single-omic clustering algorithms
-* k-means, pam
-* hierarchical, diana, agnes 
-* sota
+* k-means
+* hierarchical, diana
+* GMM
 ### Multi-omics clustering algoritmhs
 ### Performance metrics
-* external: clustering stability
-* internal: silhouette, Dunn, connectivity
-* batch effect: chi squared test rejection rate, DSC, kBET, PCA
+* external: survival analysis, cNMI, ARI, NMI
+* internal: silhouette, clustering stability, gene module correlation
+* batch effect estimation: chi squared test rejection rate, ARI, NMI, kBET, PCA
 
 ## Vignette
 [link](https://htmlpreview.github.io/?https://github.com/vittoriofortino84/COPS/blob/master/vignettes/Introduction.html)
