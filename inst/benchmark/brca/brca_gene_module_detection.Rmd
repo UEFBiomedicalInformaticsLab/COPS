@@ -1,0 +1,99 @@
+---
+title: "BRCA co-expression network inference and module detection"
+output: html_notebook
+---
+
+## Co-expression network
+Load data
+
+```{r, message = FALSE, results = FALSE, include = FALSE}
+library(parallel)
+library(ggplot2)
+library(cowplot)
+
+source("brca_default_parameters.R")
+source("tcga_brca_mrna_data.R")
+```
+
+### WGCNA
+```{r}
+gene_filter <- setdiff(rownames(tbrca_norm_deg), rownames(tbrca_norm)[zero_var])
+WGCNA::enableWGCNAThreads(PARALLEL)
+gene_correlation <- WGCNA::cor(t(tbrca_norm[gene_filter,]), method =  "spearman")
+```
+
+WGCNA enters debug mode for some reason, just hit enter to get through. 
+```{r}
+powers <- 1:10#c(1:10, 1:5*2+10))
+sft <- WGCNA::pickSoftThreshold(gene_correlation, dataIsExpr = FALSE, powerVector = powers)
+sft$powerEstimate # 6
+```
+
+```{r}
+# Plot the results:
+cex1 = 0.9;
+# Scale-free topology fit index as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+     main = paste("Scale independence"));
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     labels=powers,cex=cex1,col="red");
+# this line corresponds to using an R^2 cut-off of h
+abline(h=0.90,col="red")
+# Mean connectivity as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], sft$fitIndices[,5],
+     xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+     main = paste("Mean connectivity"))
+text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+```
+
+```{r}
+### 2) Generating adjacency and TOM similarity matrices based on the selected softpower
+adj <- WGCNA::adjacency.fromSimilarity(gene_correlation, power = 6)
+TOM <- WGCNA::TOMsimilarity(adj, TOMType = "unsigned")
+dissTOM <- 1-TOM
+```
+
+#### Module detection
+```{r}
+### 3) Module detection
+#hierarchical clustering of the genes based on the TOM dissimilarity measure
+geneTree <- flashClust::flashClust(as.dist(dissTOM), method="average")
+#plot the resulting clustering tree (dendrogram)
+plot(geneTree, xlab = "", sub = "", cex = 0.3)
+# Set the minimum module size
+minModuleSize <- 20
+# Module identification using dynamic tree cut
+dynamicMods <- dynamicTreeCut::cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = minModuleSize);
+#the following command gives the module labels and the size of each module. Lable 0 is reserved for unassigned genes
+table(dynamicMods)
+dynamicColors <- WGCNA::labels2colors(dynamicMods)
+table(dynamicColors)
+WGCNA::plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut",
+                    dendroLabels = FALSE, hang = 0.03, addGuide = TRUE,
+                    guideHang = 0.05, main = "Gene dendrogram and module colors")
+
+# Remove grey module and redo modules
+```
+
+#### Eigenvalue meta-genes
+```{r}
+dissTOM_all <- dissTOM
+adj_modules <- WGCNA::adjacency.fromSimilarity(gene_correlation[dynamicColors != "grey", dynamicColors != "grey"], power = 6)
+dissTOM <- 1 - WGCNA::TOMsimilarity(adj_modules, TOMType = "unsigned")
+geneTree = flashClust::flashClust(as.dist(dissTOM), method="average")
+
+#set the diagonal of the dissimilarity to NA
+diag(dissTOM) = NA;
+#Visualize the Tom plot. Raise the dissimilarity matrix to the power of 4 to bring out the module structure
+WGCNA::sizeGrWindow(7,7)
+WGCNA::TOMplot(dissTOM, geneTree, as.character(dynamicColors[dynamicColors != "grey"]))
+
+### 4) Quantify module similarity by eigengene correlation. Eigengenes: Module representatives
+secondary_gene_filter <- dynamicColors != "grey"
+MEList = WGCNA::moduleEigengenes(t(log2(tbrca_norm[gene_filter,][secondary_gene_filter,] + 1)), colors = dynamicColors[secondary_gene_filter])
+MEs = MEList$eigengenes
+WGCNA::plotEigengeneNetworks(MEs, "", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2))
+```
+
+
