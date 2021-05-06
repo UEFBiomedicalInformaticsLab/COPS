@@ -45,7 +45,7 @@ if (any(grepl("^GSVA", brca_pres_final_selection$Approach))) {
                                                                    brca_clust_pw_otp_gsva$fold == 6, ], 
                                             by = c("datname", "drname", "k", "m"),
                                             type = "inner")
-  brca_gsva <- COPS::GSVA(log2(tbrca_norm[combined_gene_filter,] + 1), list_db_annots, parallel = PARALLEL)
+  brca_gsva <- COPS::genes_to_pathways(log2(tbrca_norm[combined_gene_filter,] + 1), "GSVA", list_db_annots, parallel = PARALLEL)
   names(brca_gsva) <- gsub("PW", "GSVA", names(brca_gsva))
   brca_pw_enrichment <- c(brca_pw_enrichment, brca_gsva)
 }
@@ -111,6 +111,7 @@ for (i in names(brca_selected_clusters_split)) {
     }
     correlation_pw[[i]] <- rbind(correlation_pw[[i]], data.frame(t(clust_cor_j)))
     rownames(correlation_pw[[i]])[nrow(correlation_pw[[i]])] <- j
+    # Scaling specifically for RWR-FGSEA which can have very large differences in scale
     median_pw[[i]] <- rbind(median_pw[[i]], 
                             data.frame(t(tapply(pw_dat_i[[j]], 
                                                 pw_dat_i$cluster, 
