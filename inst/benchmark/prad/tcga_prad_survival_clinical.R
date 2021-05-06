@@ -1,5 +1,5 @@
 ## Load data
-source("load_config.R")
+#source("load_config.R")
 source("prad/prad_default_parameters.R")
 source("prad/tcga_prad_mrna_data.R") 
 

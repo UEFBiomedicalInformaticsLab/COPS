@@ -2,7 +2,7 @@
 # Variables:
 # tbrca_norm, tbrca_norm_deg, brca_norm_batch, brca_norm_subtypes_all, 
 # dat_survival, zero_var, otp_gene_filter
-source("load_config.R")
+#source("load_config.R")
 source("brca/brca_default_parameters.R")
 source("brca/tcga_brca_mrna_data.R") 
 

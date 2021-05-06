@@ -1,4 +1,4 @@
-source("load_config.R")
+#source("load_config.R")
 
 # Read scores from files
 prad_res_dimred_pca <- read.csv(paste0(path_intermediate_results, "/prad/dimred/dimred_pca/scores.csv"), header = TRUE, row.names = 1)

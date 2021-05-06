@@ -1,4 +1,4 @@
-source("load_config.R")
+#source("load_config.R")
 
 # Read scores from files
 #brca_res_dimred <- read.csv("~/tcga/brca/intermediary_files/dimred/scores.csv", header = TRUE, row.names = 1)

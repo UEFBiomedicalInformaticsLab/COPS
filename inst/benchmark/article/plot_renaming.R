@@ -21,7 +21,9 @@ rename_methods <- function(x) {
   
   # Survival
   colnames(x)[colnames(x) == "cluster_significance"] <- "SurvivalPValue"
-  x$SurvivalPValue_score <- (0.25 * (x$SurvivalPValue < 0.05) + 0.25 * (x$SurvivalPValue < 0.01) + 0.5 * (x$SurvivalPValue < 0.001))
+  if ("SurvivalPValue" %in% colnames(x)) {
+    x$SurvivalPValue_score <- (0.25 * (x$SurvivalPValue < 0.05) + 0.25 * (x$SurvivalPValue < 0.01) + 0.5 * (x$SurvivalPValue < 0.001))
+  }
   
   # Other
   x$k <- factor(x$k)
