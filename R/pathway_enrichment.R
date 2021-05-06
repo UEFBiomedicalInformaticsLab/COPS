@@ -139,17 +139,17 @@ genes_to_pathways <- function(expr,
   if (enrichment_method ==  "GSVA") {
     out <- list()
     out$KEGG_GSVA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_GSVA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),, drop = FALSE]
+    out$GO_GSVA <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
     out$REACTOME_GSVA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
   } else if (enrichment_method ==  "DiffRank") {
     out <- list()
     out$KEGG_DiffRank <- enriched_dat[grep("^KEGG", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_DiffRank <- enriched_dat[grep("^GO", rownames(enriched_dat)),, drop = FALSE]
+    out$GO_DiffRank <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
     out$REACTOME_DiffRank <- enriched_dat[grep("^REACTOME", rownames(enriched_dat)),, drop = FALSE]
   } else if (enrichment_method ==  "RWRFGSEA") {
     out <- list()
     out$KEGG_RWRFGSEA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_", rownames(enriched_dat)),, drop = FALSE]
+    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
     out$REACTOME_RWRFGSEA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
   } else {
     # This is never run
@@ -254,7 +254,7 @@ DiffRank <- function(expr, gene_set_list, parallel = 1) {
   
   return(out)
   #return(list(KEGG_DiffRank = out[grep("^KEGG", rownames(out)),], 
-  #            GO_DiffRank = out[grep("^GO", rownames(out)),], 
+  #            GO_DiffRank = out[grep("^GO_|^GOBP_", rownames(out)),], 
   #            REACTOME_DiffRank = out[grep("^REACTOME", rownames(out)),]))
 }
 
