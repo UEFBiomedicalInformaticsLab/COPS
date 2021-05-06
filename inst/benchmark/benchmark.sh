@@ -121,7 +121,8 @@ echo Plots
 Rscript article/plots_for_figures.R --no-restore --no-save
 Rscript article/data_visualization.R --no-restore --no-save
 Rscript article/plots_for_more_figures.R --no-restore --no-save
-
+Rscript article/brca_details.R --no-restore --no-save
+Rscript article/prad_details.R --no-restore --no-save
 
 
 
