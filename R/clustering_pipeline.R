@@ -262,7 +262,9 @@ get_best_result <- function(res,
   clust_ref <- clust_ref[,-which(colnames(res$clusters) %in% c("fold", "run", "cv_index"))]
   
   out <- list()
-  out$clusters <- plyr::join(scores$best[c("datname", "drname", "k", "m")], clust_ref)
+  out$clusters <- plyr::join(scores$best[c("datname", "drname", "k", "m")], 
+                             clust_ref, 
+                             by = c("datname", "drname", "k", "m"))
   
   for (i in which(names(res$embedding) == scores$best$drname)) {
     if(res$embedding[[i]]$run[1] == 1 & 
@@ -445,7 +447,9 @@ clusteval_scoring <- function(res,
               stability, 
               survival, 
               modules)
-  out <- Reduce(plyr::join, out[!sapply(out, is.null)])
+  #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
+  out <- Reduce(function(x,y) plyr::join(x, y, by = intersect(by, intersect(colnames(x), colnames(y)))), 
+                out[!sapply(out, is.null)])
   
   # Scoring
   score <- substitute(wsum)
