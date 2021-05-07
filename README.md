@@ -6,9 +6,38 @@ This branch also includes the specific version of COPS used in the analysis.
 
 ## Details
 
-Code for benchmark is included in the folder inst/benchmark. 
-If you install this package it will be copied to your R library into COPS/benchmark-
+Code for benchmark is included in the folder [inst/benchmark](inst/benchmark). 
+If you install this package it will be copied to your R library into `COPS/benchmark`.
+
+The benchmark is split into multiple scripts which are run by in the main bash script `benchmark.sh`.
+Clustering results, metrics and figures will be written on disk in the locations specified in `config.sh`.
 
 ## Requirements
 
-64 GB RAM (32 GB with a large swap-file should run just fine)
+The default configuration requires 64 GB RAM (32 GB with a large swap-file should run just fine). 
+The exact requirements depend on the number of runs and folds used in resampling (repeated CV) as well as the number of threads which can be configured.
+
+## Installation
+
+```R
+install.packages("devtools")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+BiocManager::install(c("Rgraphviz", "graph", "supraHex", "STRINGdb", "GSVA", 
+                       "fgsea", "biomaRt", "AnnotationDbi", "org.Hs.eg.db"))
+devtools::install_github("theislab/kBet")
+devtools::install_github("vittoriofortino84/COPS/benchmark")
+
+# Packages used in the benchmark
+install.packages(c("caret"))
+BiocManager::install(c("curatedTCGAData", "TCGAbiolinks", "WGCNA", "survminer"))
+
+# Packages used to plot the figures
+install.packages(c("ggplot2", "gridExtra", "cowplot", "pheatmap", "rPref"))
+```
+
+## Results
+
+[inst/benchmark/results](inst/benchmark/results)
