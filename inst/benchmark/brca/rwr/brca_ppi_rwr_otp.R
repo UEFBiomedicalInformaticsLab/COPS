@@ -12,7 +12,7 @@ source("brca/tcga_brca_mrna_data.R")
 ## Load annotations
 source("brca/brca_default_annotations.R")
 
-# Load PPI
+# Load PPI (https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-019-09186-x/MediaObjects/41467_2019_9186_MOESM4_ESM.xlsx)
 PPI <- read.table("~/tcga/PPI_entrez_ensemble.txt", header = TRUE)
 PPI <- igraph::graph_from_data_frame(PPI[,1:2], directed = FALSE)
 
