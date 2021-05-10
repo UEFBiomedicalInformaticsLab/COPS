@@ -28,7 +28,8 @@ res_umap10_otp <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[co
                                                   distance_metric = DR_METRIC, 
                                                   n_clusters = NCLUSTERS,
                                                   survival_data = dat_survival,
-                                                  module_eigs = MEs)
+                                                  module_eigs = MEs,
+                                                  module_cor_threshold = 0.25)
 
 scores_umap10_otp <- COPS::clusteval_scoring(res_umap10_otp, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_umap10_otp$all, paste0(path_intermediate_results, "/brca/dimred_otp/dimred_umap_10n/scores.csv"))
@@ -50,7 +51,8 @@ res_umap20_otp <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[co
                                                   distance_metric = DR_METRIC, 
                                                   n_clusters = NCLUSTERS,
                                                   survival_data = dat_survival,
-                                                  module_eigs = MEs)
+                                                  module_eigs = MEs,
+                                                  module_cor_threshold = 0.25)
 
 scores_umap20_otp <- COPS::clusteval_scoring(res_umap20_otp, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_umap20_otp$all, paste0(path_intermediate_results, "/brca/dimred_otp/dimred_umap_20n/scores.csv"))
@@ -72,7 +74,8 @@ res_umap30_otp <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[co
                                                   distance_metric = DR_METRIC, 
                                                   n_clusters = NCLUSTERS,
                                                   survival_data = dat_survival,
-                                                  module_eigs = MEs)
+                                                  module_eigs = MEs,
+                                                  module_cor_threshold = 0.25)
 
 scores_umap30_otp <- COPS::clusteval_scoring(res_umap30_otp, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_umap30_otp$all, paste0(path_intermediate_results, "/brca/dimred_otp/dimred_umap_30n/scores.csv"))

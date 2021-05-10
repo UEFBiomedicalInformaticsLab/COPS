@@ -28,7 +28,8 @@ res_umap10 <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[-zero_
                                            distance_metric = DR_METRIC, 
                                            n_clusters = NCLUSTERS,
                                            survival_data = dat_survival,
-                                           module_eigs = MEs)
+                                           module_eigs = MEs,
+                                           module_cor_threshold = 0.25)
 
 scores_umap10 <- COPS::clusteval_scoring(res_umap10, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_umap10$all, paste0(path_intermediate_results, "/brca/dimred/dimred_umap_10n/scores.csv"))

@@ -29,7 +29,8 @@ res_diffrank_otp <- COPS::dimred_clusteval_pipeline(list(expr = tbrca_norm[combi
                                                 correlation_method = COR_METHOD, 
                                                 n_clusters = NCLUSTERS,
                                                 survival_data = dat_survival,
-                                                module_eigs = MEs)
+                                                module_eigs = MEs,
+                                                module_cor_threshold = 0.25)
 
 scores_diffrank_otp <- COPS::clusteval_scoring(res_diffrank_otp, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_diffrank_otp$all, paste0(path_intermediate_results, "/brca/diffrank_otp/scores.csv"))

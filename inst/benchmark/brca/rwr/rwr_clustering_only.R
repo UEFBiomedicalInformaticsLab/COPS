@@ -40,7 +40,8 @@ res_rwr_pw <- COPS::dimred_clusteval_pipeline(dat_list,
                                               correlation_method = COR_METHOD, 
                                               n_clusters = NCLUSTERS,
                                               survival_data = dat_survival,
-                                              module_eigs = MEs)
+                                              module_eigs = MEs,
+                                              module_cor_threshold = 0.25)
 
 scores_rwr_pw <- COPS::clusteval_scoring(res_rwr_pw, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_rwr_pw$all, paste0(path, score_file))

@@ -27,7 +27,8 @@ res_pca <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[-zero_var
                                            distance_metric = DR_METRIC, 
                                            n_clusters = NCLUSTERS,
                                            survival_data = dat_survival,
-                                           module_eigs = MEs)
+                                           module_eigs = MEs,
+                                           module_cor_threshold = 0.25)
 
 scores_pca <- COPS::clusteval_scoring(res_pca, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_pca$all, paste0(path_intermediate_results, "/brca/dimred/dimred_pca/scores.csv"))

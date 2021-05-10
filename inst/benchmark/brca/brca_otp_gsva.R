@@ -29,7 +29,8 @@ res_gsva_otp <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[comb
                                                 correlation_method = COR_METHOD, 
                                                 n_clusters = NCLUSTERS,
                                                 survival_data = dat_survival,
-                                                module_eigs = MEs)
+                                                module_eigs = MEs,
+                                                module_cor_threshold = 0.25)
 
 scores_gsva_otp <- COPS::clusteval_scoring(res_gsva_otp, wsum = (NMI.BRCA_Subtype_PAM50 + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_gsva_otp$all, paste0(path_intermediate_results, "/brca/gsva_otp/scores.csv"))

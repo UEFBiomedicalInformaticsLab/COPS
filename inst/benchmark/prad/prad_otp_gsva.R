@@ -27,7 +27,8 @@ res_gsva_otp <- COPS::dimred_clusteval_pipeline(list(expr = log2(tprad_norm[comb
                                                 n_clusters = NCLUSTERS,
                                                 survival_data = prad_survival,
                                                 survival_covariate_names = SURVIVAL_COVARIATES,
-                                                module_eigs = MEs)
+                                                module_eigs = MEs,
+                                                module_cor_threshold = 0.25)
 
 scores_gsva_otp <- COPS::clusteval_scoring(res_gsva_otp, wsum = (NMI.Gleason_category + 1 - NMI.tss) / 2, summarise = SUMMARISE)
 write.csv(scores_gsva_otp$all, paste0(path_intermediate_results, "/prad/gsva_otp/scores.csv"))
