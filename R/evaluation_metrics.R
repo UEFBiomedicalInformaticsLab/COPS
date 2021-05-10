@@ -273,7 +273,7 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' @param cluster_methods A vector of clustering method names, see details for options.
 #' @param subtype_label_names A character vector containing column names corresponding to batch labels.
 #' @param distance_metric Either "euclidean" or "correlation".
-#' @param correlation_method Method for \code{\link[stats]{cor]}}.
+#' @param correlation_method Method for \code{\link[stats]{cor}}.
 #' @param hierarchical_linkage See \code{\link[flashClust]{flashClust}}.
 #' @param kmeans_num_init See \code{\link[ClusterR]{KMeans_rcpp}}.
 #' @param kmeans_max_iters See \code{\link[ClusterR]{KMeans_rcpp}}.
@@ -543,13 +543,13 @@ gene_module_score <- function(clust,
                                     function(x) sapply(unique(clust$cluster), 
                                                        function(y) cor(x, clust$cluster == y)))
   clust_cor_mat <- Reduce("rbind", clust_cor)
-  clust_cor_mat_pos <- clust_cor_mat > threshold
-  clust_cor_mat_neg <- clust_cor_mat < -threshold
+  clust_cor_mat_pos <- clust_cor_mat > module_cor_threshold
+  clust_cor_mat_neg <- clust_cor_mat < -module_cor_threshold
   
   score <- apply(clust_cor_mat_pos, 1, function(x) min(1, sum(x)))
   score <- score + apply(clust_cor_mat_neg, 1, function(x) min(1, sum(x)))
   score <- score / apply(clust_cor_mat_pos + clust_cor_mat_neg, 1, sum)
-  score[is.nan(score)] <- nan.substitute
+  score[is.nan(score)] <- module_nan.substitute
   score <- mean(score, na.rm = TRUE)
   return(score)
 }
@@ -562,8 +562,8 @@ gene_module_score <- function(clust,
 #'
 #' @param clusters A data.table or data.frame with clustering information. 
 #' @param module_eigs See \code{\link{gene_module_score}}.
-#' @param threshold See \code{\link{gene_module_score}}.
-#' @param nan.substitute See \code{\link{gene_module_score}}.
+#' @param module_cor_threshold See \code{\link{gene_module_score}}.
+#' @param module_nan.substitute See \code{\link{gene_module_score}}.
 #' @param by Column names that identify a single clustering result.
 #' @param ... Extra arguments are ignored.
 #'
@@ -571,8 +571,8 @@ gene_module_score <- function(clust,
 #' @export
 module_evaluation <- function(clusters, 
                               module_eigs, 
-                              threshold = 0.3, 
-                              nan.substitute = 0, 
+                              module_cor_threshold = 0.3, 
+                              module_nan.substitute = 0, 
                               by = c("run", "fold", "datname", "drname", "k", "m"), 
                               ...) {
   if (data.table::is.data.table(clusters)) {
@@ -586,7 +586,7 @@ module_evaluation <- function(clusters,
                  .packages = c(),
                  .multicombine = TRUE,
                  .maxcombine = length(clust_list)) %dopar% {
-                   gm_score <- gene_module_score(clust, module_eigs, threshold, nan.substitute)
+                   gm_score <- gene_module_score(clust, module_eigs, module_cor_threshold, module_nan.substitute)
                    gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
                    gm_score
                  }

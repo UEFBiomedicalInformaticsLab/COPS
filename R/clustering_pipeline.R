@@ -427,7 +427,7 @@ clusteval_scoring <- function(res,
     survival <- NULL
   }
   
-  # Survival likelihood ratio test
+  # Module correlation scores
   if (!is.null(res$modules)) {
     by_modules <- by[by %in% colnames(res$modules)]
     modules <- plyr::ddply(res$modules, 

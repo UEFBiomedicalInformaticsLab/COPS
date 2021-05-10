@@ -4,16 +4,21 @@
 \alias{gene_module_score}
 \title{Gene module score}
 \usage{
-gene_module_score(clust, module_eigs, threshold = 0.3, nan.substitute = 0)
+gene_module_score(
+  clust,
+  module_eigs,
+  module_cor_threshold = 0.3,
+  module_nan.substitute = 0
+)
 }
 \arguments{
 \item{clust}{A \code{data.frame} with columns "id" and "cluster".}
 
 \item{module_eigs}{Gene module eigen-genes for each sample (samples x modules).}
 
-\item{threshold}{Threshold for counting correlations.}
+\item{module_cor_threshold}{Threshold for counting correlations.}
 
-\item{nan.substitute}{Substituted value when dividing by zero when there are no correlated clusters for a module.}
+\item{module_nan.substitute}{Substituted value when dividing by zero when there are no correlated clusters for a module.}
 }
 \description{
 Metric based on gene module eigen gene correlation

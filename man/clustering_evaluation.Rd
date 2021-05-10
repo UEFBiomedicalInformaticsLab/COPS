@@ -34,7 +34,7 @@ clustering_evaluation(
 
 \item{distance_metric}{Either "euclidean" or "correlation".}
 
-\item{correlation_method}{Method for \code{\link[stats]{cor]}}.}
+\item{correlation_method}{Method for \code{\link[stats]{cor}}.}
 
 \item{hierarchical_linkage}{See \code{\link[flashClust]{flashClust}}.}
 
