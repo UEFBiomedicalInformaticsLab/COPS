@@ -17,6 +17,8 @@ Clustering results, metrics and figures will be written on disk in the locations
 The default configuration requires 64 GB RAM (32 GB with a large swap-file should run just fine). 
 The exact requirements depend on the number of runs and folds used in resampling (repeated CV) as well as the number of threads which can be configured.
 
+The results in the article were compiled with msigdbr v7.2.1.
+
 ## Installation
 
 ```R
@@ -29,6 +31,9 @@ BiocManager::install(c("Rgraphviz", "graph", "supraHex", "STRINGdb", "GSVA",
                        "fgsea", "biomaRt", "AnnotationDbi", "org.Hs.eg.db"))
 devtools::install_github("theislab/kBet")
 devtools::install_github("vittoriofortino84/COPS/benchmark")
+
+# Downgrade msigdbr
+devtools::install_github("igordot/msigdbr@v7.2.1")
 
 # Packages used in the benchmark
 install.packages(c("caret"))
