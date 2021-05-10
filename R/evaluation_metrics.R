@@ -500,8 +500,8 @@ clustering_evaluation <- function(dat,
 #' 
 #' @param clust A \code{data.frame} with columns "id" and "cluster".
 #' @param module_eigs Gene module eigen-genes for each sample (samples x modules).
-#' @param threshold Threshold for counting correlations.
-#' @param nan.substitute Substituted value when dividing by zero when there are no correlated clusters for a module.
+#' @param module_cor_threshold Threshold for counting correlations.
+#' @param module_nan.substitute Substituted value when dividing by zero when there are no correlated clusters for a module.
 #' 
 #' @export
 #' @examples library(COPS)
@@ -537,8 +537,8 @@ clustering_evaluation <- function(dat,
 #' scores <- clusteval_scoring(res, wsum = Silhouette - Module_score, summarise = TRUE)
 gene_module_score <- function(clust, 
                               module_eigs, 
-                              threshold = 0.3, 
-                              nan.substitute = 0) {
+                              module_cor_threshold = 0.3, 
+                              module_nan.substitute = 0) {
   clust_cor <- lapply(as.data.frame(module_eigs[clust$id,]), 
                                     function(x) sapply(unique(clust$cluster), 
                                                        function(y) cor(x, clust$cluster == y)))
