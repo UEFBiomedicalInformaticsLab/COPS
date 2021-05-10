@@ -7,8 +7,8 @@
 module_evaluation(
   clusters,
   module_eigs,
-  threshold = 0.3,
-  nan.substitute = 0,
+  module_cor_threshold = 0.3,
+  module_nan.substitute = 0,
   by = c("run", "fold", "datname", "drname", "k", "m"),
   ...
 )
@@ -18,9 +18,9 @@ module_evaluation(
 
 \item{module_eigs}{See \code{\link{gene_module_score}}.}
 
-\item{threshold}{See \code{\link{gene_module_score}}.}
+\item{module_cor_threshold}{See \code{\link{gene_module_score}}.}
 
-\item{nan.substitute}{See \code{\link{gene_module_score}}.}
+\item{module_nan.substitute}{See \code{\link{gene_module_score}}.}
 
 \item{by}{Column names that identify a single clustering result.}
 
