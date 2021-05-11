@@ -38,11 +38,11 @@ prad_res_pw_otp_ppi_rwr_fgsea <- read.csv(paste0(path_intermediate_results, "/pr
 prad_res_pw_otp_ppi_rwr_fgsea$Approach <- "PPI RWR-FGSEA"
 
 # VAE results
-#prad_res_vae <- read.csv("~/tcga/prad/intermediary_files/vae/scores.csv", header = TRUE, row.names = 1)
-#prad_res_vae$Approach <- "DR"
-#prad_res_vae$drname <- "VAE"
-#prad_res_vae$run <- prad_res_vae$run + 1
-#prad_res_vae$fold <- prad_res_vae$fold + 1
+prad_res_vae <- read.csv("results/prad_vae_scores.csv", header = TRUE, row.names = 1)
+prad_res_vae$Approach <- "DR*"
+prad_res_vae$drname <- "VAE"
+prad_res_vae$run <- prad_res_vae$run + 1
+prad_res_vae$fold <- prad_res_vae$fold + 1
 
 prad_scores <- plyr::rbind.fill(prad_res_dimred_pca, 
                                 prad_res_dimred_tsne, 
@@ -56,7 +56,8 @@ prad_scores <- plyr::rbind.fill(prad_res_dimred_pca,
                                 prad_res_pw_otp_diffrank,
                                 prad_res_pw_otp_gsva,
                                 prad_res_pw_otp_gcn_rwr_fgsea,
-                                prad_res_pw_otp_ppi_rwr_fgsea)
+                                prad_res_pw_otp_ppi_rwr_fgsea,
+                                prad_res_vae)
 
 
 source("article/plot_renaming.R")

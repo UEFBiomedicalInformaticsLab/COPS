@@ -40,11 +40,11 @@ brca_res_pw_otp_ppi_rwr_fgsea <- read.csv(paste0(path_intermediate_results, "/br
 brca_res_pw_otp_ppi_rwr_fgsea$Approach <- "PPI RWR-FGSEA"
 
 # VAE results
-#brca_res_vae <- read.csv("~/tcga/brca/intermediary_files/vae/scores.csv", header = TRUE, row.names = 1)
-#brca_res_vae$Approach <- "DR"
-#brca_res_vae$drname <- "VAE"
-#brca_res_vae$run <- brca_res_vae$run + 1
-#brca_res_vae$fold <- brca_res_vae$fold + 1
+brca_res_vae <- read.csv("results/brca_vae_scores.csv", header = TRUE, row.names = 1)
+brca_res_vae$Approach <- "DR*"
+brca_res_vae$drname <- "VAE"
+brca_res_vae$run <- brca_res_vae$run + 1
+brca_res_vae$fold <- brca_res_vae$fold + 1
 
 brca_scores <- plyr::rbind.fill(brca_res_dimred_pca, 
                                 brca_res_dimred_tsne, 
@@ -58,7 +58,8 @@ brca_scores <- plyr::rbind.fill(brca_res_dimred_pca,
                                 brca_res_pw_otp_diffrank,
                                 brca_res_pw_otp_gsva,
                                 brca_res_pw_otp_gcn_rwr_fgsea,
-                                brca_res_pw_otp_ppi_rwr_fgsea)
+                                brca_res_pw_otp_ppi_rwr_fgsea,
+                                brca_res_vae)
 
 
 source("article/plot_renaming.R")

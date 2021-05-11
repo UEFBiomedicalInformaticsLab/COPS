@@ -21,6 +21,7 @@ source("brca/brca_default_annotations.R")
 # Select a Pareto optimal result with the highest survival relevance
 brca_pres_final_selection <- brca_pres
 brca_pres_final_selection$Approach <- brca_pres_final_selection$Approach_unmodified
+brca_pres_final_selection <- brca_pres_final_selection[brca_pres_final_selection$Approach == "GCN RWR-FGSEA",]
 brca_pres_final_selection <- brca_pres_final_selection[which.max(brca_pres_final_selection$SurvivalPValue_score),]
 
 # This script was made for analysing pathway based clustering results. 

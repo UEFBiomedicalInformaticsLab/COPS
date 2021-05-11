@@ -73,7 +73,7 @@ brca_survival_pw <- ggplot(brca_bp_quantiles[brca_bp_quantiles$Embedding %in% c(
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 5e-7))
+                     limits = c(1.0, 5e-8))
 brca_survival_pw_legend <-  cowplot::get_legend(brca_survival_pw)
 brca_survival_pw <- brca_survival_pw + theme(legend.position = "none")
 
@@ -86,7 +86,7 @@ brca_survival_dr1 <- ggplot(brca_bp_quantiles[!brca_bp_quantiles$Embedding %in% 
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 5e-7))
+                     limits = c(1.0, 5e-8))
 brca_survival_dr1_legend <-  cowplot::get_legend(brca_survival_dr1)
 brca_survival_dr1 <- brca_survival_dr1 + theme(legend.position = "none")
 
@@ -99,7 +99,7 @@ brca_survival_dr2 <- ggplot(brca_bp_quantiles[!brca_bp_quantiles$Embedding %in% 
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 5e-7))
+                     limits = c(1.0, 5e-8))
 brca_survival_dr2 <- brca_survival_dr2 + theme(legend.position = "none")
 
 ### Prostate cancer
@@ -160,7 +160,7 @@ prad_survival_pw <- ggplot(prad_bp_quantiles[prad_bp_quantiles$Embedding %in% c(
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 5e-7))
+                     limits = c(1.0, 5e-6))
 prad_survival_pw_legend <-  cowplot::get_legend(prad_survival_pw)
 prad_survival_pw <- prad_survival_pw + theme(legend.position = "none")
 
@@ -173,7 +173,7 @@ prad_survival_dr1 <- ggplot(prad_bp_quantiles[!prad_bp_quantiles$Embedding %in% 
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 5e-7))
+                     limits = c(1.0, 5e-6))
 prad_survival_dr1_legend <-  cowplot::get_legend(prad_survival_dr1)
 prad_survival_dr1 <- prad_survival_dr1 + theme(legend.position = "none")
 
@@ -186,13 +186,13 @@ prad_survival_dr2 <- ggplot(prad_bp_quantiles[!prad_bp_quantiles$Embedding %in% 
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 5e-7))
+                     limits = c(1.0, 5e-6))
 prad_survival_dr2 <- prad_survival_dr2 + theme(legend.position = "none")
 
 ### Combined plots
 
 if (save_plots_pdf) pdf(paste0(path_plots, "/silhouette.pdf"), width = plot_scale * 4, height = plot_scale * 5)
-if (save_plots_svg) svg(paste0(path_plots, "/metrics1.svg"), width = plot_scale * 4, height = plot_scale * 5)
+if (save_plots_svg) svg(paste0(path_plots, "/silhouette.svg"), width = plot_scale * 4, height = plot_scale * 5)
 gridExtra::grid.arrange(brca_p1 + ggtitle("BRCA"), prad_p1 + ggtitle("PRAD"), 
                         brca_p1_legend, 
                         nrow = 3, heights = layout_heights)
@@ -207,21 +207,21 @@ if (save_plots_svg) dev.off()
 if (save_plots_pdf) dev.off()
 
 if (save_plots_pdf) pdf(paste0(path_plots, "/cnmi.pdf"), width = plot_scale * 4, height = plot_scale * 5)
-if (save_plots_svg) svg(paste0(path_plots, "/metrics2.svg"), width = plot_scale * 4, height = plot_scale * 5)
+if (save_plots_svg) svg(paste0(path_plots, "/cnmi.svg"), width = plot_scale * 4, height = plot_scale * 5)
 gridExtra::grid.arrange(brca_p2 + ggtitle("BRCA"), prad_p2 + ggtitle("PRAD"), brca_p1_legend, 
                         nrow = 3, heights = layout_heights)
 if (save_plots_svg) dev.off()
 if (save_plots_pdf) dev.off()
 
 if (save_plots_pdf) pdf(paste0(path_plots, "/modules.pdf"), width = plot_scale * 4, height = plot_scale * 5)
-if (save_plots_svg) svg(paste0(path_plots, "/metrics3.svg"), width = plot_scale * 4, height = plot_scale * 5)
+if (save_plots_svg) svg(paste0(path_plots, "/modules.svg"), width = plot_scale * 4, height = plot_scale * 5)
 gridExtra::grid.arrange(brca_p3 + ggtitle("BRCA"), prad_p3 + ggtitle("PRAD"), brca_p1_legend, 
                         nrow = 3, heights = layout_heights)
 if (save_plots_svg) dev.off()
 if (save_plots_pdf) dev.off()
 
 if (save_plots_pdf) pdf(paste0(path_plots, "/survival_pw.pdf"), width = plot_scale * 4, height = plot_scale * 5)
-if (save_plots_svg) svg(paste0(path_plots, "/survival1.svg"), width = plot_scale * 4, height = plot_scale * 5)
+if (save_plots_svg) svg(paste0(path_plots, "/survival_pw.svg"), width = plot_scale * 4, height = plot_scale * 5)
 gridExtra::grid.arrange(brca_survival_pw + ggtitle("BRCA BK-CL") + ylab("Survival p-value"), 
                         prad_survival_pw + ggtitle("PRAD BK-CL") + ylab("Survival p-value"), 
                         brca_survival_pw_legend, nrow = 3, heights = c(4,4,0.5))#, widths = c(4,4.5,3))
@@ -229,7 +229,7 @@ if (save_plots_svg) dev.off()
 if (save_plots_pdf) dev.off()
 
 if (save_plots_pdf) pdf(paste0(path_plots, "/survival_dr.pdf"), width = plot_scale * 4, height = plot_scale * 5)
-if (save_plots_svg) svg(paste0(path_plots, "/survival2.svg"), width = plot_scale * 4, height = plot_scale * 5)
+if (save_plots_svg) svg(paste0(path_plots, "/survival_dr.svg"), width = plot_scale * 4, height = plot_scale * 5)
 gridExtra::grid.arrange(brca_survival_dr2 + ggtitle("BRCA DR HC") + ylab("Survival p-value"), 
                         brca_survival_dr1 + ggtitle("BRCA DR other") + theme(axis.text.y = element_blank()), 
                         prad_survival_dr2 + ggtitle("PRAD DR HC") + ylab("Survival p-value"), 
@@ -283,7 +283,8 @@ if (save_plots_pdf) dev.off()
 ### Pareto
 # BRCA
 
-plot_palette <- "Dark2"
+#plot_palette <- "Dark2"
+plot_palette <- "Set3"
 
 silhouette_limits <- c(0, 0.9)
 cnmi_limits <- c(0.475, 0.775)
@@ -347,7 +348,7 @@ legend_plot <- ggplot(brca_pres, aes(Silhouette, cNMI)) +
   scale_colour_brewer(palette = plot_palette) + theme_bw() + 
   theme(legend.box = "horizontal") + 
   guides(shape = guide_legend(ncol = 1, order = 2), 
-         color = guide_legend(ncol = 1, order = 1),
+         color = guide_legend(ncol = 2, order = 1),
          size = guide_legend(ncol = 1, order = 3))
 pareto_legend <- cowplot::get_legend(legend_plot)
 
