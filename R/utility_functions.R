@@ -375,5 +375,55 @@ expressionToRWFeatures <- function(dat,
   return(out)
 }
 
-
+#' Data visualization using PCA, t-SNE and UMAP
+#'
+#' @param data 
+#' @param category 
+#' @param category_label 
+#' @param tsne_perplexity 
+#' @param umap_neighbors 
+#'
+#' @return
+#' @export
+#' 
+#' @importFrom FactoMineR PCA
+#' @importFrom Rtsne Rtsne
+#' @importFrom uwot umap
+#' @importFrom ggplot2 ggplot
+triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20) {
+  res_pca <- FactoMineR::PCA(data, scale.unit = FALSE, ncp = 2, graph = FALSE)
+  res_pca_dat <- as.data.frame(res_pca$ind$coord)
+  res_pca_dat$category <- category
+  eig_percentages <- res_pca$eig[,"percentage of variance"]
+  eig_percentages <- as.character(signif(eig_percentages, 3))
+  p1 <- ggplot(res_pca_dat, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
+    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    labs(x = paste0("PC1 (", eig_percentages[1], "%)"), y = paste0("PC2 (", eig_percentages[2], "%)"), color = category_label) +
+    ggtitle("PCA")
+  
+  res_tsne <- Rtsne::Rtsne(data,
+                            dims = 2,
+                            perplexity = tsne_perplexity,
+                            initial_dims = min(50, dim(data)[2]),
+                            check_duplicates = FALSE,
+                            pca = TRUE,
+                            partial_pca = TRUE,
+                            verbose = FALSE)$Y
+  res_tsne <- as.data.frame(res_tsne)
+  res_tsne$category <- category
+  p2 <- ggplot(res_tsne, aes(V1, V2, color = category)) + geom_point(shape = "+", size = 3) + 
+    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    labs(x = "Z1", y = "Z2", color = category_label) +
+    ggtitle("t-SNE")
+  
+  res_umap <- uwot::umap(data, n_neighbors = umap_neighbors, n_components = 2, pca = min(50, dim(data)[2]), verbose = FALSE, init = "normlaplacian")
+  res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
+  res_umap$category <- category
+  p3 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
+    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    labs(x = "Z1", y = "Z2", color = category_label) + 
+    ggtitle("UMAP")
+  
+  return(list(PCA = p1, tSNE = p2, UMAP = p3))
+}
 
