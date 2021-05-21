@@ -2,7 +2,7 @@
 #'
 #' Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 #' Based on \url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.95.1128}.
-#' Can be used to measure batch effect. TODO: fix implementation
+#' Can be used to measure batch effect. 
 #'
 #' @param data_matrix numeric matrix, samples on columns
 #' @param batch_label categorical variable, must be vector
@@ -10,18 +10,32 @@
 #' @return Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
 #' @export
 DSC <- function(data_matrix, batch_label) {
-  stop("Not implemented")
-  # Incorrect implementation for Sw? No batch label involved??
-  # Dispersion within batches
-  Sw <- scale(t(data_matrix), center = TRUE, scale = FALSE)**2 / dim(data_matrix)[2] # vectorized
-  Dw <- sqrt(sum(Sw))
-  #Dw <- sqrt(sum(sapply(split(data.frame(t(data_matrix)), batch_label), function(x) sum(diag(cov(x))))))
-  # Dispersion between batches
-  M = apply(data_matrix, 1, mean)
-  mean_var <- function(x) {o <- apply(x, 2, mean) - M; return(sum(o**2))} # vectorized
-  #mean_var <- function(x) {o <- apply(x, 2, mean) - M; return(sum(diag(o%*%t(o))))}
-  Sb <- sapply(split(data.frame(t(data_matrix)), batch_label), mean_var)
-  Db = sqrt(sum(Sb))
+  if (is.null(names(batch_label))) names(batch_label) <- colnames(data_matrix)
+  n <- table(batch_label)
+  p <- n / sum(n)
+  
+  # traces of covariance matrices
+  Sw <- sapply(split(names(batch_label), batch_label), function(x) sum(apply(data_matrix[, x, drop = FALSE], 1, var)))
+  
+  Dw <- sqrt(sum(Sw * p[names(Sw)], na.rm = TRUE))
+  
+  mu <-  lapply(split(names(batch_label), batch_label), 
+                function(x) apply(data_matrix[, x, drop = FALSE], 1, mean))
+  
+  # Global mean
+  #M <- apply(data_matrix, 1, mean)
+  # This is actually more efficient (not much though)
+  M <- rep(0, nrow(data_matrix))
+  for (i in names(mu)) {
+    M <- M + p[[i]] * mu[[i]]
+  }
+  
+  Sb <- c()
+  for (i in names(mu)) {
+    Sb[i] <- sum((mu[[i]] - M)**2)
+  }
+  Db <- sqrt(sum(Sb * p[names(Sb)]))
+  
   return(Db/Dw)
 }
 
