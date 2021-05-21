@@ -150,6 +150,7 @@ coexpression_network_unweighted <- function(dat,
 #'
 #' @return
 #' @export
+#' @importFrom ggplot2 ggplot aes geom_tile theme_bw coord_fixed ggtitle scale_fill_distiller theme element_blank
 plot_similarity_matrix <- function(sim_mat, 
                                    method = "average", 
                                    palette = "RdBu", 
@@ -389,7 +390,7 @@ expressionToRWFeatures <- function(dat,
 #' @importFrom FactoMineR PCA
 #' @importFrom Rtsne Rtsne
 #' @importFrom uwot umap
-#' @importFrom ggplot2 ggplot, aes, geom_point, scale_color_brewer, theme_bw, labs, ggtitle
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs ggtitle
 triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20) {
   res_pca <- FactoMineR::PCA(data, scale.unit = FALSE, ncp = 2, graph = FALSE)
   res_pca_dat <- as.data.frame(res_pca$ind$coord)

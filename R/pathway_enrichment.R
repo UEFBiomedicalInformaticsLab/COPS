@@ -72,7 +72,7 @@ genes_to_pathways <- function(expr,
                               parallel = 1,
                               verbose = FALSE,
                               gene_key_expr = "SYMBOL",
-                              gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"),
+                              gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
                               gsva_kcdf = "Gaussian",
                               ...
 ) {
@@ -80,7 +80,7 @@ genes_to_pathways <- function(expr,
   if (is.null(gene_set_list)) {
     # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
     db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
-    db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
+    db_annots <- dplyr::filter(db_annots, grepl(paste0("^", paste(gs_subcats, collapse = "$|^"), "$"), gs_subcat))
     
     if (gene_key_expr != "SYMBOL") {
       db_annots$gene_id <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
@@ -135,25 +135,18 @@ genes_to_pathways <- function(expr,
     }
   }
   
+  gs_category <- sapply(strsplit(rownames(enriched_dat), "_"), function(x) x[[1]])
+  
+  out <- lapply(unique(gs_category), function(x) enriched_dat[gs_category == x,])
+  names(out) <- unique(gs_category)
+  
   # Format output
   if (enrichment_method ==  "GSVA") {
-    out <- list()
-    out$KEGG_GSVA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_GSVA <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
-    out$REACTOME_GSVA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
+    names(out) <- paste0(names(out), "_GSVA")
   } else if (enrichment_method ==  "DiffRank") {
-    out <- list()
-    out$KEGG_DiffRank <- enriched_dat[grep("^KEGG", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_DiffRank <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
-    out$REACTOME_DiffRank <- enriched_dat[grep("^REACTOME", rownames(enriched_dat)),, drop = FALSE]
+    names(out) <- paste0(names(out), "_DiffRank")
   } else if (enrichment_method ==  "RWRFGSEA") {
-    out <- list()
-    out$KEGG_RWRFGSEA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
-    out$REACTOME_RWRFGSEA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
-  } else {
-    # This is never run
-    out <- enriched_dat
+    names(out) <- paste0(names(out), "_RWRFGSEA")
   }
   
   out <- out[sapply(out, nrow) > 0]

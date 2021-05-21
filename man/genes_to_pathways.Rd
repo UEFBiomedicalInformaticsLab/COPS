@@ -15,7 +15,7 @@ genes_to_pathways(
   parallel = 1,
   verbose = FALSE,
   gene_key_expr = "SYMBOL",
-  gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"),
+  gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
   gsva_kcdf = "Gaussian",
   ...
 )

@@ -24,6 +24,7 @@ Imports:
     fgsea,
     flashClust,
     foreach,
+    ggplot2,
     GSVA,
     httr,
     igraph,
