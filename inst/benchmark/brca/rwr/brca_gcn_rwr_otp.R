@@ -48,9 +48,10 @@ res <- COPS::fgsea_wrapper((rwr.up - rwr.down), list_db_annots, rwr_cutoff = 0, 
 out <- list(KEGG = t(res[,grep("^KEGG", colnames(res))]), 
             GO = t(res[,grep("^GO", colnames(res))]), 
             REACTOME = t(res[,grep("^REACTOME", colnames(res))]),
-            HALLMARK = t(res[,grep("^HALLMARK", colnames(res))]))
+            HALLMARK = t(res[,grep("^Hallmark", colnames(res))]))
 
 write.csv(out$KEGG, gzfile(paste0(path_intermediate_results, "/brca/rwr/gcn_rwr_otp/KEGG.csv.gz")))
 write.csv(out$GO, gzfile(paste0(path_intermediate_results, "/brca/rwr/gcn_rwr_otp/GO.csv.gz")))
 write.csv(out$REACTOME, gzfile(paste0(path_intermediate_results, "/brca/rwr/gcn_rwr_otp/REACTOME.csv.gz")))
 write.csv(out$HALLMARK, gzfile(paste0(path_intermediate_results, "/brca/rwr/gcn_rwr_otp/HALLMARK.csv.gz")))
+
