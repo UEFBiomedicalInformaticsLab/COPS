@@ -10,6 +10,7 @@ rename_methods <- function(x) {
   x$Embedding <- gsub("^KEGG_.*", "KEGG", x$Embedding)
   x$Embedding <- gsub("^GO_.*", "GO", x$Embedding)
   x$Embedding <- gsub("^REACTOME_.*", "REACTOME", x$Embedding)
+  x$Embedding <- gsub("^HALLMARK_.*", "Hallmark", x$Embedding)
   pw_ind <- match(c("GO", "KEGG", "REACTOME"), unique(x$Embedding))
   pw_ind <- pw_ind[!is.na(pw_ind)]
   x$Embedding <- factor(x$Embedding, unique(x$Embedding)[c(pw_ind, (1:length(unique(x$Embedding)))[-pw_ind])])

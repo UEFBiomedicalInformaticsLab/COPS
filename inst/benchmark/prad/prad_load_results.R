@@ -58,7 +58,7 @@ prad_scores <- plyr::rbind.fill(prad_res_dimred_pca,
                                 prad_res_pw_otp_gcn_rwr_fgsea,
                                 prad_res_pw_otp_ppi_rwr_fgsea,
                                 prad_res_vae)
-
+prad_scores <- prad_scores[prad_scores$fold != 6, ]
 
 source("article/plot_renaming.R")
 

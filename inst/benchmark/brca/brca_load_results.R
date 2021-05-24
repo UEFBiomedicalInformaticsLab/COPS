@@ -60,7 +60,7 @@ brca_scores <- plyr::rbind.fill(brca_res_dimred_pca,
                                 brca_res_pw_otp_gcn_rwr_fgsea,
                                 brca_res_pw_otp_ppi_rwr_fgsea,
                                 brca_res_vae)
-
+brca_scores <- brca_scores[brca_scores$fold != 6, ]
 
 source("article/plot_renaming.R")
 
