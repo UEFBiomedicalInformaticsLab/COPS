@@ -15,10 +15,8 @@ source("brca/brca_default_annotations.R")
 
 res_gsva_otp <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[combined_gene_filter,]+1)),
                                                 pathway_enrichment_method = "GSVA",
-                                                db_annots = db_annots, 
                                                 min.size = 5, max.size = 200,
-                                                key_name = "SYMBOL",
-                                                gs_subcats = GENE_SETS, 
+                                                gene_set_list = list_db_annots,
                                                 batch_label = brca_norm_batch, 
                                                 subtype_label = brca_norm_subtypes_all, 
                                                 parallel = PARALLEL, nruns = NRUNS, 

@@ -15,10 +15,8 @@ source("brca/brca_default_annotations.R")
 
 res_diffrank_otp <- COPS::dimred_clusteval_pipeline(list(expr = tbrca_norm[combined_gene_filter,]),
                                                 pathway_enrichment_method = "DiffRank",
-                                                db_annots = db_annots, 
                                                 min.size = 5, max.size = 200,
-                                                key_name = "SYMBOL",
-                                                gs_subcats = GENE_SETS, 
+                                                gene_set_list = list_db_annots,
                                                 batch_label = brca_norm_batch, 
                                                 subtype_label = brca_norm_subtypes_all, 
                                                 parallel = PARALLEL, nruns = NRUNS, 

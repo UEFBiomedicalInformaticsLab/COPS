@@ -23,9 +23,6 @@ OG_METRIC <- "correlation"
 COR_METHOD <- "pearson"
 GMM_MODEL <- "VVV"
 
-# Pathways
-GENE_SETS <- c("BP", "CP:KEGG", "CP:REACTOME")
-
 # Random walk
 RWR_SEEDS <- 25
 RWR_RESTART_PROB <- 0.75

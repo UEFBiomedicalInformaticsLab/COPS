@@ -53,13 +53,13 @@ Rscript brca/rwr/brca_gcn_rwr_otp.R --no-restore --no-save
 Rscript --no-restore --no-save brca/rwr/rwr_clustering_only.R \
   $PATH_INTERMEDIATES/brca/rwr/gcn_rwr_otp/ \
   rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
-  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
 echo DEG and OTP intersection RWRFGSEA on PPI
 Rscript brca/rwr/brca_ppi_rwr_otp.R --no-restore --no-save
 Rscript --no-restore --no-save brca/rwr/rwr_clustering_only.R \
   $PATH_INTERMEDIATES/brca/rwr/ppi_rwr_otp/ \
   rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
-  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
 
 echo TCGA prostate cancer
 # Create folders for intermediate results
@@ -108,13 +108,13 @@ Rscript prad/rwr/prad_gcn_rwr_otp.R --no-restore --no-save
 Rscript --no-restore --no-save prad/rwr/rwr_clustering_only.R \
   $PATH_INTERMEDIATES/prad/rwr/gcn_rwr_otp/ \
   rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
-  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
 echo DEG and OTP intersection RWRFGSEA on PPI
 Rscript prad/rwr/prad_ppi_rwr_otp.R --no-restore --no-save
 Rscript --no-restore --no-save prad/rwr/rwr_clustering_only.R \
   $PATH_INTERMEDIATES/prad/rwr/ppi_rwr_otp/ \
   rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
-  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
 
 
 echo Plots
