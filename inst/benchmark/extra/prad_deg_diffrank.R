@@ -7,7 +7,7 @@ source("prad/prad_default_parameters.R")
 source("prad/tcga_prad_mrna_data.R") 
 MEs <- read.csv(paste0(path_intermediate_results, "/prad/wgcna/module_eigen_genes_deg.csv"), row.names = 1, header = TRUE)
 
-prad_degs <- setdiff(rownames(tpradnorm_deg), rownames(tpradnorm)[zero_var])
+prad_degs <- setdiff(rownames(tprad_norm_deg), rownames(tprad_norm_deg)[zero_var])
 
 ## Load annotations
 source("prad/prad_default_annotations.R")
