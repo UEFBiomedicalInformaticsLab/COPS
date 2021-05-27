@@ -12,7 +12,7 @@ MEs <- read.csv(paste0(path_intermediate_results, "/brca/wgcna/module_eigen_gene
 
 args <- commandArgs(trailingOnly = TRUE)
 
-cv_run <- as.interger(args[1])
+cv_run <- as.integer(args[1])
 cv_fold <- as.integer(args[2])
 
 path <- paste0(path_intermediate_results, "/brca/sc3/")
