@@ -17,7 +17,7 @@ cv_fold <- as.integer(args[2])
 
 path <- paste0(path_intermediate_results, "/brca/sc3/")
 
-cv_index <- read.csv(paste0(path, cv_file), row.names = 1, header = TRUE)
+cv_index <- read.csv(paste0(path, "cv_index.csv"), row.names = 1, header = TRUE)
 
 dat_list <- list(expr = log2(tbrca_norm[combined_gene_filter,]+1))
 
