@@ -105,18 +105,28 @@ clusters <- data.frame()
 # Metrics collected to data.frame
 metrics <- data.frame()
 
+if (PARALLEL > 1) {
+  parallel_clust <- parallel::makeCluster(PARALLEL)
+  doParallel::registerDoParallel(parallel_clust)
+} else {
+  # Avoid warnings related to %dopar%
+  foreach::registerDoSEQ()
+}
+
 for (j in 1:length(NCLUSTERS)) {
   # SC3 only accepts input in the form of SingleCellExperiment 
-  hack <- SingleCellExperiment::SingleCellExperiment(assays = list(logcounts = t(temp)))
-  SummarizedExperiment::rowData(hack)$feature_symbol <- colnames(temp)
-  hack <- SC3::sc3(hack, ks = NCLUSTERS[j], gene_filter = FALSE, n_cores = NULL)
-  clust_k <- cutree(hack@metadata$sc3$consensus[[1]]$hc, NCLUSTERS[j])
-  silh_k <- hack@metadata$sc3$consensus[[1]]$silhouette
+  workaround <- SingleCellExperiment::SingleCellExperiment(assays = list(logcounts = t(temp)))
+  SummarizedExperiment::rowData(workaround)$feature_symbol <- colnames(temp)
+  workaround <- SC3::sc3(workaround, ks = NCLUSTERS[j], gene_filter = FALSE, n_cores = NULL)
+  clust_k <- cutree(workaround@metadata$sc3$consensus[[1]]$hc, NCLUSTERS[j])
+  silh_k <- workaround@metadata$sc3$consensus[[1]]$silhouette
   metrics <- rbind(metrics, data.frame(m = "sc3", k = NCLUSTERS[j], 
                                        metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
   clusters <- rbind(clusters, data.frame(id = rownames(temp), m = "sc3", 
                                          k = NCLUSTERS[j], cluster = clust_k))
 }
+
+if (PARALLEL > 1) parallel::stopCluster(parallel_clust)
 
 out_list <- list()
 
