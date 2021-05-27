@@ -483,8 +483,12 @@ clustering_evaluation <- function(dat,
   
   # Pearson's chi-squared test
   f1 <- function(x, c1, c2) {
-    temp <- suppressWarnings(chisq.test(x[[c1]], x[[c2]]))
-    temp <- data.frame(p = temp$p.value)
+    temp <- tryCatch(suppressWarnings(chisq.test(x[[c1]], x[[c2]])), error = function(e) NULL)
+    if (!is.null(temp)) {
+      temp <- data.frame(p = NA)
+    } else {
+      temp <- data.frame(p = temp$p.value)
+    }
     temp$run <- x$run[1]
     temp$fold <- x$fold[1]
     temp$datname <- x$datname[1]
