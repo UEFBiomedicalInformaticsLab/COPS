@@ -105,17 +105,17 @@ clusters <- data.frame()
 # Metrics collected to data.frame
 metrics <- data.frame()
 
-for (j in 1:length(n_clusters)) {
+for (j in 1:length(NCLUSTERS)) {
   # SC3 only accepts input in the form of SingleCellExperiment 
   hack <- SingleCellExperiment::SingleCellExperiment(assays = list(logcounts = t(temp)))
   SummarizedExperiment::rowData(hack)$feature_symbol <- colnames(temp)
-  hack <- SC3::sc3(hack, ks = n_clusters[j], gene_filter = FALSE, n_cores = NULL)
-  clust_k <- cutree(hack@metadata$sc3$consensus[[1]]$hc, n_clusters[j])
+  hack <- SC3::sc3(hack, ks = NCLUSTERS[j], gene_filter = FALSE, n_cores = NULL)
+  clust_k <- cutree(hack@metadata$sc3$consensus[[1]]$hc, NCLUSTERS[j])
   silh_k <- hack@metadata$sc3$consensus[[1]]$silhouette
-  metrics <- rbind(metrics, data.frame(m = "sc3", k = n_clusters[j], 
+  metrics <- rbind(metrics, data.frame(m = "sc3", k = NCLUSTERS[j], 
                                        metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
   clusters <- rbind(clusters, data.frame(id = rownames(temp), m = "sc3", 
-                                         k = n_clusters[j], cluster = clust_k))
+                                         k = NCLUSTERS[j], cluster = clust_k))
 }
 
 out_list <- list()
