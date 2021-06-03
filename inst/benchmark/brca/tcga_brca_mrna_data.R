@@ -83,3 +83,16 @@ dat_survival <- COPS:::survival_preprocess(brca_subtypes,
 dat_survival$age <- dat_survival$age_at_initial_pathologic_diagnosis
 dat_survival$stage <- dat_survival$pathologic_stage
 dat_survival$ID <- colnames(tbrca_norm)[match(dat_survival$patient, substr(colnames(tbrca_norm), 1, 12))]
+
+# Survival: number of excluded patients
+brca_survival_index <- match(substr(colnames(tbrca_norm), 1, 12), brca_subtypes$patient)
+brca_survival_index <- brca_survival_index[!is.na(brca_survival_index)]
+
+brca_survival_cut <- table((as.numeric(brca_subtypes$days_to_last_followup[brca_survival_index]) <= 3000 |
+                             is.na(as.numeric(brca_subtypes$days_to_last_followup[brca_survival_index]))) & 
+                             ((as.numeric(brca_subtypes$days_to_death[brca_survival_index]) <= 3000 | 
+                                is.na(as.numeric(brca_subtypes$days_to_death[brca_survival_index])))), useNA = "always")
+
+
+
+

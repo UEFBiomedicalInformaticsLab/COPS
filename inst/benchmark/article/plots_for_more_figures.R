@@ -6,10 +6,13 @@ plot_point_size <- 1.5
 
 layout_heights <- c(3.8,4.2,1.3)
 
+source("extra/load_deg_results.R")
 source("brca/brca_load_results.R")
+
+brca_scores <- rbind(brca_scores, brca_scores_deg)
 brca_scores <- brca_scores[brca_scores$Clustering != "HC_single",]
 
-temp <- brca_scores <- brca_scores[brca_scores$Approach %in% c("DR*", "DR"),]
+temp <- brca_scores <- brca_scores[brca_scores$Approach %in% c("DR*", "DR", "DR DEG"),]
 #temp <- temp[temp$k %in% 3:6, ]
 # Manual renaming to keep details
 temp$drname <- gsub("^pca", "PCA ", temp$drname)
@@ -23,9 +26,11 @@ brca_scores <- temp
 brca_scores$Embedding <- brca_scores$drname
 
 source("prad/prad_load_results.R")
+
+prad_scores <- rbind(prad_scores, prad_scores_deg)
 prad_scores <- prad_scores[prad_scores$Clustering != "HC_single",]
 
-temp <- prad_scores <- prad_scores[prad_scores$Approach %in% c("DR*", "DR"),]
+temp <- prad_scores <- prad_scores[prad_scores$Approach %in% c("DR*", "DR", "DR DEG"),]
 #temp <- temp[temp$k %in% 3:6, ]
 # Manual renaming to keep details
 temp$drname <- gsub("^pca", "PCA ", temp$drname)
@@ -62,7 +67,14 @@ ggplot(brca_umap_scores, aes(x = Dimensions, y = Unsupervised_wsum, group = Meth
   guides(shape = guide_legend(ncol = 3, title.position = "top"), color = guide_legend(ncol = 3, title.position = "top"))
 
 brca_umap_scores[order(brca_umap_scores$Unsupervised_wsum, decreasing = TRUE)[1:10],]
-brca_umap_overall <- plyr::ddply(brca_umap_scores, c("Dimensions", "Neighbours"), function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum)))
+brca_umap_overall <- plyr::ddply(brca_umap_scores, c("Dimensions", "Neighbours"), 
+                                 function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                        wsum_sd = sd(x$Unsupervised_wsum)))
+brca_umap_overall[order(brca_umap_overall$overall_wsum, decreasing = TRUE),]
+
+brca_umap_overall <- plyr::ddply(brca_umap_scores, c("Dimensions", "Neighbours", "Approach", "Clustering", "k"), 
+                                 function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                        wsum_sd = sd(x$Unsupervised_wsum)))
 brca_umap_overall[order(brca_umap_overall$overall_wsum, decreasing = TRUE),]
 
 temp <- brca_umap_scores[order(brca_umap_scores$Unsupervised_wsum, decreasing = TRUE),]
@@ -87,11 +99,18 @@ ggplot(prad_umap_scores, aes(x = Dimensions, y = Unsupervised_wsum, group = Meth
   guides(shape = guide_legend(ncol = 3, title.position = "top"), color = guide_legend(ncol = 3, title.position = "top"))
 
 prad_umap_scores[order(prad_umap_scores$Unsupervised_wsum, decreasing = TRUE)[1:10],]
-prad_umap_overall <- plyr::ddply(prad_umap_scores, c("Dimensions", "Neighbours"), function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum)))
+prad_umap_overall <- plyr::ddply(prad_umap_scores, c("Dimensions", "Neighbours"), 
+                                 function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                        wsum_sd = sd(x$Unsupervised_wsum)))
 prad_umap_overall[order(prad_umap_overall$overall_wsum, decreasing = TRUE),]
 
-# PCA
+prad_umap_overall <- plyr::ddply(prad_umap_scores, c("Dimensions", "Neighbours", "Approach", "Clustering", "k"), 
+                                 function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                        wsum_sd = sd(x$Unsupervised_wsum)))
+prad_umap_overall[order(prad_umap_overall$overall_wsum, decreasing = TRUE),]
 
+## PCA
+# BRCA
 brca_pca_scores <- brca_scores[grepl("^PCA", brca_scores$Embedding),]
 brca_pca_scores$Dimensions <- sapply(strsplit(brca_pca_scores$Embedding, " "), function(x) x[2])
 brca_pca_scores$Method <- paste(brca_pca_scores$Approach, brca_pca_scores$Clustering, sep = "+")
@@ -110,10 +129,16 @@ ggplot(brca_pca_scores, aes(x = k, y = Unsupervised_wsum, group = Method, color 
   guides(shape = guide_legend(ncol = 3, title.position = "top"), color = guide_legend(ncol = 3, title.position = "top"))
 
 brca_pca_scores[order(brca_pca_scores$Unsupervised_wsum, decreasing = TRUE)[1:10],]
-brca_pca_overall <- plyr::ddply(brca_pca_scores, c("Dimensions"), function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum)))
+brca_pca_overall <- plyr::ddply(brca_pca_scores, c("Dimensions"), 
+                                function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                       wsum_sd = sd(x$Unsupervised_wsum)))
+brca_pca_overall[order(brca_pca_overall$overall_wsum, decreasing = TRUE),]
+brca_pca_overall <- plyr::ddply(brca_pca_scores, c("Dimensions", "Approach", "Clustering", "k"), 
+                                function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                       wsum_sd = sd(x$Unsupervised_wsum)))
 brca_pca_overall[order(brca_pca_overall$overall_wsum, decreasing = TRUE),]
 
-
+# PRAD
 prad_pca_scores <- prad_scores[grepl("^PCA", prad_scores$Embedding),]
 prad_pca_scores$Dimensions <- sapply(strsplit(prad_pca_scores$Embedding, " "), function(x) x[2])
 prad_pca_scores$Method <- paste(prad_pca_scores$Approach, prad_pca_scores$Clustering, sep = "+")
@@ -132,7 +157,13 @@ ggplot(prad_pca_scores, aes(x = k, y = Unsupervised_wsum, group = Method, color 
   guides(shape = guide_legend(ncol = 3, title.position = "top"), color = guide_legend(ncol = 3, title.position = "top"))
 
 prad_pca_scores[order(prad_pca_scores$Unsupervised_wsum, decreasing = TRUE)[1:10],]
-prad_pca_overall <- plyr::ddply(prad_pca_scores, c("Dimensions"), function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum)))
+prad_pca_overall <- plyr::ddply(prad_pca_scores, c("Dimensions"), 
+                                function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                       wsum_sd = sd(x$Unsupervised_wsum)))
+prad_pca_overall[order(prad_pca_overall$overall_wsum, decreasing = TRUE),]
+prad_pca_overall <- plyr::ddply(prad_pca_scores, c("Dimensions", "Approach", "Clustering", "k"), 
+                                function(x) data.frame(overall_wsum = mean(x$Unsupervised_wsum), 
+                                                       wsum_sd = sd(x$Unsupervised_wsum)))
 prad_pca_overall[order(prad_pca_overall$overall_wsum, decreasing = TRUE),]
 
 

@@ -11,14 +11,23 @@ rename_methods <- function(x) {
   x$Embedding <- gsub("^GO_.*", "GO", x$Embedding)
   x$Embedding <- gsub("^REACTOME_.*", "REACTOME", x$Embedding)
   x$Embedding <- gsub("^HALLMARK_.*", "Hallmark", x$Embedding)
-  pw_ind <- match(c("GO", "KEGG", "REACTOME"), unique(x$Embedding))
+  pw_ind <- match(c("GO", "KEGG", "REACTOME", "Hallmark"), unique(x$Embedding))
   pw_ind <- pw_ind[!is.na(pw_ind)]
-  x$Embedding <- factor(x$Embedding, unique(x$Embedding)[c(pw_ind, (1:length(unique(x$Embedding)))[-pw_ind])])
+  if (length(pw_ind) > 0) {
+    x$Embedding <- factor(x$Embedding, c(unique(x$Embedding)[c(pw_ind[-4], (1:length(unique(x$Embedding)))[-pw_ind])], "Hallmark"))
+  } else {
+    x$Embedding <- factor(x$Embedding, unique(x$Embedding))
+  }
   
   # Clustering method
   x$Clustering <- x$m
   x$Clustering <- gsub("model", "GMM", x$Clustering)
+  x$Clustering <- gsub("kmeans", "k-means", x$Clustering)
   x$Clustering <- gsub("hierarchical", "HC", x$Clustering)
+  x$Clustering <- gsub("_average$", " (average)", x$Clustering)
+  x$Clustering <- gsub("_ward$", " (Ward)", x$Clustering)
+  x$Clustering <- gsub("_complete$", " (complete)", x$Clustering)
+  x$Clustering <- gsub("^diana$", "DIANA", x$Clustering)
   
   # Survival
   colnames(x)[colnames(x) == "cluster_significance"] <- "SurvivalPValue"
@@ -38,9 +47,12 @@ rename_dr_methods <- function(x) {
   x$Embedding <- gsub("^pca.*", "PCA", x$Embedding)
   x$Embedding <- gsub("^tsne.*", "t-SNE", x$Embedding)
   x$Embedding <- gsub("^umap.*", "UMAP", x$Embedding)
-  pw_ind <- match(c("GO", "KEGG", "REACTOME"), unique(x$Embedding))
+  pw_ind <- match(c("GO", "KEGG", "REACTOME", "Hallmark"), unique(x$Embedding))
   pw_ind <- pw_ind[!is.na(pw_ind)]
-  x$Embedding <- factor(x$Embedding, unique(x$Embedding)[c(pw_ind, (1:length(unique(x$Embedding)))[-pw_ind])])
-  
+  if (length(pw_ind) > 0) {
+    x$Embedding <- factor(x$Embedding, c(unique(x$Embedding)[c(pw_ind[-4], (1:length(unique(x$Embedding)))[-pw_ind])], "Hallmark"))
+  } else {
+    x$Embedding <- factor(x$Embedding, unique(x$Embedding))
+  }
   return(x)
 }

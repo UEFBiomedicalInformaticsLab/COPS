@@ -108,3 +108,15 @@ prad_survival <- COPS:::survival_preprocess(temp,
 prad_survival$ID <- colnames(tprad_norm)[match(prad_survival$patientID, substr(colnames(tprad_norm), 1, 12))]
 
 
+# Survival: number of excluded patients
+prad_survival_index <- match(substr(colnames(tprad_norm), 1, 12), temp$patientID)
+prad_survival_index <- prad_survival_index[!is.na(prad_survival_index)]
+
+prad_survival_cut <- table((as.numeric(temp$days_to_last_followup[prad_survival_index]) <= 2000 |
+                              is.na(as.numeric(temp$days_to_last_followup[prad_survival_index]))) & 
+                             ((as.numeric(temp$patient.days_to_first_biochemical_recurrence[prad_survival_index]) <= 2000 | 
+                                 is.na(as.numeric(temp$patient.days_to_first_biochemical_recurrence[prad_survival_index])))), useNA = "always")
+
+
+
+

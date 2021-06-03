@@ -80,6 +80,8 @@ summary_function <- function(x) {
   return(out)
 }
 
+prad_scores_sampled <- prad_scores
+
 prad_scores <- plyr::ddply(prad_scores, summary_by, summary_function)
 prad_scores$fold <- NULL
 prad_scores$run <- NULL

@@ -82,6 +82,8 @@ summary_function <- function(x) {
   return(out)
 }
 
+brca_scores_sampled <- brca_scores
+
 brca_scores <- plyr::ddply(brca_scores, summary_by, summary_function)
 brca_scores$fold <- NULL
 brca_scores$run <- NULL
