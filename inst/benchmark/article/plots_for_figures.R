@@ -78,7 +78,7 @@ brca_survival_pw_legend <-  cowplot::get_legend(brca_survival_pw)
 brca_survival_pw <- brca_survival_pw + theme(legend.position = "none")
 
 brca_survival_dr1 <- ggplot(brca_bp_quantiles[!brca_bp_quantiles$Embedding %in% c("GO", "KEGG", "REACTOME", "Hallmark") &
-                                                brca_bp_quantiles$Clustering %in% c("diana", "GMM", "kmeans"),], 
+                                                brca_bp_quantiles$Clustering %in% c("DIANA", "GMM", "k-means"),], 
                            aes(x = k, fill = Embedding)) + 
   geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
                outlier.shape = NA, stat = "identity", lwd = 0.25) + 
@@ -91,7 +91,7 @@ brca_survival_dr1_legend <-  cowplot::get_legend(brca_survival_dr1)
 brca_survival_dr1 <- brca_survival_dr1 + theme(legend.position = "none")
 
 brca_survival_dr2 <- ggplot(brca_bp_quantiles[!brca_bp_quantiles$Embedding %in% c("GO", "KEGG", "REACTOME", "Hallmark") &
-                                                !brca_bp_quantiles$Clustering %in% c("diana", "GMM", "kmeans"),], 
+                                                !brca_bp_quantiles$Clustering %in% c("DIANA", "GMM", "k-means"),], 
                            aes(x = k, fill = Embedding)) + 
   geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
                outlier.shape = NA, stat = "identity", lwd = 0.25) + 
@@ -165,7 +165,7 @@ prad_survival_pw_legend <-  cowplot::get_legend(prad_survival_pw)
 prad_survival_pw <- prad_survival_pw + theme(legend.position = "none")
 
 prad_survival_dr1 <- ggplot(prad_bp_quantiles[!prad_bp_quantiles$Embedding %in% c("GO", "KEGG", "REACTOME", "Hallmark") &
-                                                prad_bp_quantiles$Clustering %in% c("diana", "GMM", "kmeans"),], 
+                                                prad_bp_quantiles$Clustering %in% c("DIANA", "GMM", "k-means"),], 
                             aes(x = k, fill = Embedding)) + 
   geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
                outlier.shape = NA, stat = "identity", lwd = 0.25) + 
@@ -178,7 +178,7 @@ prad_survival_dr1_legend <-  cowplot::get_legend(prad_survival_dr1)
 prad_survival_dr1 <- prad_survival_dr1 + theme(legend.position = "none")
 
 prad_survival_dr2 <- ggplot(prad_bp_quantiles[!prad_bp_quantiles$Embedding %in% c("GO", "KEGG", "REACTOME", "Hallmark") &
-                                                !prad_bp_quantiles$Clustering %in% c("diana", "GMM", "kmeans"),], 
+                                                !prad_bp_quantiles$Clustering %in% c("DIANA", "GMM", "k-means"),], 
                             aes(x = k, fill = Embedding)) + 
   geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
                outlier.shape = NA, stat = "identity", lwd = 0.25) + 
@@ -235,7 +235,7 @@ gridExtra::grid.arrange(brca_survival_dr2 + ggtitle("BRCA DR HC") + ylab("Surviv
                         prad_survival_dr2 + ggtitle("PRAD DR HC") + ylab("Survival p-value"), 
                         prad_survival_dr1 + ggtitle("PRAD DR other") + theme(axis.text.y = element_blank()), 
                         brca_survival_dr1_legend, nrow = 3, ncol = 2, 
-                        layout_matrix = matrix(c(1,3,5,2,4,5), 3, 2), heights = c(4,4,0.5), widths = c(4.15,3.85))
+                        layout_matrix = matrix(c(1,3,5,2,4,5), 3, 2), heights = c(4,4,0.5), widths = c(4.25,3.75))
 if (save_plots_svg) dev.off()
 if (save_plots_pdf) dev.off()
 
@@ -283,10 +283,10 @@ if (save_plots_pdf) dev.off()
 ### Pareto
 # BRCA
 
-#plot_palette <- scale_colour_brewer(palette = "Dark2")
-#plot_palette <- scale_colour_brewer(palette = "Set3")
-plot_palette <- scale_color_viridis_d()
+library(RColorBrewer)
 
+#plot_palette <- colorRampPalette(brewer.pal(8, "Set2"))(length(unique(brca_pres$Approach)))
+plot_palette <- pals::watlington(n = length(unique(brca_pres$Approach)))
 
 silhouette_limits <- c(0,1)#c(0, 0.9)
 cnmi_limits <- c(0.475, 0.775)
@@ -297,60 +297,60 @@ stability_limits <- c(0.7, 1)
 plot11 <- ggplot(brca_pres, aes(Silhouette, cNMI)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() +
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 plot21 <- ggplot(brca_pres, aes(Silhouette, SurvivalPValue_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 plot31 <- ggplot(brca_pres, aes(Silhouette, Module_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none")
 plot41 <- ggplot(brca_pres, aes(Silhouette, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none")
 
 plot22 <- ggplot(brca_pres, aes(cNMI, SurvivalPValue_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 plot32 <- ggplot(brca_pres, aes(cNMI, Module_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 plot42 <- ggplot(brca_pres, aes(cNMI, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 
 plot33 <- ggplot(brca_pres, aes(SurvivalPValue_score, Module_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 plot43 <- ggplot(brca_pres, aes(SurvivalPValue_score, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 
 plot44 <- ggplot(brca_pres, aes(Module_score, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 
 legend_plot <- ggplot(brca_pres, aes(Silhouette, cNMI)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme_bw() + 
   theme(legend.box = "horizontal") + 
   guides(shape = guide_legend(ncol = 1, order = 2), 
@@ -368,9 +368,8 @@ if (save_plots_pdf) dev.off()
 
 # PRAD
 
-#plot_palette <- scale_colour_brewer(palette = "Dark2")
-#plot_palette <- scale_colour_brewer(palette = "Set3")
-plot_palette <- scale_color_viridis_d()
+#plot_palette <- colorRampPalette(brewer.pal(8, "Dark2"))(length(unique(prad_pres$Approach)))
+plot_palette <- pals::watlington(n = length(unique(prad_pres$Approach)))
 
 silhouette_limits <- c(0, 0.9)
 cnmi_limits <- c(0.475, 0.775)
@@ -381,57 +380,57 @@ stability_limits <- c(0.7, 1)
 plot11 <- ggplot(prad_pres, aes(Silhouette, cNMI)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() +
-  plot_palette + theme(legend.position = "none") 
+  scale_color_manual(values = plot_palette) + theme(legend.position = "none") 
 plot21 <- ggplot(prad_pres, aes(Silhouette, SurvivalPValue_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none") 
 plot31 <- ggplot(prad_pres, aes(Silhouette, Module_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + theme(legend.position = "none")
+  scale_color_manual(values = plot_palette) + theme(legend.position = "none")
 plot41 <- ggplot(prad_pres, aes(Silhouette, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + theme(legend.position = "none")
+  scale_color_manual(values = plot_palette) + theme(legend.position = "none")
 
 plot22 <- ggplot(prad_pres, aes(cNMI, SurvivalPValue_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette +
+  scale_color_manual(values = plot_palette) +
   theme(legend.position = "none") 
 plot32 <- ggplot(prad_pres, aes(cNMI, Module_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none") 
 plot42 <- ggplot(prad_pres, aes(cNMI, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none") 
 
 plot33 <- ggplot(prad_pres, aes(SurvivalPValue_score, Module_score)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none") 
 plot43 <- ggplot(prad_pres, aes(SurvivalPValue_score, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none") 
 
 plot44 <- ggplot(prad_pres, aes(Module_score, ClusteringStabilityJaccard)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
   theme_bw() + 
-  plot_palette + 
+  scale_color_manual(values = plot_palette) + 
   theme(legend.position = "none") 
 
 legend_plot <- ggplot(prad_pres, aes(Silhouette, cNMI)) + 
   geom_point(aes(color = Approach, shape = Clustering, size = k)) + 
-  plot_palette + theme_bw() + 
+  scale_color_manual(values = plot_palette) + theme_bw() + 
   theme(legend.box = "horizontal") + 
   guides(shape = guide_legend(ncol = 1, order = 2), 
          color = guide_legend(ncol = 2, order = 1),

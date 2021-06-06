@@ -155,15 +155,81 @@ brca_means_nk <- plyr::ddply(brca_table,
 brca_nk_best <- plyr::ddply(brca_means_nk, 
                             c("Approach", "Embedding"),
                             function(x) data.frame(Clustering = x$Clustering[which.max(x$nk_mean)]))
-#brca_table <- plyr::join(brca_nk_best, brca_table)
+brca_table_best <- plyr::join(brca_nk_best, brca_table)
 
-test <- plyr::join(brca_nk_best, brca_means_nk)
-test$DR_method <- sapply(strsplit(test$Embedding, " "), function(x) x[[1]])
-test <- plyr::ddply(test, 
-                    c("Approach", "DR_method"),
-                    function(x) data.frame(Embedding = x$Embedding[which.max(x$nk_mean)]))
 
-brca_table <- plyr::join(test, brca_table)
+prad_means_nk <- plyr::ddply(prad_table, 
+                             summary_by[summary_by != "k"],
+                             function(x) data.frame(nk_mean = mean(x$Unsupervised_wsum, na.rm = TRUE)))
+prad_nk_best <- plyr::ddply(prad_means_nk, 
+                            c("Approach", "Embedding"),
+                            function(x) data.frame(Clustering = x$Clustering[which.max(x$nk_mean)]))
+prad_table_best <- plyr::join(prad_nk_best, prad_table)
+
+for (metric_i in c("Silhouette", "ClusteringStabilityJaccard", "cNMI", "Module_score")) {
+  # Create tables
+  brca_table_best_i <- tidyr::pivot_wider(brca_table_best, 
+                                     id_cols = c("Approach", "Embedding", "Clustering"),
+                                     names_from = c("k"),
+                                     #names_prefix = "k",
+                                     names_sep = "_",
+                                     values_from = paste0(metric_i, c("", "_sd")))
+  brca_table_best_i$Approach <- factor(brca_table_best_i$Approach, unique(brca_table_best_i$Approach))
+  brca_table_best_i <- dplyr::arrange(brca_table_best_i, Approach, Embedding, Clustering)
+  
+  temp <- as.data.frame(t(1:ncol(brca_table_best_i)))
+  colnames(temp) <- colnames(brca_table_best_i)
+  
+  brca_table_best_i <- rbind(temp, brca_table_best_i)
+  brca_table_best_i <- rbind(temp, brca_table_best_i)
+  
+  brca_table_best_i[1,] <- c("", "", "", sapply(strsplit(colnames(brca_table_best_i), "_")[-c(1:3)], 
+                                           function(x) paste0("k=", x[[length(x)]])))
+  brca_table_best_i[2,] <- c("", "", "", sapply(strsplit(colnames(brca_table_best_i), "_")[-c(1:3)], 
+                                           function(x) ifelse(x[[length(x) - 1]] == "sd", "sd", "mean")))
+  
+  #ind <- order(brca_table_best_i[1,-(1:2)], brca_table_best_i[2,-(1:2)], brca_table_best_i[3,-(1:2)])
+  
+  ind <- c(1:3, 3 + order(brca_table_best_i[1, -c(1:3)], 
+                          brca_table_best_i[2, -c(1:3)]))
+  
+  writexl::write_xlsx(brca_table_best_i[,ind], path = paste0(path_plots, "/brca_", metric_i, "_best.xlsx"), 
+                      #row.names = FALSE, 
+                      col_names = FALSE)#, sheetName = "BRCA")
+}
+
+for (metric_i in c("Silhouette", "ClusteringStabilityJaccard", "cNMI", "Module_score")) {
+  # Create tables
+  prad_table_best_i <- tidyr::pivot_wider(prad_table_best, 
+                                     id_cols = c("Approach", "Embedding", "Clustering"),
+                                     names_from = c("k"),
+                                     #names_prefix = "k",
+                                     names_sep = "_",
+                                     values_from = paste0(metric_i, c("", "_sd")))
+  prad_table_best_i$Approach <- factor(prad_table_best_i$Approach, unique(prad_table_best_i$Approach))
+  prad_table_best_i <- dplyr::arrange(prad_table_best_i, Approach, Embedding, Clustering)
+  
+  temp <- as.data.frame(t(1:ncol(prad_table_best_i)))
+  colnames(temp) <- colnames(prad_table_best_i)
+  
+  prad_table_best_i <- rbind(temp, prad_table_best_i)
+  prad_table_best_i <- rbind(temp, prad_table_best_i)
+  
+  prad_table_best_i[1,] <- c("", "", "", sapply(strsplit(colnames(prad_table_best_i), "_")[-c(1:3)], 
+                                           function(x) paste0("k=", x[[length(x)]])))
+  prad_table_best_i[2,] <- c("", "", "", sapply(strsplit(colnames(prad_table_best_i), "_")[-c(1:3)], 
+                                           function(x) ifelse(x[[length(x) - 1]] == "sd", "sd", "mean")))
+  
+  #ind <- order(prad_table_best_i[1,-(1:2)], prad_table_best_i[2,-(1:2)], prad_table_best_i[3,-(1:2)])
+  
+  ind <- c(1:3, 3 + order(prad_table_best_i[1, -c(1:3)], 
+                          prad_table_best_i[2, -c(1:3)]))
+  
+  writexl::write_xlsx(prad_table_best_i[,ind], path = paste0(path_plots, "/prad_", metric_i, "_best.xlsx"), 
+                      #row.names = FALSE, 
+                      col_names = FALSE)#, sheetName = "PRAD")
+}
+
 
 
 

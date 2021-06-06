@@ -10,8 +10,6 @@ source("brca/brca_default_parameters.R")
 source("brca/tcga_brca_mrna_data.R") 
 MEs <- read.csv(paste0(path_intermediate_results, "/brca/wgcna/module_eigen_genes_deg.csv"), row.names = 1, header = TRUE)
 
-var_filter <- apply(log2(tbrca_norm + 1), 1, var)
-
 # Run pipeline for all non-zero variance genes
 res_knn_com <- COPS::dimred_clusteval_pipeline(list(expr = log2(tbrca_norm[combined_gene_filter,] + 1)), 
                                            batch_label = brca_norm_batch, 
