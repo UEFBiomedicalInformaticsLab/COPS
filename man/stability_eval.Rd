@@ -4,19 +4,12 @@
 \alias{stability_eval}
 \title{Clustering stability evaluation}
 \usage{
-stability_eval(
-  clust,
-  by = c("datname", "drname", "k", "m"),
-  by2 = c("run", "fold"),
-  ...
-)
+stability_eval(clust, by = c("datname", "drname", "run", "k", "m"), ...)
 }
 \arguments{
 \item{clust}{clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}}
 
 \item{by}{vector of column names to keep}
-
-\item{by2}{vector of column names to split by, "run" and "fold" by default}
 
 \item{...}{extra arguments are ignored}
 }

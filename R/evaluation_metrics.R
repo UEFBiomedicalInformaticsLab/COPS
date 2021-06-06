@@ -125,7 +125,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'
 #' @param clust clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}
 #' @param by vector of column names to keep
-#' @param by2 vector of column names to split by
+# @param by2 vector of column names to split by, must contain "fold"
 #' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{data.frame} where each row corresponds to clustering stability
@@ -136,9 +136,10 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'
 stability_eval <- function(clust,
                            by = c("datname", "drname", "run", "k", "m"),
-                           by2 = c("fold"),
+                           #by2 = c("fold"),
                            ...)
 {
+  by2 = c("fold")
   # Function to be applied for each
   f1 <- function(clust, clustref) {
     if (length(clust) != length(clustref)) {
@@ -155,15 +156,19 @@ stability_eval <- function(clust,
         nmi[i] <- aricode::NMI(clust[[i]], clustref[[i]])
         ari[i] <- aricode::ARI(clust[[i]], clustref[[i]])
       }
-      mean_jsc <- mean(jsc, na.rm = TRUE)
-      mean_nmi <- mean(nmi, na.rm = TRUE)
-      mean_ari <- mean(ari, na.rm = TRUE)
+      #mean_jsc <- mean(jsc, na.rm = TRUE)
+      #mean_nmi <- mean(nmi, na.rm = TRUE)
+      #mean_ari <- mean(ari, na.rm = TRUE)
     } else {
-      mean_jsc <- NA
-      mean_nmi <- NA
-      mean_ari <- NA
+      #mean_jsc <- NA
+      #mean_nmi <- NA
+      #mean_ari <- NA
+      jsc <- NA
+      nmi <- NA
+      ari <- NA
     }
-    return(list(mean_jsc = mean_jsc, mean_nmi = mean_nmi, mean_ari = mean_ari))
+    #return(list(mean_jsc = mean_jsc, mean_nmi = mean_nmi, mean_ari = mean_ari))
+    return(list(jsc = jsc, nmi = nmi, ari = ari))
   }
   # Function to be applied for method combinations in clustering table
   f2 <- function(x) {
@@ -189,12 +194,21 @@ stability_eval <- function(clust,
     test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
     test_res <- f1(test_nonref, test_ref)
     
-    return(data.table::data.table(train_jsc = train_res$mean_jsc, 
-                                  train_nmi = train_res$mean_nmi, 
-                                  train_ari = train_res$mean_ari, 
-                                  test_jsc = test_res$mean_jsc,
-                                  test_nmi = test_res$mean_nmi,
-                                  test_ari = test_res$mean_ari))
+    out_f2 <- data.table::data.table(fold = names(train_ref), 
+                                     train_jsc = train_res$jsc,
+                                     train_nmi = train_res$nmi,
+                                     train_ari = train_res$ari,
+                                     test_jsc = test_res$jsc,
+                                     test_nmi = test_res$nmi,
+                                     test_ari = test_res$ari)
+    
+    #out_f2 <- data.table::data.table(train_jsc = train_res$mean_jsc, 
+    #                                 train_nmi = train_res$mean_nmi, 
+    #                                 train_ari = train_res$mean_ari, 
+    #                                 test_jsc = test_res$mean_jsc, 
+    #                                 test_nmi = test_res$mean_nmi, 
+    #                                 test_ari = test_res$mean_ari)
+    return(out_f2)
   }
   by <- by[by %in% colnames(clust)]
   
@@ -294,8 +308,8 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' @param kmeans_tol See \code{\link[ClusterR]{KMeans_rcpp}}.
 #' @param gmm_modelNames Sepcifies model type for \code{\link[mclust]{Mclust}}
 #' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
-#' @param knn_neighbours
-#' @param knn_jaccard
+#' @param knn_neighbours number of nearest neighbours for community detection.
+#' @param knn_jaccard computes shared neighbour weights with Jaccard ubdex if \code{TRUE}. 
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} containing clusters, metrics, and

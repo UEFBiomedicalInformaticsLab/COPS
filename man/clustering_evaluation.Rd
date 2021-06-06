@@ -50,6 +50,10 @@ clustering_evaluation(
 
 \item{gmm_shrinkage}{Shrinkage parameter for \code{\link[mclust]{priorControl}}.}
 
+\item{knn_neighbours}{number of nearest neighbours for community detection.}
+
+\item{knn_jaccard}{computes shared neighbour weights with Jaccard ubdex if \code{TRUE}.}
+
 \item{...}{extra arguments are ignored currently}
 }
 \value{
