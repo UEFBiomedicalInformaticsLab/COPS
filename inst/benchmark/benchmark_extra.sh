@@ -40,6 +40,8 @@ mkdir -p $PATH_INTERMEDIATES/brca/dimred_deg/dimred_umap_20n
 mkdir -p $PATH_INTERMEDIATES/brca/dimred_deg/dimred_umap_30n
 mkdir -p $PATH_INTERMEDIATES/brca/diffrank_deg
 mkdir -p $PATH_INTERMEDIATES/brca/gsva_deg
+mkdir -p $PATH_INTERMEDIATES/brca/rwr/gcn_rwr_deg
+mkdir -p $PATH_INTERMEDIATES/brca/rwr/ppi_rwr_deg
 
 echo TCGA breast cancer DEG filter
 echo DR
@@ -51,6 +53,19 @@ Rscript extra/brca_deg_diffrank.R --no-restore --no-save
 echo GSVA
 Rscript extra/brca_deg_gsva.R --no-restore --no-save
 
+echo GCN RWRFGSEA
+Rscript brca/rwr/brca_gcn_rwr_deg.R --no-restore --no-save
+Rscript --no-restore --no-save brca/rwr/rwr_clustering_only.R \
+  $PATH_INTERMEDIATES/brca/rwr/gcn_rwr_deg/ \
+  rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
+echo PPI RWRFGSEA
+Rscript brca/rwr/brca_ppi_rwr_deg.R --no-restore --no-save
+Rscript --no-restore --no-save brca/rwr/rwr_clustering_only.R \
+  $PATH_INTERMEDIATES/brca/rwr/ppi_rwr_deg/ \
+  rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
+
 
 mkdir -p $PATH_INTERMEDIATES/prad/dimred_deg
 mkdir -p $PATH_INTERMEDIATES/prad/dimred_deg/dimred_umap_10n
@@ -58,6 +73,8 @@ mkdir -p $PATH_INTERMEDIATES/prad/dimred_deg/dimred_umap_20n
 mkdir -p $PATH_INTERMEDIATES/prad/dimred_deg/dimred_umap_30n
 mkdir -p $PATH_INTERMEDIATES/prad/diffrank_deg
 mkdir -p $PATH_INTERMEDIATES/prad/gsva_deg
+mkdir -p $PATH_INTERMEDIATES/prad/rwr/gcn_rwr_deg
+mkdir -p $PATH_INTERMEDIATES/prad/rwr/ppi_rwr_deg
 
 echo TCGA prostate cancer DEG filter
 echo DR
@@ -68,3 +85,19 @@ echo DiffRank
 Rscript extra/prad_deg_diffrank.R --no-restore --no-save
 echo GSVA
 Rscript extra/prad_deg_gsva.R --no-restore --no-save
+
+echo GCN RWRFGSEA
+Rscript prad/rwr/prad_gcn_rwr_deg.R --no-restore --no-save
+Rscript --no-restore --no-save prad/rwr/rwr_clustering_only.R \
+  $PATH_INTERMEDIATES/prad/rwr/gcn_rwr_deg/ \
+  rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
+echo PPI RWRFGSEA
+Rscript prad/rwr/prad_ppi_rwr_deg.R --no-restore --no-save
+Rscript --no-restore --no-save prad/rwr/rwr_clustering_only.R \
+  $PATH_INTERMEDIATES/prad/rwr/ppi_rwr_deg/ \
+  rwr.pw.scores.csv rwr.pw.clusters.csv.gz \
+  KEGG.csv.gz GO.csv.gz REACTOME.csv.gz HALLMARK.csv.gz
+
+
+
