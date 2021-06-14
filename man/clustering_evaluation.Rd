@@ -18,6 +18,8 @@ clustering_evaluation(
   kmeans_tol = 1e-04,
   gmm_modelNames = NULL,
   gmm_shrinkage = 0.01,
+  knn_neighbours = 30,
+  knn_jaccard = TRUE,
   ...
 )
 }
@@ -47,6 +49,10 @@ clustering_evaluation(
 \item{gmm_modelNames}{Sepcifies model type for \code{\link[mclust]{Mclust}}}
 
 \item{gmm_shrinkage}{Shrinkage parameter for \code{\link[mclust]{priorControl}}.}
+
+\item{knn_neighbours}{number of nearest neighbours for community detection.}
+
+\item{knn_jaccard}{computes shared neighbour weights with Jaccard ubdex if \code{TRUE}.}
 
 \item{...}{extra arguments are ignored currently}
 }
