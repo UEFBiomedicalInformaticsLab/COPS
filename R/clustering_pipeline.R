@@ -237,6 +237,7 @@ dimred_clusteval_pipeline <- function(dat,
               stability = dat_stability)
   if (!is.null(survival_data)) out$survival <- dat_survival
   if (!is.null(module_eigs)) out$modules <- dat_gm_score
+  out$cluster_sizes <- dat_clustered$cluster_sizes
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
   if(verbose) print(paste("Finished pipeline in",
@@ -437,6 +438,15 @@ clusteval_scoring <- function(res,
     modules <- NULL
   }
   
+  if (!is.null(res$cluster_sizes)) {
+    cluster_sizes <- res$cluster_sizes
+    cluster_cols <- which(!is.na(suppressWarnings(as.numeric(colnames(cluster_sizes)))))
+    csize_names <- paste0("Cluster_", colnames(cluster_sizes)[cluster_cols], "_size")
+    colnames(cluster_sizes)[cluster_cols] <- csize_names
+  } else {
+    cluster_sizes <- NULL
+  }
+  
   # Combine all metrics
   out <- list(mean_internals, 
               chisq_rr, 
@@ -446,7 +456,8 @@ clusteval_scoring <- function(res,
               sassoc_ari, 
               stability, 
               survival, 
-              modules)
+              modules,
+              cluster_sizes)
   #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   out <- Reduce(function(x,y) plyr::join(x, y, by = intersect(by, intersect(colnames(x), colnames(y)))), 
                 out[!sapply(out, is.null)])

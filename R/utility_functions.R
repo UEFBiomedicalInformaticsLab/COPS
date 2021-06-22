@@ -431,3 +431,19 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
   return(list(PCA = p1, tSNE = p2, UMAP = p3))
 }
 
+# Simple rbind modification which fills missing columns with NA using basic R functions
+rbind_fill <- function(a,b) {
+  all_cols <- union(colnames(a), colnames(b))
+  a_fill <- all_cols[!(all_cols %in% colnames(a))]
+  a_fill_mat <- matrix(NA, nrow = nrow(a), ncol = length(a_fill))
+  colnames(a_fill_mat) <- a_fill
+  a <- cbind(a, a_fill_mat)
+  
+  b_fill <- all_cols[!(all_cols %in% colnames(b))]
+  b_fill_mat <- matrix(NA, nrow = nrow(b), ncol = length(b_fill))
+  colnames(b_fill_mat) <- b_fill
+  b <- cbind(b, b_fill_mat)
+  
+  return(rbind(a, b))
+}
+

@@ -289,10 +289,12 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #'
 #' Supported clustering methods are:
 #' \itemize{
-#' \item "hierarchical" -
-#' \item "diana" -
-#' \item "kmeans" -
-#' \item "model" -
+#' \item "hierarchical" - agglomerative hierarchical clustering
+#' \item "diana" - divisive hierarchical clustering analysis
+#' \item "kmeans" - k-means++
+#' \item "model" - Gaussian Mixture Models
+#' \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
+#' \item "spectral" - spectral clustering
 #' }
 #'
 #' @param dat A data matrix with samples on columns.
@@ -338,6 +340,7 @@ clustering_evaluation <- function(dat,
                                   gmm_shrinkage = 0.01, 
                                   knn_neighbours = 30, 
                                   knn_jaccard = TRUE, 
+                                  cluster_size_table = TRUE, 
                                   ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
@@ -462,6 +465,7 @@ clustering_evaluation <- function(dat,
                                                k = n_clusters[j], cluster = clust_k$assignments))
       }
     } else if (cluster_methods_expanded[i] == "SC3") {
+      # Multi-thread errors that seemingly cannot be avoided
       for (j in 1:length(n_clusters)) {
         # SC3 only accepts input in the form of SingleCellExperiment 
         hack <- SingleCellExperiment::SingleCellExperiment(assays = list(logcounts = t(temp)))
@@ -554,6 +558,25 @@ clustering_evaluation <- function(dat,
     }
     out_list$subtype_association <- Reduce("rbind", subtype_label_assoc)
   }
+  
+  f3 <- function(x, c1) {
+    temp <- as.data.frame(t(as.matrix(table(x[[c1]]))))
+    temp$run <- x$run[1]
+    temp$fold <- x$fold[1]
+    temp$datname <- x$datname[1]
+    temp$drname <- x$drname[1]
+    temp$k <- x$k[1]
+    temp$m <- x$m[1]
+    return(temp)
+  }
+  
+  if (cluster_size_table) {
+    out_list$cluster_sizes <-  Reduce(rbind_fill, 
+                                      lapply(split(out_list$clusters, 
+                                                   out_list$clusters[c("k", "m")]), 
+                                             f3, c1 = "cluster"))
+  }
+  
   return(out_list)
 }
 
@@ -691,6 +714,7 @@ cv_clusteval <- function(dat_embedded, ...) {
     bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
     bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
     bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
+    bound_list$cluster_sizes <- rbindlist(lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
     return(bound_list)
   }
   
