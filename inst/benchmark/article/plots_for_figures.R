@@ -86,7 +86,7 @@ brca_survival_dr1 <- ggplot(brca_bp_quantiles[!brca_bp_quantiles$Embedding %in% 
   theme(legend.position = "bottom") + 
   facet_grid(Clustering ~ Approach, scales = "fixed") + 
   scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), function(y) exp(-y), breaks = scales::log_breaks()), 
-                     limits = c(1.0, 1e-8))
+                     limits = c(1.0, 1e-7))
 brca_survival_dr1_legend <-  cowplot::get_legend(brca_survival_dr1)
 brca_survival_dr1 <- brca_survival_dr1 + theme(legend.position = "none")
 

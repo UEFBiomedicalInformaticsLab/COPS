@@ -14,23 +14,10 @@ brca_res_dimred_deg_umap30n <- read.csv(paste0(path_intermediate_results, "/brca
 brca_res_dimred_deg_umap30n$Approach <- "DR DEG"
 brca_res_dimred_deg_umap30n$drname <- paste0(brca_res_dimred_deg_umap30n$drname, "_30n")
 
-brca_res_diffrank_deg <- read.csv(paste0(path_intermediate_results, "/brca/diffrank_deg/scores.csv"), header = TRUE, row.names = 1)
-brca_res_diffrank_deg$Approach <- "DiffRank DEG"
-brca_res_gsva_deg <- read.csv(paste0(path_intermediate_results, "/brca/gsva_deg/scores.csv"), header = TRUE, row.names = 1)
-brca_res_gsva_deg$Approach <- "GSVA DEG"
-brca_res_gcn_deg <- read.csv(paste0(path_intermediate_results, "/brca/rwr/gcn_rwr_deg/rwr.pw.scores.csv"), header = TRUE, row.names = 1)
-brca_res_gcn_deg$Approach <- "GCN RWR-FGSEA DEG"
-brca_res_ppi_deg <- read.csv(paste0(path_intermediate_results, "/brca/rwr/ppi_rwr_deg/rwr.pw.scores.csv"), header = TRUE, row.names = 1)
-brca_res_ppi_deg$Approach <- "PPI RWR-FGSEA DEG"
-
 brca_scores_deg <- plyr::rbind.fill(brca_res_dimred_deg,
                                     brca_res_dimred_deg_umap10n,
                                     brca_res_dimred_deg_umap20n,
-                                    brca_res_dimred_deg_umap30n,
-                                    brca_res_diffrank_deg,
-                                    brca_res_gsva_deg,
-                                    brca_res_gcn_deg,
-                                    brca_res_ppi_deg)
+                                    brca_res_dimred_deg_umap30n)
 brca_scores_deg <- brca_scores_deg[brca_scores_deg$fold != 6, ]
 
 source("article/plot_renaming.R")
@@ -73,23 +60,10 @@ prad_res_dimred_deg_umap30n <- read.csv(paste0(path_intermediate_results, "/prad
 prad_res_dimred_deg_umap30n$Approach <- "DR DEG"
 prad_res_dimred_deg_umap30n$drname <- paste0(prad_res_dimred_deg_umap30n$drname, "_30n")
 
-prad_res_diffrank_deg <- read.csv(paste0(path_intermediate_results, "/prad/diffrank_deg/scores.csv"), header = TRUE, row.names = 1)
-prad_res_diffrank_deg$Approach <- "DiffRank DEG"
-prad_res_gsva_deg <- read.csv(paste0(path_intermediate_results, "/prad/gsva_deg/scores.csv"), header = TRUE, row.names = 1)
-prad_res_gsva_deg$Approach <- "GSVA DEG"
-prad_res_gcn_deg <- read.csv(paste0(path_intermediate_results, "/prad/rwr/gcn_rwr_deg/rwr.pw.scores.csv"), header = TRUE, row.names = 1)
-prad_res_gcn_deg$Approach <- "GCN RWR-FGSEA DEG"
-prad_res_ppi_deg <- read.csv(paste0(path_intermediate_results, "/prad/rwr/ppi_rwr_deg/rwr.pw.scores.csv"), header = TRUE, row.names = 1)
-prad_res_ppi_deg$Approach <- "PPI RWR-FGSEA DEG"
-
 prad_scores_deg <- plyr::rbind.fill(prad_res_dimred_deg,
                                     prad_res_dimred_deg_umap10n,
                                     prad_res_dimred_deg_umap20n,
-                                    prad_res_dimred_deg_umap30n,
-                                    prad_res_diffrank_deg,
-                                    prad_res_gsva_deg,
-                                    prad_res_gcn_deg,
-                                    prad_res_ppi_deg)
+                                    prad_res_dimred_deg_umap30n)
 prad_scores_deg <- prad_scores_deg[prad_scores_deg$fold != 6, ]
 
 prad_scores_deg <- rename_methods(prad_scores_deg)

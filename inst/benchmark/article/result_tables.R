@@ -229,3 +229,82 @@ for (metric_i in c("Silhouette", "ClusteringStabilityJaccard", "cNMI", "Module_s
                       #row.names = FALSE, 
                       col_names = FALSE)#, sheetName = "PRAD")
 }
+
+## xtables
+# BRCA silhouette
+brca_table_best_silh <- tidyr::pivot_wider(brca_table_best, 
+                                        id_cols = c("Approach", "Embedding", "Clustering"),
+                                        names_from = c("k"),
+                                        names_sep = "_",
+                                        values_from = "Silhouette")
+
+brca_table_best_silh$Approach <- factor(brca_table_best_silh$Approach, unique(brca_table_best_silh$Approach))
+brca_table_best_silh <- dplyr::arrange(brca_table_best_silh, Approach, Embedding, Clustering)
+
+temp <- as.data.frame(t(1:ncol(brca_table_best_silh)))
+colnames(temp) <- colnames(brca_table_best_silh)
+
+
+ind <- c(1:3, 3 + order(colnames(brca_table_best_silh)[-c(1:3)]))
+
+print(xtable::xtable(brca_table_best_silh[,ind[-4]], digits = 2), include.rownames = FALSE)
+
+# BRCA stability
+brca_table_best_stab <- tidyr::pivot_wider(brca_table_best, 
+                                           id_cols = c("Approach", "Embedding", "Clustering"),
+                                           names_from = c("k"),
+                                           names_sep = "_",
+                                           values_from = "ClusteringStabilityJaccard")
+
+brca_table_best_stab$Approach <- factor(brca_table_best_stab$Approach, unique(brca_table_best_stab$Approach))
+brca_table_best_stab <- dplyr::arrange(brca_table_best_stab, Approach, Embedding, Clustering)
+
+temp <- as.data.frame(t(1:ncol(brca_table_best_stab)))
+colnames(temp) <- colnames(brca_table_best_stab)
+
+#ind <- c(1:3, 3 + order(brca_table_best_stab[1, -c(1:3)], 
+#                        brca_table_best_stab[2, -c(1:3)]))
+
+ind <- c(1:3, 3 + order(colnames(brca_table_best_stab)[-c(1:3)]))
+
+print(xtable::xtable(brca_table_best_stab[,ind[-4]], digits = 2), include.rownames = FALSE)
+
+# PRAD silhouette
+prad_table_best_silh <- tidyr::pivot_wider(prad_table_best, 
+                                           id_cols = c("Approach", "Embedding", "Clustering"),
+                                           names_from = c("k"),
+                                           names_sep = "_",
+                                           values_from = "Silhouette")
+
+prad_table_best_silh$Approach <- factor(prad_table_best_silh$Approach, unique(prad_table_best_silh$Approach))
+prad_table_best_silh <- dplyr::arrange(prad_table_best_silh, Approach, Embedding, Clustering)
+
+temp <- as.data.frame(t(1:ncol(prad_table_best_silh)))
+colnames(temp) <- colnames(prad_table_best_silh)
+
+
+ind <- c(1:3, 3 + order(colnames(prad_table_best_silh)[-c(1:3)]))
+
+print(xtable::xtable(prad_table_best_silh[,ind[-4]], digits = 2), include.rownames = FALSE)
+
+# PRAD stability
+prad_table_best_stab <- tidyr::pivot_wider(prad_table_best, 
+                                           id_cols = c("Approach", "Embedding", "Clustering"),
+                                           names_from = c("k"),
+                                           names_sep = "_",
+                                           values_from = "ClusteringStabilityJaccard")
+
+prad_table_best_stab$Approach <- factor(prad_table_best_stab$Approach, unique(prad_table_best_stab$Approach))
+prad_table_best_stab <- dplyr::arrange(prad_table_best_stab, Approach, Embedding, Clustering)
+
+temp <- as.data.frame(t(1:ncol(prad_table_best_stab)))
+colnames(temp) <- colnames(prad_table_best_stab)
+
+#ind <- c(1:3, 3 + order(prad_table_best_stab[1, -c(1:3)], 
+#                        prad_table_best_stab[2, -c(1:3)]))
+
+ind <- c(1:3, 3 + order(colnames(prad_table_best_stab)[-c(1:3)]))
+
+print(xtable::xtable(prad_table_best_stab[,ind[-4]], digits = 2), include.rownames = FALSE)
+
+

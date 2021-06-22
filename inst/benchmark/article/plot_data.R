@@ -9,7 +9,7 @@ temp <- brca_scores[brca_scores$drname %in% c("umap5_20n", "tsne45", "pca2") |
 temp <- temp[temp$k %in% 3:6,]
 #temp <- rename_methods(temp)
 brca_scores <- rename_dr_methods(temp)
-brca_scores$Approach <- factor(brca_scores$Approach, levels = unique(brca_scores$Approach)[c(2,3,5,1,4,6)])
+brca_scores$Approach <- factor(brca_scores$Approach, levels = unique(brca_scores$Approach)[c(1,3,5,2,4,6)])
 
 brca_scores_survival_sampled <- brca_scores_survival_sampled[brca_scores_survival_sampled$Clustering != "HC_single",]
 temp <- brca_scores_survival_sampled[brca_scores_survival_sampled$drname %in% c("umap5_20n", "tsne45", "pca2") | 
@@ -29,7 +29,7 @@ temp <- prad_scores[prad_scores$drname %in% c("umap2_20n", "tsne45", "pca2") |
 temp <- temp[temp$k %in% 3:6,]
 #temp <- rename_methods(temp)
 prad_scores <- rename_dr_methods(temp)
-prad_scores$Approach <- factor(prad_scores$Approach, levels = unique(prad_scores$Approach)[c(2,3,5,1,4,6)])
+prad_scores$Approach <- factor(prad_scores$Approach, levels = unique(prad_scores$Approach)[c(1,3,5,2,4,6)])
 
 prad_scores_survival_sampled <- prad_scores_survival_sampled[prad_scores_survival_sampled$Clustering != "HC_single",]
 temp <- prad_scores_survival_sampled[prad_scores_survival_sampled$drname %in% c("umap2_20n", "tsne45", "pca2") | 

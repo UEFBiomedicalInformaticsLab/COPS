@@ -89,17 +89,7 @@ writexl::write_xlsx(prad_table_other[, c(summary_by, metrics)],
                     path = paste0(path_plots, "/prad_extra_methods.xlsx"), 
                     col_names = TRUE)
 
-# One table per method
-for (clustering_i in c("spectral", "knn_communities", "sc3")) {
-  writexl::write_xlsx(brca_table_other[brca_table_other$Clustering == clustering_i, 
-                                       c(summary_by, metrics)],
-                      path = paste0(path_plots, "/brca_", clustering_i, ".xlsx"), 
-                      col_names = TRUE)
-}
 
-for (clustering_i in c("spectral", "knn_communities", "sc3")) {
-  writexl::write_xlsx(prad_table_other[prad_table_other$Clustering == clustering_i, 
-                                       c(summary_by, metrics)],
-                      path = paste0(path_plots, "/prad_", clustering_i, ".xlsx"), 
-                      col_names = TRUE)
-}
+
+
+

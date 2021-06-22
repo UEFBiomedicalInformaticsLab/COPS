@@ -9,7 +9,7 @@ layout_heights <- c(3.8,4.2,1.3)
 source("extra/load_deg_results.R")
 source("brca/brca_load_results.R")
 
-brca_scores <- rbind(brca_scores, brca_scores_deg)
+brca_scores <- plyr::rbind.fill(brca_scores, brca_scores_deg)
 brca_scores <- brca_scores[brca_scores$Clustering != "HC_single",]
 
 temp <- brca_scores <- brca_scores[brca_scores$Approach %in% c("DR*", "DR", "DR DEG"),]
@@ -27,7 +27,7 @@ brca_scores$Embedding <- brca_scores$drname
 
 source("prad/prad_load_results.R")
 
-prad_scores <- rbind(prad_scores, prad_scores_deg)
+prad_scores <- plyr::rbind.fill(prad_scores, prad_scores_deg)
 prad_scores <- prad_scores[prad_scores$Clustering != "HC_single",]
 
 temp <- prad_scores <- prad_scores[prad_scores$Approach %in% c("DR*", "DR", "DR DEG"),]
