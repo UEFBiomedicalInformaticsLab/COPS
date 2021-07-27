@@ -114,7 +114,11 @@ ecdf_transform <- function(x, parallel = 1) {
 jaccard_matrix <- function(x) {
   A <- t(x) %*% x
   B <- t(x) %*% (1-x)
-  return(A / (A + B + t(B)))
+  out <- A / (A + B + t(B))
+  if (is.null(colnames(A)) | any(duplicated(colnames(A)))) {
+    colnames(out) <- rownames(out) <- 1:ncol(out)
+  }
+  return(out)
 }
 
 
