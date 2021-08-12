@@ -15,6 +15,7 @@ BiocManager::install()
 BiocManager::install(c("Rgraphviz", "graph", "supraHex", "STRINGdb", "GSVA", 
                        "fgsea", "biomaRt", "AnnotationDbi", "org.Hs.eg.db"))
 devtools::install_github("theislab/kBet")
+devtools::install_github("cran/clusteval")
 devtools::install_github("vittoriofortino84/COPS")
 ```
 
