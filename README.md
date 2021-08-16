@@ -1,6 +1,6 @@
 # Benchmark branch of COPS
 
-This branch of the repository will include code used in performing a benchmark analysis of dimensionality reduction and pathway enrichment based clustering results in TCGA BRCA and PRAD RNA-Seq data for an upcoming article. 
+This branch of the repository includes the R code used in performing a benchmark analysis of dimensionality reduction and pathway enrichment based clustering results in TCGA BRCA and PRAD RNA-Seq data for https://doi.org/10.1093/bib/bbab314. 
 
 This branch also includes the specific version of COPS used in the analysis.
 
@@ -17,7 +17,7 @@ Clustering results, metrics and figures will be written on disk in the locations
 The default configuration requires 64 GB RAM (32 GB with a large swap-file should run just fine). 
 The exact requirements depend on the number of runs and folds used in resampling (repeated CV) as well as the number of threads which can be configured.
 
-The results in the article were compiled with msigdbr v7.2.1.
+The results in the article were compiled with msigdbr v7.2.1 and curatedTCGAData v1.12.0.
 
 ## Installation
 
