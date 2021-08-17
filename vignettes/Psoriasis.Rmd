@@ -1,0 +1,20 @@
+---
+title: "COPS tutorial"
+output: html_notebook
+---
+
+## Load data
+
+In this tutorial We use a subset of atopic dermatitis and psoriasis data from 
+Federico et al. 2020 (https://zenodo.org/record/4009497#.YPqD10xRWUl).
+
+```{r}
+
+```
+
+##
+
+```{r}
+
+```
+

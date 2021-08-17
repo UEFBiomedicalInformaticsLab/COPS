@@ -62,7 +62,21 @@ JaccardSimCoef <- function(a,b) {
   return(s1 / s2)
 }
 
-
+silhouette_adjusted <- function(x, diss, min_size = 0.05) {
+  csize <- table(x)
+  under_size <- which(csize/length(x) < min_size)
+  diss_main <- as.matrix(diss)[,!x %in% names(csize)[under_size]]
+  x_main <- x[!x %in% names(csize)[under_size]]
+  out <- x
+  for (i in under_size) {
+    out[x == names(csize)[i]] <- x_main[apply(diss_main[x == names(csize)[i], ], 1, which.min)]
+  }
+  silh <- cluster::silhouette(out, diss)
+  if (is.na(silh)) {
+    silh <- data.frame(sil_width = NA)
+  }
+  return(silh)
+}
 
 #' Average Jaccard dissimilarity coefficient between multiple clustering results
 #'
@@ -312,6 +326,8 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
 #' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
 #' @param knn_neighbours number of nearest neighbours for community detection.
 #' @param knn_jaccard computes shared neighbour weights with Jaccard ubdex if \code{TRUE}. 
+#' @param cluster_size_table return cluster sizes if \code{TRUE}.
+#' @param silhouette_min_cluster_size proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} containing clusters, metrics, and
@@ -341,6 +357,7 @@ clustering_evaluation <- function(dat,
                                   knn_neighbours = 30, 
                                   knn_jaccard = TRUE, 
                                   cluster_size_table = TRUE, 
+                                  silhouette_min_cluster_size = 0.0,
                                   ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
@@ -392,7 +409,8 @@ clustering_evaluation <- function(dat,
       }
       for (j in 1:length(n_clusters)) {
         temp_k <- cutree(clust_i, n_clusters[j])
-        silh_k <- cluster::silhouette(x = temp_k, dist = diss)
+        #silh_k <- cluster::silhouette(x = temp_k, dist = diss)
+        silh_k <- silhouette_adjusted(x = temp_k, diss = diss, min_size = silhouette_min_cluster_size)
         metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                              metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
@@ -402,7 +420,8 @@ clustering_evaluation <- function(dat,
       clust_i <- cluster::diana(x = diss, diss = TRUE)
       for (j in 1:length(n_clusters)) {
         temp_k <- cutree(clust_i, n_clusters[j])
-        silh_k <- cluster::silhouette(x = temp_k, dist = diss)
+        #silh_k <- cluster::silhouette(x = temp_k, dist = diss)
+        silh_k <- silhouette_adjusted(x = temp_k, diss = diss, min_size = silhouette_min_cluster_size)
         metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                              metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
@@ -418,7 +437,8 @@ clustering_evaluation <- function(dat,
         clust_k <- ClusterR::KMeans_rcpp(data = temp, clusters = n_clusters[j], 
                                          num_init = kmeans_num_init, max_iters = kmeans_max_iters,
                                          tol = kmeans_tol)
-        silh_k <- cluster::silhouette(x = clust_k$clusters, dist = diss)
+        #silh_k <- cluster::silhouette(x = clust_k$clusters, dist = diss)
+        silh_k <- silhouette_adjusted(x = clust_k$clusters, diss = diss, min_size = silhouette_min_cluster_size)
         metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                              metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
@@ -441,7 +461,8 @@ clustering_evaluation <- function(dat,
                                                  k = n_clusters[j], cluster = NA))
         } else {
           # Success
-          silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
+          #silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
+          silh_k <- silhouette_adjusted(x = clust_k$classification, diss = diss, min_size = silhouette_min_cluster_size)
           metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                                metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
           clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
@@ -450,7 +471,8 @@ clustering_evaluation <- function(dat,
       }
     } else if (cluster_methods_expanded[i] == "knn_communities") {
       clust_k <- knn_communities(t(temp), k = knn_neighbours, jaccard_kernel = knn_jaccard)
-      silh_k <- cluster::silhouette(x = clust_k, dist = diss)
+      #silh_k <- cluster::silhouette(x = clust_k, dist = diss)
+      silh_k <- silhouette_adjusted(x = clust_k, diss = diss, min_size = silhouette_min_cluster_size)
       metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = "variable", 
                                            metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
       clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
@@ -458,7 +480,8 @@ clustering_evaluation <- function(dat,
     } else if (cluster_methods_expanded[i] == "spectral") {
       for (j in 1:length(n_clusters)) {
         clust_k <- Spectrum::Spectrum(t(temp), method = 3, fixk = n_clusters[j])
-        silh_k <- cluster::silhouette(x = clust_k$assignments, dist = diss)
+        #silh_k <- cluster::silhouette(x = clust_k$assignments, dist = diss)
+        silh_k <- silhouette_adjusted(x = clust_k$assignments, diss = diss, min_size = silhouette_min_cluster_size)
         metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                              metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
@@ -472,7 +495,8 @@ clustering_evaluation <- function(dat,
         SummarizedExperiment::rowData(hack)$feature_symbol <- colnames(temp)
         hack <- SC3::sc3(hack, ks = n_clusters[j], gene_filter = FALSE, n_cores = NULL)
         clust_k <- cutree(hack@metadata$sc3$consensus[[1]]$hc, n_clusters[j])
-        silh_k <- cluster::silhouette(x = clust_k, dist = diss)
+        #silh_k <- cluster::silhouette(x = clust_k, dist = diss)
+        silh_k <- silhouette_adjusted(x = clust_k, diss = diss, min_size = silhouette_min_cluster_size)
         metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
                                              metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
