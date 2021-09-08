@@ -330,31 +330,39 @@ clusteval_scoring <- function(res,
     by <- c(by, "run", "fold")
   }
   # Internal metrics
-  by_internal <- by[by %in% colnames(res$internal_metrics)]
-  mean_internals <- plyr::ddply(res$internal_metrics, 
-                                c(by_internal, "metric"), 
-                                function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
-                                                       sd = sd(x$value, na.rm = TRUE)))
-  mean_internals <- reshape2::dcast(mean_internals, 
-                                    as.formula(paste(paste(by_internal, collapse = "+"), "~ metric")), 
-                                    value.var = "mean")
-  
-  # Average number of chi-squared test pvalues under threshold in all given labels
-  by_chisq <- by[by %in% colnames(res$chisq_pval)]
-  if (summarise) {
-    chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
-    chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
-    chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
-    chisq_rr <- reshape2::dcast(chisq_rr, 
-                                as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
-                                value.var = "chisqRR")
+  if (!is.null(res$internal_metrics)) {
+    by_internal <- by[by %in% colnames(res$internal_metrics)]
+    mean_internals <- plyr::ddply(res$internal_metrics, 
+                                  c(by_internal, "metric"), 
+                                  function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
+                                                         sd = sd(x$value, na.rm = TRUE)))
+    mean_internals <- reshape2::dcast(mean_internals, 
+                                      as.formula(paste(paste(by_internal, collapse = "+"), "~ metric")), 
+                                      value.var = "mean")
   } else {
-    chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
-    chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
-    chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
-    chisq_rr <- reshape2::dcast(chisq_rr, 
-                                as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
-                                value.var = "chisq.p")
+    mean_internals <- NULL
+  }
+  
+  if (!is.null(res$chisq_pval)) {
+    # Average number of chi-squared test pvalues under threshold in all given labels
+    by_chisq <- by[by %in% colnames(res$chisq_pval)]
+    if (summarise) {
+      chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
+      chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
+      chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
+      chisq_rr <- reshape2::dcast(chisq_rr, 
+                                  as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                                  value.var = "chisqRR")
+    } else {
+      chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
+      chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
+      chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
+      chisq_rr <- reshape2::dcast(chisq_rr, 
+                                  as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                                  value.var = "chisq.p")
+    }
+  } else {
+    chisq_rr
   }
   
   # Batch label associations
@@ -405,25 +413,28 @@ clusteval_scoring <- function(res,
     sassoc_ari <- NULL
   }
   
-  # Stability
-  #by_stability <- by[by %in% colnames(res$stability)]
-  stability <- res$stability
-  stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
-  colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
-                                               "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
+  if (!is.null(res$stability)) {
+    # Stability
+    #by_stability <- by[by %in% colnames(res$stability)]
+    stability <- res$stability
+    stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
+    colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
+                                           "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
+  } else {
+    stability <- NULL
+  }
   
   # Survival likelihood ratio test
   if (!is.null(res$survival)) {
     if (summarise) {
       warning("Currently summary of survival p-values is not implemented.")
-    } else {
-      #by_survival <- by[by %in% colnames(res$survival)]
-      #survival <- plyr::ddply(res$survival, 
-      #                        by_survival, 
-      #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
-      survival <- res$survival
-      colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
     }
+    #by_survival <- by[by %in% colnames(res$survival)]
+    #survival <- plyr::ddply(res$survival, 
+    #                        by_survival, 
+    #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
+    survival <- res$survival
+    colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
   } else {
     survival <- NULL
   }
