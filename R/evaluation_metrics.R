@@ -526,7 +526,7 @@ clustering_evaluation <- function(dat,
   # Pearson's chi-squared test
   f1 <- function(x, c1, c2) {
     temp <- tryCatch(suppressWarnings(chisq.test(x[[c1]], x[[c2]])), error = function(e) NULL)
-    if (!is.null(temp)) {
+    if (is.null(temp)) {
       temp <- data.frame(p = NA)
     } else {
       temp <- data.frame(p = temp$p.value)
@@ -602,6 +602,101 @@ clustering_evaluation <- function(dat,
   }
   
   return(out_list)
+}
+
+
+#' Clinical association for clustering results
+#'
+#' @param clust data.frame with columns id and cluster.
+#' @param clinical_data data.frame with clinical variables, rownames should match with id in \code{clust}.
+#'
+#' @return A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 
+#'         as well as analysis of variance and kruskal-wallis test p-values for 
+#'         continuous variables. 
+#' @export
+clinical_associations <- function(clust, clinical_data) {
+  clinical_data_matched <- clinical_data[match(clust$i, 
+                                               rownames(clinical_data)),]
+  out <- list()
+  for (i in 1:ncol(clinical_data)) {
+    clinical_var <- clinical_data_matched[,i]
+    nna_ind <- which(!is.na(clinical_var))
+    if (length(nna_ind) > 1) {
+      if (length(unique(clinical_var[nna_ind])) > 1 &
+          length(unique(clust$cluster[nna_ind])) > 1) {
+        valid <- TRUE
+      } else {
+        valid <- FALSE
+      }
+    } else {
+      valid <- FALSE
+    }
+    if(valid) {
+      if (class(clinical_var) %in% c("character", "factor")) {
+        out[[i]] <- data.frame(nmi = aricode::NMI(clust$cluster[nna_ind], 
+                                                  clinical_var[nna_ind]), 
+                               ari = aricode::ARI(clust$cluster[nna_ind], 
+                                                  clinical_var[nna_ind]))
+        temp <- tryCatch(suppressWarnings(chisq.test(clust$cluster[nna_ind], 
+                                                     clinical_var[nna_ind])), 
+                         error = function(e) NULL)
+        if (is.null(temp)) {
+          out[[i]]$chisq.p <- NA
+        } else {
+          out[[i]]$chisq.p <- temp$p.value
+        }
+        colnames(out[[i]]) <- paste0(colnames(clinical_data)[i], ".", colnames(out[[i]]))
+      } else if (class(clinical_var) %in% c("numeric", "integer")) {
+        anova_res <- stats::aov(clinical_var[nna_ind] ~ clust$cluster[nna_ind])
+        kruskal_res <- stats::kruskal.test(clinical_var[nna_ind], 
+                                           clust$cluster[nna_ind])
+        out[[i]] <- data.frame(aov.p = summary(anova_res)[[1]][1,"Pr(>F)"],
+                               kruskal.p = kruskal_res$p.value)
+        colnames(out[[i]]) <- paste0(colnames(clinical_data)[i], ".", colnames(out[[i]]))
+      } else {
+        warning(paste0("Unknown data type in clinical data column ", 
+                       colnames(clinical_data)[i], "."))
+      }
+    }
+  }
+  return(Reduce("cbind", out[!sapply(out, is.null)]))
+}
+
+
+#' Gene module correlation score for multiple clustering results
+#' 
+#' Runs \code{\link{gene_module_score}} in parallel. 
+#' 
+#' Assumes that a parallel backend has been registered for \code{foreach}.
+#'
+#' @param clusters A data.table or data.frame with clustering information. 
+#' @param clinical_data A data.frame with clinical variables (categoric or numeric).
+#' @param by Column names that identify a single clustering result.
+#' @param ... Extra arguments are ignored.
+#'
+#' @return \code{data.table} containing clinical associations
+#' @export
+clinical_evaluation <- function(clusters, 
+                                clinical_data, 
+                                by = c("run", "fold", "datname", "drname", "k", "m"), 
+                                ...) {
+  if (data.table::is.data.table(clusters)) {
+    clust_list <- split(clusters, by = by)
+  } else { # data.frame
+    clust_list <- split(clusters, clusters[, by])
+  }
+  
+  out <- foreach(clust = clust_list,
+                 .combine = function(...) data.table::rbindlist(list(...), fill = TRUE),
+                 .export = c("clinical_associations"),
+                 .packages = c(),
+                 .multicombine = TRUE,
+                 .maxcombine = length(clust_list)) %dopar% {
+                   clinical_assoc <- clinical_associations(clust, clinical_data)
+                   clinical_assoc <- data.frame(as.data.frame(clust)[1,by], clinical_assoc)
+                   clinical_assoc
+                 }
+  return(out)
 }
 
 #' Gene module score
@@ -693,6 +788,7 @@ module_evaluation <- function(clusters,
   
   out <- foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
+                 .export = c("gene_module_score"),
                  .packages = c(),
                  .multicombine = TRUE,
                  .maxcombine = length(clust_list)) %dopar% {

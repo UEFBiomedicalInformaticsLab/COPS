@@ -20,6 +20,8 @@ clustering_evaluation(
   gmm_shrinkage = 0.01,
   knn_neighbours = 30,
   knn_jaccard = TRUE,
+  cluster_size_table = TRUE,
+  silhouette_min_cluster_size = 0,
   ...
 )
 }
@@ -54,6 +56,10 @@ clustering_evaluation(
 
 \item{knn_jaccard}{computes shared neighbour weights with Jaccard ubdex if \code{TRUE}.}
 
+\item{cluster_size_table}{return cluster sizes if \code{TRUE}.}
+
+\item{silhouette_min_cluster_size}{proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.}
+
 \item{...}{extra arguments are ignored currently}
 }
 \value{
@@ -67,9 +73,11 @@ Single embedding or dataset evaluation
 \details{
 Supported clustering methods are:
 \itemize{
-\item "hierarchical" -
-\item "diana" -
-\item "kmeans" -
-\item "model" -
+\item "hierarchical" - agglomerative hierarchical clustering
+\item "diana" - divisive hierarchical clustering analysis
+\item "kmeans" - k-means++
+\item "model" - Gaussian Mixture Models
+\item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
+\item "spectral" - spectral clustering
 }
 }

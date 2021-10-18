@@ -62,6 +62,7 @@ dimred_clusteval_pipeline <- function(dat,
                                       nruns, 
                                       batch_label = NULL,
                                       subtype_label = NULL,
+                                      clinical_data = NULL,
                                       survival_data = NULL,
                                       module_eigs = NULL,
                                       verbose = TRUE,
@@ -227,6 +228,14 @@ dimred_clusteval_pipeline <- function(dat,
                             time_taken_string(module_analysis_start))); flush.console()
   }
   
+  if (!is.null(clinical_data)) {
+    clinical_analysis_start <- Sys.time()
+    if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
+    dat_clinical_score <- clinical_evaluation(dat_clustered$clusters, clinical_data, ...)
+    if(verbose) print(paste("Finished module correlation analysis in",
+                            time_taken_string(clinical_analysis_start))); flush.console()
+  }
+  
   # Return
   out <- list(embedding = dat_embedded, 
               clusters = dat_clustered$clusters, 
@@ -237,6 +246,7 @@ dimred_clusteval_pipeline <- function(dat,
               stability = dat_stability)
   if (!is.null(survival_data)) out$survival <- dat_survival
   if (!is.null(module_eigs)) out$modules <- dat_gm_score
+  if (!is.null(clinical_data)) out$clinical <- dat_clinical_score
   out$cluster_sizes <- dat_clustered$cluster_sizes
   
   if (parallel > 1) parallel::stopCluster(parallel_clust)
@@ -449,6 +459,16 @@ clusteval_scoring <- function(res,
     modules <- NULL
   }
   
+  # Survival likelihood ratio test
+  if (!is.null(res$clinical)) {
+    if (summarise) {
+      warning("Currently summary of clinical p-values is not implemented.")
+    }
+    clinical <- res$clinical
+  } else {
+    clinical <- NULL
+  }
+  
   if (!is.null(res$cluster_sizes)) {
     cluster_sizes <- res$cluster_sizes
     cluster_cols <- which(!is.na(suppressWarnings(as.numeric(colnames(cluster_sizes)))))
@@ -468,6 +488,7 @@ clusteval_scoring <- function(res,
               stability, 
               survival, 
               modules,
+              clinical,
               cluster_sizes)
   #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   out <- Reduce(function(x,y) plyr::join(x, y, by = intersect(by, intersect(colnames(x), colnames(y)))), 

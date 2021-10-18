@@ -9,7 +9,8 @@ triple_viz(
   category,
   category_label,
   tsne_perplexity = 45,
-  umap_neighbors = 20
+  umap_neighbors = 20,
+  tsne = TRUE
 )
 }
 \arguments{
