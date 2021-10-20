@@ -175,8 +175,9 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1
     datname <- names(cv_index)[i]
     if (is.null(datname)) datname <- i
     temp$datname <- datname
+    temp <- merge(dat_list[[datname]], temp, by = "id")
     temp <- split(temp, by = c("run", "fold"))
-    temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
+    temp <- lapply(temp, as.data.frame)
     temp <- lapply(temp, function(x) list(expr = x, gene_ids = gene_id_list[[i]]))
     temp_list <- c(temp_list, temp)
   }
