@@ -224,15 +224,15 @@ dimred_clusteval_pipeline <- function(dat,
     module_analysis_start <- Sys.time()
     if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
     dat_gm_score <- module_evaluation(dat_clustered$clusters, module_eigs, ...)
-    if(verbose) print(paste("Finished module correlation analysis in",
+    if(verbose) print(paste("Finished gene module correlation analysis in",
                             time_taken_string(module_analysis_start))); flush.console()
   }
   
   if (!is.null(clinical_data)) {
     clinical_analysis_start <- Sys.time()
-    if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
+    if(verbose) print("Starting clinical variable association analysis ..."); flush.console()
     dat_clinical_score <- clinical_evaluation(dat_clustered$clusters, clinical_data, ...)
-    if(verbose) print(paste("Finished module correlation analysis in",
+    if(verbose) print(paste("Finished clinical variable association analysis in",
                             time_taken_string(clinical_analysis_start))); flush.console()
   }
   

@@ -693,7 +693,9 @@ clinical_evaluation <- function(clusters,
                  .multicombine = TRUE,
                  .maxcombine = length(clust_list)) %dopar% {
                    clinical_assoc <- clinical_associations(clust, clinical_data)
-                   clinical_assoc <- data.frame(as.data.frame(clust)[1,by], clinical_assoc)
+                   if (!is.null(clinical_assoc)) {
+                     clinical_assoc <- data.frame(as.data.frame(clust)[1,by], clinical_assoc)
+                   }
                    clinical_assoc
                  }
   return(out)
