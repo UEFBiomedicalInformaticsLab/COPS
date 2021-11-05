@@ -8,6 +8,7 @@ clinical_evaluation(
   clusters,
   clinical_data,
   by = c("run", "fold", "datname", "drname", "k", "m"),
+  parallel = 1,
   ...
 )
 }

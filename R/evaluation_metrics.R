@@ -151,6 +151,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 stability_eval <- function(clust,
                            by = c("datname", "drname", "run", "k", "m"),
                            #by2 = c("fold"),
+                           parallel = 1, 
                            ...)
 {
   by2 = c("fold")
@@ -230,7 +231,10 @@ stability_eval <- function(clust,
   
   temp_list <- split(clust, by = by)
   #temp_list <- split(clust, clust[by])
-  stability <- foreach(temp = temp_list,
+  
+  parallel_clust <- setup_parallelization(parallel)
+  
+  stability <- tryCatch(foreach(temp = temp_list,
                       .combine = function(...) data.table::rbindlist(list(...)),
                       .export = c(),
                       .packages = c("clusteval", "data.table", "aricode"),
@@ -241,7 +245,7 @@ stability_eval <- function(clust,
       out[[j]] <- temp[[j]][1]
     }
     out
-  }
+  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(as.data.frame(stability))
 }
 
@@ -262,7 +266,10 @@ stability_eval <- function(clust,
 #' @importFrom FactoMineR PCA
 #' @importFrom kBET batch_sil
 #' @importFrom kBET pcRegression
-class_associations <-  function(dat, class, n_pc_max = 10, ...){
+embedding_associations <-  function(dat, 
+                                    class, 
+                                    n_pc_max = 10, 
+                                    ...){
   out <- list()
   if (is.null(dim(class))) class <- cbind(as.character(class), c())
 
@@ -273,14 +280,14 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
     # PCA based
     dat_pca <- FactoMineR::PCA(t(dat),
                                scale.unit = FALSE,
-                               ncp = min(n_pc_max, nrow(dat)),
+                               ncp = min(c(n_pc_max, dim(dat))),
                                graph = FALSE)
     pca_silh[[i]] <- kBET::batch_sil(list(x = dat_pca$ind$coord),
                                      class[,i],
-                                     nPCs = min(n_pc_max, nrow(dat)))
+                                     nPCs = min(c(n_pc_max, dim(dat))))
     pca_reg[[i]] <- suppressWarnings(kBET::pcRegression(list(x = dat_pca$ind$coord),
                                        class[,i],
-                                       n_top = min(n_pc_max, nrow(dat))))
+                                       n_top = min(c(n_pc_max, dim(dat)))))
 
     # Other
     #DSC_res[i] <- DSC(dat, class[,i])
@@ -346,6 +353,7 @@ clustering_evaluation <- function(dat,
                                   subtype_label_names = NULL,
                                   n_clusters = 2:5,
                                   cluster_methods = c("hierarchical","diana","kmeans"),
+                                  clustering_dissimilarity = NULL, 
                                   distance_metric = "euclidean",
                                   correlation_method = "spearman",
                                   hierarchical_linkage = "complete",
@@ -364,12 +372,16 @@ clustering_evaluation <- function(dat,
   rownames(temp) <- dat$id
   
   # Create dissimilarity matrix for Silhouette computation and HC
-  if (distance_metric == "euclidean") {
-    diss <- dist(temp)
-  } else if(distance_metric == "correlation") {
-    diss <- as.dist(0.5 - cor(t(temp), method = correlation_method)/2)
+  if (!is.null(clustering_dissimilarity)) {
+    diss <- clustering_dissimilarity
   } else {
-    stop(paste("Unsupported distance metric:", distance_metric))
+    if (distance_metric == "euclidean") {
+      diss <- dist(temp)
+    } else if(distance_metric == "correlation") {
+      diss <- as.dist(0.5 - cor(t(temp), method = correlation_method)/2)
+    } else {
+      stop(paste("Unsupported distance metric:", distance_metric))
+    }
   }
   
   # Prepare case with multiple linkage methods
@@ -679,6 +691,7 @@ clinical_associations <- function(clust, clinical_data) {
 clinical_evaluation <- function(clusters, 
                                 clinical_data, 
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
+                                parallel = 1, 
                                 ...) {
   if (data.table::is.data.table(clusters)) {
     clust_list <- split(clusters, by = by)
@@ -686,7 +699,9 @@ clinical_evaluation <- function(clusters,
     clust_list <- split(clusters, clusters[, by])
   }
   
-  out <- foreach(clust = clust_list,
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...), fill = TRUE),
                  .export = c("clinical_associations"),
                  .packages = c(),
@@ -697,7 +712,7 @@ clinical_evaluation <- function(clusters,
                      clinical_assoc <- data.frame(as.data.frame(clust)[1,by], clinical_assoc)
                    }
                    clinical_assoc
-                 }
+                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
 
@@ -781,6 +796,7 @@ module_evaluation <- function(clusters,
                               module_cor_threshold = 0.3, 
                               module_nan.substitute = 0, 
                               by = c("run", "fold", "datname", "drname", "k", "m"), 
+                              parallel = 1, 
                               ...) {
   if (data.table::is.data.table(clusters)) {
     clust_list <- split(clusters, by = by)
@@ -788,7 +804,9 @@ module_evaluation <- function(clusters,
     clust_list <- split(clusters, clusters[, by])
   }
   
-  out <- foreach(clust = clust_list,
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
                  .export = c("gene_module_score"),
                  .packages = c(),
@@ -797,7 +815,7 @@ module_evaluation <- function(clusters,
                    gm_score <- gene_module_score(clust, module_eigs, module_cor_threshold, module_nan.substitute)
                    gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
                    gm_score
-                 }
+                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
 
@@ -818,7 +836,9 @@ module_evaluation <- function(clusters,
 #' @export
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table rbindlist
-cv_clusteval <- function(dat_embedded, ...) {
+cv_clusteval <- function(dat_embedded, 
+                         parallel = 1, 
+                         ...) {
   temp_list <- list()
   for (i in 1:length(dat_embedded)) {
     temp <- dat_embedded[[i]]
@@ -840,7 +860,9 @@ cv_clusteval <- function(dat_embedded, ...) {
     return(bound_list)
   }
   
-  out <- foreach(temp = temp_list,
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(temp = temp_list,
                  .combine = cfun,
                  .export = c("clustering_evaluation"),
                  .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
@@ -848,7 +870,7 @@ cv_clusteval <- function(dat_embedded, ...) {
                  .maxcombine = length(temp_list)) %dopar% {
     temp <- clustering_evaluation(temp, ...)
     temp
-  }
+  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
 

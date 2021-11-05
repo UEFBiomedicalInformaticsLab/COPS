@@ -78,13 +78,6 @@ dimred_clusteval_pipeline <- function(dat,
   }
   
   pipeline_start <- Sys.time()
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
   if(verbose) print("Processing data sets ..."); flush.console()
   
   #if (is.null(names(batch_label))) names(batch_label) <- colnames(dat_list[[1]])
@@ -120,6 +113,7 @@ dimred_clusteval_pipeline <- function(dat,
     # Add batch label(s) as separate column(s)
     if (!is.null(batch_label)) {
       if (is.null(dim(batch_label))) {
+        # 1d array given as batch label
         if (!is.null(names(batch_label))) {
           batch_id <- names(batch_label)
         } else {
@@ -127,7 +121,8 @@ dimred_clusteval_pipeline <- function(dat,
           batch_id <- id
         }
         batch_table <- cbind(batch_label = as.character(batch_label), c())
-      } else { # matrix batch_label
+      } else { 
+        # 2d batch_label
         batch_id <- rownames(batch_label)
         batch_table <- batch_label
       }
@@ -163,8 +158,13 @@ dimred_clusteval_pipeline <- function(dat,
     }
   }
   
+  #if (vertical_parallelization)
+  
   # Create cross validation folds
-  cv_index <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
+  cv_index <- cv_fold(dat_list = dat_list, 
+                      nfolds = nfolds, 
+                      nruns = nruns, 
+                      ...)
   
   # Pathway enrichment
   if (pathway_enrichment_method != "none") {
@@ -174,21 +174,33 @@ dimred_clusteval_pipeline <- function(dat,
     }
     pw_start <- Sys.time()
     if(verbose) print("Starting pathway enrichment ..."); flush.console()
-    dat_pw <- cv_pathway_enrichment(dat_list, cv_index, gene_id_list, enrichment_method = pathway_enrichment_method, ...)
+    dat_pw <- cv_pathway_enrichment(dat_list, 
+                                    cv_index, 
+                                    gene_id_list, 
+                                    enrichment_method = pathway_enrichment_method, 
+                                    parallel = parallel, 
+                                    ...)
     if(verbose) print(paste("Finished pathway enrichment in",
                             time_taken_string(pw_start))); flush.console()
     
     # Dimensionality reduction for pathway enriched features
     dimred_start <- Sys.time()
     if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-    dat_embedded <- cv_dimred(dat_pw, cv_index, cv_split_data = FALSE, ...)
+    dat_embedded <- cv_dimred(dat_pw, 
+                              cv_index, 
+                              cv_split_data = FALSE, 
+                              parallel = parallel, 
+                              ...)
     if(verbose) print(paste("Finished dimensionality reduction in",
                             time_taken_string(dimred_start))); flush.console()
   } else{
     # Dimensionality reduction
     dimred_start <- Sys.time()
     if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-    dat_embedded <- cv_dimred(dat_list, cv_index, ...)
+    dat_embedded <- cv_dimred(dat_list, 
+                              cv_index, 
+                              parallel = parallel, 
+                              ...)
     if(verbose) print(paste("Finished dimensionality reduction in",
                             time_taken_string(dimred_start))); flush.console()
   }
@@ -197,6 +209,7 @@ dimred_clusteval_pipeline <- function(dat,
   clusteval_start <- Sys.time()
   if(verbose) print("Starting clustering analysis ..."); flush.console()
   dat_clustered <- cv_clusteval(dat_embedded, 
+                                parallel = parallel, 
                                 ..., 
                                 batch_label_names = batch_label_names, 
                                 subtype_label_names = subtype_label_names)
@@ -206,7 +219,9 @@ dimred_clusteval_pipeline <- function(dat,
   # Clustering stability evaluation
   stability_test_start <- Sys.time()
   if(verbose) print("Starting clustering stability analysis ..."); flush.console()
-  dat_stability <- stability_eval(dat_clustered$clusters, ...)
+  dat_stability <- stability_eval(dat_clustered$clusters, 
+                                  parallel = parallel, 
+                                  ...)
   if(verbose) print(paste("Finished clustering stability analysis in",
                           time_taken_string(stability_test_start))); flush.console()
   
@@ -214,7 +229,10 @@ dimred_clusteval_pipeline <- function(dat,
   if (!is.null(survival_data)) {
     survival_analysis_start <- Sys.time()
     if(verbose) print("Starting survival analysis ..."); flush.console()
-    dat_survival <- survival_evaluation(survival_data, dat_clustered$clusters, ...)
+    dat_survival <- survival_evaluation(survival_data, 
+                                        dat_clustered$clusters, 
+                                        parallel = parallel, 
+                                        ...)
     if(verbose) print(paste("Finished survival analysis in",
                             time_taken_string(survival_analysis_start))); flush.console()
   }
@@ -223,7 +241,10 @@ dimred_clusteval_pipeline <- function(dat,
   if (!is.null(module_eigs)) {
     module_analysis_start <- Sys.time()
     if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
-    dat_gm_score <- module_evaluation(dat_clustered$clusters, module_eigs, ...)
+    dat_gm_score <- module_evaluation(dat_clustered$clusters, 
+                                      module_eigs, 
+                                      parallel = parallel, 
+                                      ...)
     if(verbose) print(paste("Finished gene module correlation analysis in",
                             time_taken_string(module_analysis_start))); flush.console()
   }
@@ -231,7 +252,10 @@ dimred_clusteval_pipeline <- function(dat,
   if (!is.null(clinical_data)) {
     clinical_analysis_start <- Sys.time()
     if(verbose) print("Starting clinical variable association analysis ..."); flush.console()
-    dat_clinical_score <- clinical_evaluation(dat_clustered$clusters, clinical_data, ...)
+    dat_clinical_score <- clinical_evaluation(dat_clustered$clusters, 
+                                              clinical_data, 
+                                              parallel = parallel, 
+                                              ...)
     if(verbose) print(paste("Finished clinical variable association analysis in",
                             time_taken_string(clinical_analysis_start))); flush.console()
   }
@@ -249,7 +273,6 @@ dimred_clusteval_pipeline <- function(dat,
   if (!is.null(clinical_data)) out$clinical <- dat_clinical_score
   out$cluster_sizes <- dat_clustered$cluster_sizes
   
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
   if(verbose) print(paste("Finished pipeline in",
                           time_taken_string(pipeline_start)));flush.console()
   return(out)
@@ -285,6 +308,40 @@ get_best_result <- function(res,
     }
   }
   return(out)
+}
+
+vertical_pipeline <- function(dat_list, cv_ind, multi_omic = FALSE, ...) {
+  parallel_clust <- setup_parallelization(parallel)
+  #dat_list_fold <- list()
+  #for (i in 1:length(dat_list) {
+  #  dat_list_fold[[i]] <- merge(dat_list[[i]], cv_ind, by = "id")
+  #}
+  if (multi_omic) {
+    if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
+      warning("Colnames in all views do not match.")
+      stop("Cross-validation for missing sample views not implemented.")
+    } else {
+      cv_index <- cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...)
+      cv_index_split <- split(cv_index[[1]], by = c("run", "fold"))
+      out <- foreach(i = 1:length(cv_index_split), 
+                     .combine = c,
+                     .export = c("dat_list", "cv_index"),
+                     .packages = c("iClusterPlus")) %dopar% 
+      {
+        dat_i <- list()
+        non_data_cols <- list()
+        for (j in 1:length(dat_list)) {
+          dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]])
+          sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+          non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+          dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+        }
+        #multi
+      }
+    }
+  } else {
+    
+  }
 }
 
 #' Scoring of dimensionality reduction and clustering pipeline output

@@ -4,7 +4,12 @@
 \alias{stability_eval}
 \title{Clustering stability evaluation}
 \usage{
-stability_eval(clust, by = c("datname", "drname", "run", "k", "m"), ...)
+stability_eval(
+  clust,
+  by = c("datname", "drname", "run", "k", "m"),
+  parallel = 1,
+  ...
+)
 }
 \arguments{
 \item{clust}{clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}}

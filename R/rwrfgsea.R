@@ -116,7 +116,7 @@ RWRFGSEA <- function(expr,
     rwr_results[[i]] <- COPS::rwr_wrapper(expr_list[[i]], 
                                           gene_network, 
                                           rwr_seed_size = rwr_seed_size, 
-                                          parallel = parallel, 
+                                          parallel = 1, 
                                           rwr_restart_probability = rwr_restart_probability, 
                                           rwr_adjacency_normalization = rwr_adjacency_normalization,
                                           rwr_affinity_normalization = rwr_affinity_normalization)
@@ -137,7 +137,7 @@ RWRFGSEA <- function(expr,
   out <- rwrfgsea_results
   
   if (rwr_return_seeds) {
-    
+    attributes(out)$rwr_seeds <- NULL # TODO: implement
   }
   
   return(out)
@@ -154,30 +154,23 @@ rwr_wrapper <- function(expr,
                         rwr_adjacency_normalization = "laplacian",
                         rwr_affinity_normalization = "none",
                         ...) {
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
   gene_ranking <- apply(expr, 2, function(x) order(order(x))) # using order twice is very fast
   rownames(gene_ranking) <- rownames(expr)
   
-  rwr <- dnet::dRWR(gene_network, 
+  parallel_clust <- setup_parallelization(parallel)
+  
+  rwr <- tryCatch(dnet::dRWR(gene_network, 
                     setSeeds = gene_ranking > nrow(gene_ranking) - rwr_seed_size, 
                     normalise = rwr_adjacency_normalization,
                     restart = rwr_restart_probability, 
                     normalise.affinity.matrix = rwr_affinity_normalization, 
                     parallel = parallel > 1, 
                     multicores = parallel, 
-                    verbose = FALSE)
+                    verbose = FALSE), finally = if (parallel > 1) parallel::stopCluster(parallel_clust))
   rownames(rwr) <- names(igraph::V(gene_network))
   colnames(rwr) <- colnames(expr)
   
   out <- rwr
-  
-  if (parallel > 1) parallel::stopCluster(parallel_clust) # TODO: put everything into a tryCatch
   return(out)
 }
 
@@ -192,15 +185,9 @@ fgsea_wrapper <- function(data_matrix,
                           parallel = 1, 
                           fgsea_nperm = 10000, 
                           ...) {
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
+  parallel_clust <- setup_parallelization(parallel)
   # Use foreach to speed up per sample FGSEA
-  res <- foreach(genes_i = lapply(1:ncol(data_matrix), function(i) data_matrix[,i]), 
+  res <- tryCatch(foreach(genes_i = lapply(1:ncol(data_matrix), function(i) data_matrix[,i]), 
                  .combine = rbind, #list, #rbind,
                  .export = c(),
                  .multicombine = TRUE,
@@ -217,7 +204,7 @@ fgsea_wrapper <- function(data_matrix,
                    res_out[match(res_i$pathway, names(gene_set_list))] <- res_i$NES * (-log10(res_i$pval)) 
                    
                    res_out
-                 }
+                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   rownames(res) <- colnames(data_matrix)
   colnames(res) <- names(gene_set_list)
   # Remove pathways with only NA
@@ -226,7 +213,5 @@ fgsea_wrapper <- function(data_matrix,
   #  res[i, is.na(res[i,])] <- 0
   #}
   res[is.na(res)] <- 0
-  
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
   return(res)
 }

@@ -10,6 +10,7 @@ clustering_evaluation(
   subtype_label_names = NULL,
   n_clusters = 2:5,
   cluster_methods = c("hierarchical", "diana", "kmeans"),
+  clustering_dissimilarity = NULL,
   distance_metric = "euclidean",
   correlation_method = "spearman",
   hierarchical_linkage = "complete",

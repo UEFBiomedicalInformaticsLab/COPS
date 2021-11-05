@@ -168,7 +168,11 @@ genes_to_pathways <- function(expr,
 #'
 #' @return
 #' @export
-cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1, ...) {
+cv_pathway_enrichment <- function(dat_list, 
+                                  cv_index, 
+                                  gene_id_list, 
+                                  parallel = 1, 
+                                  ...) {
   temp_list <- list()
   for (i in 1:length(cv_index)) {
     temp <- cv_index[[i]]
@@ -182,7 +186,9 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1
     temp_list <- c(temp_list, temp)
   }
   
-  out <- foreach(i = temp_list, 
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(i = temp_list, 
                  .combine = c,
                  .export = c("genes_to_pathways"), #"dat_list"),
                  .packages = c("GSVA", "fgsea", "dnet", "msigdbr", "AnnotationDbi", "org.Hs.eg.db")) %dopar% {
@@ -210,7 +216,7 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1
                      pw_temp[[j]]$datname <- names(pw_temp)[j]
                    }
                    pw_temp
-                 }
+                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
 
@@ -222,18 +228,17 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1
 #' 
 #' @return 
 #' @export
-DiffRank <- function(expr, gene_set_list, parallel = 1) {
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    foreach::registerDoSEQ()
-  }
+DiffRank <- function(expr, 
+                     gene_set_list, 
+                     parallel = 1) {
   ranks <- apply(expr, 2, function(x) order(order(x)))
   out <- matrix(NA, length(gene_set_list), ncol(expr))
   rownames(out) <- names(gene_set_list)
   colnames(out) <- colnames(expr)
-  out <- foreach(i = gene_set_list, 
+  
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(i = gene_set_list, 
                 .combine = rbind,
                 .export = c(),
                 .multicombine = TRUE,
@@ -241,8 +246,8 @@ DiffRank <- function(expr, gene_set_list, parallel = 1) {
     ind <- which(rownames(expr) %in% i)
     # Compare mean ranks of pw genes vs non-pw genes
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
-  }
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+  
   rownames(out) <- names(gene_set_list)
   out <- out[!apply(out, 1, function(x) all(is.na(x))),]
   

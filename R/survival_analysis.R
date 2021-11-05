@@ -54,14 +54,17 @@ survival_evaluation <- function(event_data,
                                 survival_covariate_names = c("age", "stage"),
                                 row_id = "ID", 
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
+                                parallel = 1, 
                                 ...) {
+  parallel_clust <- setup_parallelization(parallel)
+  
   if (data.table::is.data.table(clusters)) {
     clust_list <- split(clusters, by = by)
   } else {
     clust_list <- split(clusters, clusters[, by])
   }
   
-  out <- foreach(clust = clust_list,
+  out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
                  .export = c("by"),
                  .packages = c("survival"),
@@ -91,6 +94,6 @@ survival_evaluation <- function(event_data,
                    }
                    
                    out_i
-                 }
+                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }

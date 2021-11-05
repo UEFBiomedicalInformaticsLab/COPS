@@ -12,6 +12,7 @@ survival_evaluation(
   survival_covariate_names = c("age", "stage"),
   row_id = "ID",
   by = c("run", "fold", "datname", "drname", "k", "m"),
+  parallel = 1,
   ...
 )
 }

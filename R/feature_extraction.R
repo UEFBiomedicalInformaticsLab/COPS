@@ -123,7 +123,11 @@ dim_reduction_suite <- function(dat,
 #'
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table
-cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
+cv_dimred <- function(dat_list, 
+                      cv_index, 
+                      cv_split_data = TRUE, 
+                      parallel = 1, 
+                      ...) {
   temp_list <- list()
   if (cv_split_data) {
     for (i in 1:length(cv_index)) {
@@ -142,7 +146,9 @@ cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
     }
   }
   
-  out <- foreach(i = temp_list, 
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(i = temp_list, 
                  .combine = c,
                  .export = c("dim_reduction_suite"), #"dat_list"),
                  .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
@@ -150,6 +156,6 @@ cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
     dr_temp <- dim_reduction_suite(i[,sel], ...)
     dr_temp <- lapply(dr_temp, function(x) cbind(i[,-sel], as.data.frame(x)))
     dr_temp
-  }
+  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }

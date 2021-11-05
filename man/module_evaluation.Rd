@@ -10,6 +10,7 @@ module_evaluation(
   module_cor_threshold = 0.3,
   module_nan.substitute = 0,
   by = c("run", "fold", "datname", "drname", "k", "m"),
+  parallel = 1,
   ...
 )
 }

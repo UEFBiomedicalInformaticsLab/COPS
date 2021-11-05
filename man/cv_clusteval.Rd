@@ -4,7 +4,7 @@
 \alias{cv_clusteval}
 \title{Clustering analysis on cross-validated data sets}
 \usage{
-cv_clusteval(dat_embedded, ...)
+cv_clusteval(dat_embedded, parallel = 1, ...)
 }
 \arguments{
 \item{dat_embedded}{list of \code{data.frame}s}

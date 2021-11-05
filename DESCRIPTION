@@ -38,6 +38,7 @@ Imports:
     plyr,
     reshape2,
     Rtsne,
+    Spectrum,
     STRINGdb,
     survival,
     uwot

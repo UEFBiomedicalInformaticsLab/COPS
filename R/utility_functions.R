@@ -77,16 +77,11 @@ cv_fold <- function(dat_list,
 #'
 #' @return matrix of row-wise ecdf values with dimensions matching input
 #' @export
-ecdf_transform <- function(x, parallel = 1) {
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
+ecdf_transform <- function(x, 
+                           parallel = 1) {
   x_sd <- apply(x, 1, sd)
-  score <- foreach(i = 1:ncol(x), 
+  parallel_clust <- setup_parallelization(parallel)
+  score <- tryCatch(foreach(i = 1:ncol(x), 
                    .combine = cbind,
                    .export = c(),
                    .multicombine = TRUE,
@@ -98,10 +93,9 @@ ecdf_transform <- function(x, parallel = 1) {
                      }
                      # sum over kernels
                      apply(score_i, 1, sum) / (ncol(x) - 1) 
-                   }
+                   }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   out <- score - 0.5
   colnames(out) <- colnames(x)
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
   return(out)
 }
 
@@ -454,4 +448,56 @@ rbind_fill <- function(a,b) {
   
   return(rbind(a, b))
 }
+
+
+plot_pvalues <- function(x, 
+                         target, 
+                         x_axis_var, 
+                         color_var, 
+                         palette = "Dark2",
+                         by = c("Approach", "Embedding", "Clustering", "k"), 
+                         facetx = NULL, 
+                         facety = NULL, 
+                         limits = NULL) {
+  if (is.null(limits)) limits <- c(1, 10^floor(min(log10(x[[target]]))))
+  bp_quantiles <- plyr::ddply(x, by, function(a) quantile(a[[target]], probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1), na.rm = TRUE))
+  colnames(bp_quantiles)[5:11] <- c("Q0", "Q0025", "Q025", "Q05", "Q075", "Q0975", "Q1")
+  bp_quantiles$IQR <- log(bp_quantiles$Q075) - log(bp_quantiles$Q025) 
+  bp_quantiles$ymax <- apply(cbind(exp(log(bp_quantiles$Q075) + bp_quantiles$IQR * 1.5), bp_quantiles$Q1), 1, min)
+  bp_quantiles$ymin <- apply(cbind(exp(log(bp_quantiles$Q025) - bp_quantiles$IQR * 1.5), bp_quantiles$Q0), 1, max)
+  
+  if(!is.null(facetx)) {
+    # TODO: check if this works with all configurations
+    if (!is.null(facety)) {
+      temp_facets <- facet_grid(bp_quantiles[[facetx]] ~ bp_quantiles[[facety]], scales = "fixed")
+    } else {
+      temp_facets <- facet_grid( ~ bp_quantiles[[facetx]], scales = "fixed")
+    }
+  } else {
+    temp_facets <- NULL
+  }
+  
+  temp <- ggplot(bp_quantiles, aes_string(x = x_axis_var, fill = color_var)) + 
+    geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
+                 outlier.shape = NA, stat = "identity", lwd = 0.25) + 
+    theme_bw() + scale_fill_brewer(palette = "Dark2") + 
+    theme(legend.position = "bottom") + 
+    scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), 
+                                                 function(y) exp(-y), breaks = scales::log_breaks()), 
+                       limits = limits)
+  if (!is.null(temp_facets)) temp <- temp + temp_facets
+  return(temp)
+}
+
+setup_parallelization <- function(parallel) {
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+  } else {
+    parallel_clust <- NULL
+    foreach::registerDoSEQ()
+  }
+  return(parallel_clust)
+}
+
 
