@@ -19,23 +19,24 @@ cv_fold <- function(dat_list,
                     nruns = 2, 
                     stratified_cv = FALSE, 
                     mixed_cv = FALSE,
+                    cv_stratification_var = NULL,
                     ...) {
   out <- list()
   for (i in 1:length(dat_list)) {
     folded <- list()
     for (j in 1:nruns) {
-      if (!is.null(dat_list[[i]]$batch_label) & (stratified_cv | mixed_cv)) {
-        a_ind <- lapply(table(dat_list[[i]]$batch_label), function(x) sample(1:x, x))
-        b_ind <- sample(1:length(unique(dat_list[[i]]$batch_label)), length(unique(dat_list[[i]]$batch_label)))
-        c_ind <- cumsum(table(dat_list[[i]]$batch_label)[unique(dat_list[[i]]$batch_label)[b_ind]])
+      if (!is.null(cv_stratification_var) & (stratified_cv | mixed_cv)) {
+        a_ind <- lapply(table(cv_stratification_var), function(x) sample(1:x, x))
+        b_ind <- sample(1:length(unique(cv_stratification_var)), length(unique(cv_stratification_var)))
+        c_ind <- cumsum(table(cv_stratification_var)[unique(cv_stratification_var)[b_ind]])
         cv_index <- c()
         for (u in 1:length(b_ind)) {
-          un <- unique(dat_list[[i]]$batch_label)[b_ind[u]]
-          cv_index[dat_list[[i]]$batch_label == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
+          un <- unique(cv_stratification_var)[b_ind[u]]
+          cv_index[cv_stratification_var == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
         }
         if (stratified_cv) {
           # Stratified cv folds such that holdout set labels mostly do not match to rest of data
-          cv_index <- cv_index %/% -(length(dat_list[[i]]$batch_label) %/% -nfolds) + 1
+          cv_index <- cv_index %/% -(length(cv_stratification_var) %/% -nfolds) + 1
         } else {
           # Mixed cv folds such that labels are evenly distributed within folds
           cv_index <- cv_index %% nfolds + 1
@@ -499,5 +500,3 @@ setup_parallelization <- function(parallel) {
   }
   return(parallel_clust)
 }
-
-

@@ -210,9 +210,208 @@ dimred_clusteval_pipeline <- function(dat,
   if(verbose) print("Starting clustering analysis ..."); flush.console()
   dat_clustered <- cv_clusteval(dat_embedded, 
                                 parallel = parallel, 
-                                ..., 
-                                batch_label_names = batch_label_names, 
-                                subtype_label_names = subtype_label_names)
+                                ...)
+  if(verbose) print(paste("Finished clustering analysis in",
+                          time_taken_string(clusteval_start))); flush.console()
+  
+  # Clustering stability evaluation
+  stability_test_start <- Sys.time()
+  if(verbose) print("Starting clustering stability analysis ..."); flush.console()
+  dat_stability <- stability_eval(dat_clustered$clusters, 
+                                  parallel = parallel, 
+                                  ...)
+  if(verbose) print(paste("Finished clustering stability analysis in",
+                          time_taken_string(stability_test_start))); flush.console()
+  
+  # Survival evaluation
+  if (!is.null(survival_data)) {
+    survival_analysis_start <- Sys.time()
+    if(verbose) print("Starting survival analysis ..."); flush.console()
+    dat_survival <- survival_evaluation(survival_data, 
+                                        dat_clustered$clusters, 
+                                        parallel = parallel, 
+                                        ...)
+    if(verbose) print(paste("Finished survival analysis in",
+                            time_taken_string(survival_analysis_start))); flush.console()
+  }
+  
+  # Gene module correlation evaluation
+  if (!is.null(module_eigs)) {
+    module_analysis_start <- Sys.time()
+    if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
+    dat_gm_score <- module_evaluation(dat_clustered$clusters, 
+                                      module_eigs, 
+                                      parallel = parallel, 
+                                      ...)
+    if(verbose) print(paste("Finished gene module correlation analysis in",
+                            time_taken_string(module_analysis_start))); flush.console()
+  }
+  
+  if (is.null(clinical_data)) {
+    if(!is.null(batch_label)) {
+      clinical_data <- batch_table
+    }
+    if(!is.null(subtype_label)) {
+      if (is.null(clinical_data)) {
+        clinical_data <- subtype_table
+      } else {
+        clinical_data <- merge(clinical_data, subtype_table, by = "id")
+      }
+    }
+    if (!is.null(clinical_data)) {
+      clinical_data <- as.data.frame(clinical_data)
+      rownames(clinical_data) <- clinical_data$id
+      clinical_data$id <- NULL
+    }
+  }
+  
+  if (!is.null(clinical_data)) {
+    clinical_analysis_start <- Sys.time()
+    if(verbose) print("Starting clinical variable association analysis ..."); flush.console()
+    dat_clinical_score <- clinical_evaluation(dat_clustered$clusters, 
+                                              clinical_data, 
+                                              parallel = parallel, 
+                                              ...)
+    if(verbose) print(paste("Finished clinical variable association analysis in",
+                            time_taken_string(clinical_analysis_start))); flush.console()
+  }
+  
+  # Return
+  out <- list(embedding = dat_embedded, 
+              clusters = dat_clustered$clusters, 
+              internal_metrics = dat_clustered$metrics,
+              stability = dat_stability)
+  if (!is.null(survival_data)) out$survival <- dat_survival
+  if (!is.null(module_eigs)) out$modules <- dat_gm_score
+  if (!is.null(clinical_data)) out$clinical <- dat_clinical_score
+  out$cluster_sizes <- dat_clustered$cluster_sizes
+  
+  if(verbose) print(paste("Finished pipeline in",
+                          time_taken_string(pipeline_start)));flush.console()
+  return(out)
+}
+
+
+#' @describeIn clusteval_scoring Retrieves best clustering from CV results based on scores. 
+#' In practice retrieves reference fold result from first run matching the best results. 
+#' 
+#' @param res result from \code{\link{dimred_clusteval_pipeline}}
+#' @param scores scores from \code{\link{clusteval_scoring}}
+#' 
+#' @export
+get_best_result <- function(res,
+                            scores) {
+  if (all(c("run", "fold") %in% colnames(res$best))) {
+    stop("Please summarise CV results in order to avoid ambiguity.")
+  }
+  reference_fold <- unique(res$clusters$fold)[which(!unique(res$clusters$fold) %in% unique(res$clusters$cv_index))]
+  clust_ref <- as.data.frame(res$clusters[res$clusters$fold == reference_fold & res$clusters$run == 1,])
+  clust_ref <- clust_ref[,-which(colnames(res$clusters) %in% c("fold", "run", "cv_index"))]
+  
+  out <- list()
+  out$clusters <- plyr::join(scores$best[c("datname", "drname", "k", "m")], 
+                             clust_ref, 
+                             by = c("datname", "drname", "k", "m"))
+  
+  for (i in which(names(res$embedding) == scores$best$drname)) {
+    if(res$embedding[[i]]$run[1] == 1 & 
+       res$embedding[[i]]$fold[1] == reference_fold &
+       res$embedding[[i]]$datname[1] == scores$best$datname) {
+      out$embedding <- res$embedding[[i]][,-which(colnames(res$embedding[[i]]) %in% c("fold", "run", "cv_index"))]
+    }
+  }
+  return(out)
+}
+
+COPS <- function(dat, 
+                 nfolds, 
+                 nruns, 
+                 clinical_data = NULL,
+                 survival_data = NULL,
+                 module_eigs = NULL,
+                 verbose = TRUE,
+                 parallel = 1,
+                 pathway_enrichment_method = "none",
+                 #dim_reduction = TRUE,
+                 #pre_clust_cv = FALSE,
+                 ...) {
+  if ("list" %in% class(dat)) {
+    dat_list <- dat
+  } else {
+    dat_list <- list(dat)
+  }
+  
+  pipeline_start <- Sys.time()
+  if(verbose) print("Processing data sets ..."); flush.console()
+  
+  if (pathway_enrichment_method != "none") {
+    # Collect gene names for later
+    gene_id_list <- lapply(dat_list, rownames)
+  }
+  
+  # Convert data to data.table to optimize memory usage
+  for (i in 1:length(dat_list)) {
+    id <- colnames(dat_list[[i]])
+    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
+    #data.table::setDT(dat_list[[i]])
+    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
+    dat_list[[i]]$id <- id
+    data.table::setkey(dat_list[[i]], id)
+  }
+  
+  #if (vertical_parallelization)
+  
+  # Create cross validation folds
+  cv_index <- cv_fold(dat_list = dat_list, 
+                      nfolds = nfolds, 
+                      nruns = nruns, 
+                      ...)
+  
+  # Pathway enrichment
+  if (pathway_enrichment_method != "none") {
+    if (length(dat_list) > 1) {
+      stop("Multiple data sets with pathway enrichment enabled is not implemented.")
+      # TODO: make it compatible. Currently datname is being used as pwname. 
+    }
+    pw_start <- Sys.time()
+    if(verbose) print("Starting pathway enrichment ..."); flush.console()
+    dat_pw <- cv_pathway_enrichment(dat_list, 
+                                    cv_index, 
+                                    gene_id_list, 
+                                    enrichment_method = pathway_enrichment_method, 
+                                    parallel = parallel, 
+                                    ...)
+    if(verbose) print(paste("Finished pathway enrichment in",
+                            time_taken_string(pw_start))); flush.console()
+    
+    # Dimensionality reduction for pathway enriched features
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
+    dat_embedded <- cv_dimred(dat_pw, 
+                              cv_index, 
+                              cv_split_data = FALSE, 
+                              parallel = parallel, 
+                              ...)
+    if(verbose) print(paste("Finished dimensionality reduction in",
+                            time_taken_string(dimred_start))); flush.console()
+  } else {
+    # Dimensionality reduction
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
+    dat_embedded <- cv_dimred(dat_list, 
+                              cv_index, 
+                              parallel = parallel, 
+                              ...)
+    if(verbose) print(paste("Finished dimensionality reduction in",
+                            time_taken_string(dimred_start))); flush.console()
+  }
+  
+  # Clustering evaluation
+  clusteval_start <- Sys.time()
+  if(verbose) print("Starting clustering analysis ..."); flush.console()
+  dat_clustered <- cv_clusteval(dat_embedded, 
+                                parallel = parallel, 
+                                ...)
   if(verbose) print(paste("Finished clustering analysis in",
                           time_taken_string(clusteval_start))); flush.console()
   
@@ -264,9 +463,6 @@ dimred_clusteval_pipeline <- function(dat,
   out <- list(embedding = dat_embedded, 
               clusters = dat_clustered$clusters, 
               internal_metrics = dat_clustered$metrics,
-              chisq_pval = dat_clustered$chisq_pval,
-              batch_association = dat_clustered$batch_association,
-              subtype_association = dat_clustered$subtype_association,
               stability = dat_stability)
   if (!is.null(survival_data)) out$survival <- dat_survival
   if (!is.null(module_eigs)) out$modules <- dat_gm_score
@@ -275,38 +471,6 @@ dimred_clusteval_pipeline <- function(dat,
   
   if(verbose) print(paste("Finished pipeline in",
                           time_taken_string(pipeline_start)));flush.console()
-  return(out)
-}
-
-
-#' @describeIn clusteval_scoring Retrieves best clustering from CV results based on scores. 
-#' In practice retrieves reference fold result from first run matching the best results. 
-#' 
-#' @param res result from \code{\link{dimred_clusteval_pipeline}}
-#' @param scores scores from \code{\link{clusteval_scoring}}
-#' 
-#' @export
-get_best_result <- function(res,
-                            scores) {
-  if (all(c("run", "fold") %in% colnames(res$best))) {
-    stop("Please summarise CV results in order to avoid ambiguity.")
-  }
-  reference_fold <- unique(res$clusters$fold)[which(!unique(res$clusters$fold) %in% unique(res$clusters$cv_index))]
-  clust_ref <- as.data.frame(res$clusters[res$clusters$fold == reference_fold & res$clusters$run == 1,])
-  clust_ref <- clust_ref[,-which(colnames(res$clusters) %in% c("fold", "run", "cv_index"))]
-  
-  out <- list()
-  out$clusters <- plyr::join(scores$best[c("datname", "drname", "k", "m")], 
-                             clust_ref, 
-                             by = c("datname", "drname", "k", "m"))
-  
-  for (i in which(names(res$embedding) == scores$best$drname)) {
-    if(res$embedding[[i]]$run[1] == 1 & 
-       res$embedding[[i]]$fold[1] == reference_fold &
-       res$embedding[[i]]$datname[1] == scores$best$datname) {
-      out$embedding <- res$embedding[[i]][,-which(colnames(res$embedding[[i]]) %in% c("fold", "run", "cv_index"))]
-    }
-  }
   return(out)
 }
 
@@ -379,7 +543,7 @@ vertical_pipeline <- function(dat_list, cv_ind, multi_omic = FALSE, ...) {
 #' metric = "euclidean",
 #' n_clusters = 2:4)
 #' 
-#' scores <- clusteval_scoring(res, wsum = Silhouette - NMI.batch_label, summarise = TRUE)
+#' scores <- clusteval_scoring(res, wsum = Silhouette - batch_label.nmi, summarise = TRUE)
 #' 
 #' best <- get_best_result(res, scores)
 #' head(best$embedding)
@@ -429,7 +593,7 @@ clusteval_scoring <- function(res,
                                   value.var = "chisq.p")
     }
   } else {
-    chisq_rr
+    chisq_rr <- NULL
   }
   
   # Batch label associations
@@ -516,7 +680,7 @@ clusteval_scoring <- function(res,
     modules <- NULL
   }
   
-  # Survival likelihood ratio test
+  # Clinical variable association tests
   if (!is.null(res$clinical)) {
     if (summarise) {
       warning("Currently summary of clinical p-values is not implemented.")

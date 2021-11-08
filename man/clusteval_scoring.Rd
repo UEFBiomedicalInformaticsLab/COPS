@@ -64,7 +64,7 @@ cluster_methods = c("hierarchical", "kmeans"),
 metric = "euclidean",
 n_clusters = 2:4)
 
-scores <- clusteval_scoring(res, wsum = Silhouette - NMI.batch_label, summarise = TRUE)
+scores <- clusteval_scoring(res, wsum = Silhouette - batch_label.nmi, summarise = TRUE)
 
 best <- get_best_result(res, scores)
 head(best$embedding)

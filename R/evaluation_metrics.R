@@ -627,8 +627,10 @@ clustering_evaluation <- function(dat,
 #'         continuous variables. 
 #' @export
 clinical_associations <- function(clust, clinical_data) {
-  clinical_data_matched <- clinical_data[match(clust$i, 
-                                               rownames(clinical_data)),]
+  clinical_data_matched <- clinical_data[match(clust$id, 
+                                               rownames(clinical_data)), 
+                                         , 
+                                         drop = FALSE]
   out <- list()
   for (i in 1:ncol(clinical_data)) {
     clinical_var <- clinical_data_matched[,i]
@@ -853,9 +855,9 @@ cv_clusteval <- function(dat_embedded,
     bound_list <- list()
     bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
     bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
-    bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
-    bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
-    bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
+    #bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
+    #bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
+    #bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
     bound_list$cluster_sizes <- rbindlist(lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
     return(bound_list)
   }
@@ -868,8 +870,11 @@ cv_clusteval <- function(dat_embedded,
                  .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
                  .multicombine = TRUE,
                  .maxcombine = length(temp_list)) %dopar% {
-    temp <- clustering_evaluation(temp, ...)
-    temp
+    temp_diss <- clustering_dissimilarity(temp, ...)
+    temp_clust <- clustering_only(temp, clustering_dissimilarity = temp_diss, ...)
+    temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)
+    res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
+    res
   }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }

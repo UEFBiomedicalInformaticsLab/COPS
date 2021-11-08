@@ -10,6 +10,7 @@ cv_fold(
   nruns = 2,
   stratified_cv = FALSE,
   mixed_cv = FALSE,
+  cv_stratification_var = NULL,
   ...
 )
 }
