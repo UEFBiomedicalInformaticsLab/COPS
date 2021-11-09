@@ -1,18 +1,59 @@
-clustering_only <- function(dat,
-                            n_clusters = 2:5,
-                            cluster_methods = c("hierarchical","diana","kmeans"),
-                            clustering_dissimilarity = NULL, 
-                            distance_metric = "euclidean",
-                            correlation_method = "spearman",
-                            hierarchical_linkage = "complete",
-                            kmeans_num_init = 100,
-                            kmeans_max_iters = 100,
-                            kmeans_tol = 0.0001,
-                            gmm_modelNames = NULL,  
-                            gmm_shrinkage = 0.01, 
-                            knn_neighbours = 30, 
-                            knn_jaccard = TRUE, 
-                            ...) {
+#' Clustering, internal evaluation and batch effect estimation
+#'
+#' Single embedding or dataset evaluation
+#'
+#' Supported clustering methods are:
+#' \itemize{
+#' \item "hierarchical" - agglomerative hierarchical clustering
+#' \item "diana" - divisive hierarchical clustering analysis
+#' \item "kmeans" - k-means++
+#' \item "model" - Gaussian Mixture Models
+#' \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
+#' \item "spectral" - spectral clustering
+#' }
+#'
+#' @param dat A data matrix with samples on columns.
+#' @param n_clusters A vector of integers, numbers of clusters to be generated.
+#' @param cluster_methods A vector of clustering method names, see details for options.
+#' @param clustering_dissimilarity A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity}} if missing. 
+#' @param distance_metric Either "euclidean" or "correlation".
+#' @param correlation_method Method for \code{\link[stats]{cor}}.
+#' @param hierarchical_linkage See \code{\link[flashClust]{flashClust}}.
+#' @param kmeans_num_init See \code{\link[ClusterR]{KMeans_rcpp}}.
+#' @param kmeans_max_iters See \code{\link[ClusterR]{KMeans_rcpp}}.
+#' @param kmeans_tol See \code{\link[ClusterR]{KMeans_rcpp}}.
+#' @param gmm_modelNames Sepcifies model type for \code{\link[mclust]{Mclust}}
+#' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
+#' @param knn_neighbours number of nearest neighbours for community detection.
+#' @param knn_jaccard computes shared neighbour weights with Jaccard ubdex if \code{TRUE}. 
+#' @param ... extra arguments are ignored currently
+#'
+#' @return Returns a \code{list} containing clusters, metrics, and
+#'         \code{\link[stats]{chisq.test}} p-values
+#'         if batch_label was supplied
+#' @export
+#' @importFrom stats chisq.test cutree cor dist as.dist
+#' @importFrom aricode NMI ARI
+#' @importFrom flashClust flashClust
+#' @importFrom ClusterR KMeans_rcpp
+#' @importFrom mclust Mclust
+#' @importFrom Spectrum Spectrum
+#' @importFrom cluster silhouette
+clustering_analysis <- function(dat,
+                                n_clusters = 2:5,
+                                cluster_methods = c("hierarchical","diana","kmeans"),
+                                clustering_dissimilarity = NULL, 
+                                distance_metric = "euclidean",
+                                correlation_method = "spearman",
+                                hierarchical_linkage = "complete",
+                                kmeans_num_init = 100,
+                                kmeans_max_iters = 100,
+                                kmeans_tol = 0.0001,
+                                gmm_modelNames = NULL,  
+                                gmm_shrinkage = 0.01, 
+                                knn_neighbours = 30, 
+                                knn_jaccard = TRUE, 
+                                ...) {
   temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
@@ -131,96 +172,15 @@ clustering_only <- function(dat,
   return(out)
 }
 
-temp_removed <- function(){
-  out_list$metrics <- metrics
-  
-  # Insert meta data (if present)
-  out_list$metrics$run <- dat$run[1]
-  out_list$metrics$fold <- dat$fold[1]
-  out_list$metrics$datname <- dat$datname[1]
-  out_list$metrics$drname <- dat$drname[1]
-  
-  # Pearson's chi-squared test
-  f1 <- function(x, c1, c2) {
-    temp <- tryCatch(suppressWarnings(chisq.test(x[[c1]], x[[c2]])), error = function(e) NULL)
-    if (is.null(temp)) {
-      temp <- data.frame(p = NA)
-    } else {
-      temp <- data.frame(p = temp$p.value)
-    }
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    temp$label <- c2
-    return(temp)
-  }
-  # Other contingency table based metrics
-  f2 <- function(x, c1, c2) {
-    temp <- data.frame(nmi = aricode::NMI(x[[c1]], x[[c2]]),
-                       ari = aricode::ARI(x[[c1]], x[[c2]]))
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    temp$label <- c2
-    return(temp)
-  }
-  
-  if (!is.null(batch_label_names)) {
-    batch_label_chisq <- list()
-    batch_label_assoc <- list()
-    for (i in 1:length(batch_label_names)) {
-      batch_label_chisq[[i]] <- Reduce("rbind", 
-                                       lapply(split(out_list$clusters, 
-                                                    out_list$clusters[c("k", "m")]), 
-                                              f1, c1 = "cluster", c2 = batch_label_names[i]))
-      batch_label_assoc[[i]] <- Reduce("rbind", 
-                                       lapply(split(out_list$clusters, 
-                                                    out_list$clusters[c("k", "m")]), 
-                                              f2, c1 = "cluster", c2 = batch_label_names[i]))
-    }
-    out_list$chisq_pval <- Reduce("rbind", batch_label_chisq)
-    out_list$batch_association <- Reduce("rbind", batch_label_assoc)
-  }
-  
-  if (!is.null(subtype_label_names)) {
-    subtype_label_assoc <- list()
-    for (i in 1:length(subtype_label_names)) {
-      temp <- out_list$clusters[!is.na(out_list$clusters[[subtype_label_names[i]]]),]
-      subtype_label_assoc[[i]] <- Reduce("rbind", 
-                                         lapply(split(temp, 
-                                                      temp[c("k", "m")]), 
-                                                f2, c1 = "cluster", c2 = subtype_label_names[i]))
-    }
-    out_list$subtype_association <- Reduce("rbind", subtype_label_assoc)
-  }
-  
-  f3 <- function(x, c1) {
-    temp <- as.data.frame(t(as.matrix(table(x[[c1]]))))
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    return(temp)
-  }
-  
-  if (cluster_size_table) {
-    out_list$cluster_sizes <-  Reduce(rbind_fill, 
-                                      lapply(split(out_list$clusters, 
-                                                   out_list$clusters[c("k", "m")]), 
-                                             f3, c1 = "cluster"))
-  }
-  
-  return(out_list)
-}
-
+#' Dissimilarity matrix
+#'
+#' @param x 
+#' @param distance_metric 
+#' @param correlation_method 
+#' @param ... 
+#'
+#' @return
+#' @export
 clustering_dissimilarity <- function(x, 
                                      distance_metric = "euclidean", 
                                      correlation_method = "spearman", 
@@ -238,12 +198,35 @@ clustering_dissimilarity <- function(x,
   return(diss)
 }
 
+#' Clustering, internal evaluation and batch effect estimation
+#'
+#' Single embedding or dataset evaluation
+#'
+#' Supported clustering methods are:
+#' \itemize{
+#' \item "hierarchical" - agglomerative hierarchical clustering
+#' \item "diana" - divisive hierarchical clustering analysis
+#' \item "kmeans" - k-means++
+#' \item "model" - Gaussian Mixture Models
+#' \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
+#' \item "spectral" - spectral clustering
+#' }
+#'
+#' @param x A data.frame of clustering results. 
+#' @param dat A data.frame with data columns identified with "dim". Not required if clustering_dissimilarity is defined. 
+#' @param by vector of variable names to split by
+#' @param clustering_dissimilarity a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}
+#' @param cluster_size_table return cluster sizes if \code{TRUE}.
+#' @param silhouette_min_cluster_size proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.
+#' @param ... extra arguments are passed to \code{\link{clustering_dissimilarity}}
+#'
+#' @return Returns a \code{list} containing metrics and cluster sizes
+#' @export
+#' @importFrom cluster silhouette
 clustering_metrics <- function(x, 
                                dat = NULL, 
                                by = c("k", "m"),
                                clustering_dissimilarity = NULL, 
-                               distance_metric = "euclidean",
-                               correlation_method = "spearman",
                                cluster_size_table = TRUE, 
                                silhouette_min_cluster_size = 0.0,
                                ...) {
@@ -257,7 +240,7 @@ clustering_metrics <- function(x,
     temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
     temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
     rownames(temp) <- dat$id
-    clustering_dissimilarity(temp, distance_metric, correlation_method)
+    clustering_dissimilarity(temp, ...)
   }
   
   metrics <- data.frame()
@@ -283,4 +266,63 @@ clustering_metrics <- function(x,
   return(out_list)
 }
 
-
+#' Clustering analysis on cross-validated data sets
+#'
+#' Performs clustering analysis on each fold of an external cross validation.
+#'
+#' Produces clusterings using multiple methods and settings while computing internal validation metrics 
+#' such as Connectivity, Dunn and Silhouette scores. Also computes chi-squared tests with respect to 
+#' a batch label if one is provided. 
+#'
+#' @param dat_embedded list of \code{data.frame}s
+#' @param parallel number of threads
+#' @param by variables to split input data by
+#' @param ... extra arguments are passed through to clustering_evaluation
+#'
+#' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}} outputs for every
+#'         combination of CV run, CV fold, clustering method, number of clusters as well as all combinations of
+#'         data sets and dimensionality reduction techniques found in the input \code{data.frame}.
+#' @export
+#' @importFrom foreach foreach %dopar%
+#' @importFrom data.table rbindlist
+cv_clusteval <- function(dat_embedded, 
+                         parallel = 1, 
+                         by = c("run", "fold"),
+                         ...) {
+  temp_list <- list()
+  for (i in 1:length(dat_embedded)) {
+    temp <- dat_embedded[[i]]
+    drname <- names(dat_embedded)[i]
+    if (is.null(drname)) drname <- i
+    temp$drname <- drname
+    temp <- split(temp, temp[, by, drop = FALSE])
+    temp_list <- c(temp_list, temp)
+  }
+  # Binding function that concatenates relevant list components
+  cfun <- function(...){
+    bound_list <- list()
+    bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
+    bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
+    #bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
+    #bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
+    #bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
+    bound_list$cluster_sizes <- rbindlist(lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
+    return(bound_list)
+  }
+  
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(temp = temp_list,
+                          .combine = cfun,
+                          .export = c("clustering_analysis", "clustering_metrics"),
+                          .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
+                          .multicombine = TRUE,
+                          .maxcombine = length(temp_list)) %dopar% {
+                            temp_diss <- clustering_dissimilarity(temp, ...)
+                            temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
+                            temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)
+                            res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
+                            res
+                          }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+  return(out)
+}

@@ -10,7 +10,7 @@ dimred_clusteval_pipeline(
   nruns,
   batch_label = NULL,
   subtype_label = NULL,
-  clinical_data = NULL,
+  association_data = NULL,
   survival_data = NULL,
   module_eigs = NULL,
   verbose = TRUE,

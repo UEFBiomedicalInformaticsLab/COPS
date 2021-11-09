@@ -303,340 +303,26 @@ embedding_associations <-  function(dat,
   return(out)
 }
 
-
-#' Clustering, internal evaluation and batch effect estimation
-#'
-#' Single embedding or dataset evaluation
-#'
-#' Supported clustering methods are:
-#' \itemize{
-#' \item "hierarchical" - agglomerative hierarchical clustering
-#' \item "diana" - divisive hierarchical clustering analysis
-#' \item "kmeans" - k-means++
-#' \item "model" - Gaussian Mixture Models
-#' \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
-#' \item "spectral" - spectral clustering
-#' }
-#'
-#' @param dat A data matrix with samples on columns.
-#' @param batch_label_names A character vector containing column names corresponding to batch labels.
-#' @param n_clusters A vector of integers, numbers of clusters to be generated.
-#' @param cluster_methods A vector of clustering method names, see details for options.
-#' @param subtype_label_names A character vector containing column names corresponding to batch labels.
-#' @param distance_metric Either "euclidean" or "correlation".
-#' @param correlation_method Method for \code{\link[stats]{cor}}.
-#' @param hierarchical_linkage See \code{\link[flashClust]{flashClust}}.
-#' @param kmeans_num_init See \code{\link[ClusterR]{KMeans_rcpp}}.
-#' @param kmeans_max_iters See \code{\link[ClusterR]{KMeans_rcpp}}.
-#' @param kmeans_tol See \code{\link[ClusterR]{KMeans_rcpp}}.
-#' @param gmm_modelNames Sepcifies model type for \code{\link[mclust]{Mclust}}
-#' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
-#' @param knn_neighbours number of nearest neighbours for community detection.
-#' @param knn_jaccard computes shared neighbour weights with Jaccard ubdex if \code{TRUE}. 
-#' @param cluster_size_table return cluster sizes if \code{TRUE}.
-#' @param silhouette_min_cluster_size proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.
-#' @param ... extra arguments are ignored currently
-#'
-#' @return Returns a \code{list} containing clusters, metrics, and
-#'         \code{\link[stats]{chisq.test}} p-values
-#'         if batch_label was supplied
-#' @export
-#' @importFrom stats chisq.test cutree cor dist as.dist
-#' @importFrom aricode NMI ARI
-#' @importFrom flashClust flashClust
-#' @importFrom ClusterR KMeans_rcpp
-#' @importFrom mclust Mclust
-#' @importFrom Spectrum Spectrum
-#' @importFrom cluster silhouette
-clustering_evaluation <- function(dat,
-                                  batch_label_names = NULL,
-                                  subtype_label_names = NULL,
-                                  n_clusters = 2:5,
-                                  cluster_methods = c("hierarchical","diana","kmeans"),
-                                  clustering_dissimilarity = NULL, 
-                                  distance_metric = "euclidean",
-                                  correlation_method = "spearman",
-                                  hierarchical_linkage = "complete",
-                                  kmeans_num_init = 100,
-                                  kmeans_max_iters = 100,
-                                  kmeans_tol = 0.0001,
-                                  gmm_modelNames = NULL,  
-                                  gmm_shrinkage = 0.01, 
-                                  knn_neighbours = 30, 
-                                  knn_jaccard = TRUE, 
-                                  cluster_size_table = TRUE, 
-                                  silhouette_min_cluster_size = 0.0,
-                                  ...) {
-  temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
-  temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
-  rownames(temp) <- dat$id
-  
-  # Create dissimilarity matrix for Silhouette computation and HC
-  if (!is.null(clustering_dissimilarity)) {
-    diss <- clustering_dissimilarity
-  } else {
-    if (distance_metric == "euclidean") {
-      diss <- dist(temp)
-    } else if(distance_metric == "correlation") {
-      diss <- as.dist(0.5 - cor(t(temp), method = correlation_method)/2)
-    } else {
-      stop(paste("Unsupported distance metric:", distance_metric))
-    }
-  }
-  
-  # Prepare case with multiple linkage methods
-  cluster_methods_expanded <- cluster_methods
-  multiple_linkages <- "hierarchical" %in% cluster_methods & length(hierarchical_linkage) > 1
-  if (multiple_linkages) {
-    cluster_methods_expanded <- c(cluster_methods[cluster_methods != "hierarchical"], 
-                                  paste0("hierarchical_", hierarchical_linkage))
-  }
-  
-  # Allocate array for clustering results
-  #clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods_expanded)))
-  #dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods_expanded)
-  
-  # Alternative
-  clusters <- data.frame()
-  
-  # Metrics collected to data.frame
-  metrics <- data.frame()
-  
-  for (i in 1:length(cluster_methods_expanded)) {
-    if (grepl("^hierarchical", cluster_methods_expanded[i])) {
-      if (!multiple_linkages) {
-        if (hierarchical_linkage == "ward") {
-          clust_i <- flashClust::flashClust(diss**2, method = hierarchical_linkage)
-        } else {
-          clust_i <- flashClust::flashClust(diss, method = hierarchical_linkage)
-        }
-      } else {
-        linkage_i <- gsub("^hierarchical_", "", cluster_methods_expanded[i])
-        if (linkage_i == "ward") {
-          if (distance_metric != "euclidean") stop("Ward linkage should be used with euclidean distance")
-          clust_i <- flashClust::flashClust(diss**2, method = linkage_i)
-        } else {
-          clust_i <- flashClust::flashClust(diss, method = linkage_i)
-        }
-      }
-      for (j in 1:length(n_clusters)) {
-        temp_k <- cutree(clust_i, n_clusters[j])
-        #silh_k <- cluster::silhouette(x = temp_k, dist = diss)
-        silh_k <- silhouette_adjusted(x = temp_k, diss = diss, min_size = silhouette_min_cluster_size)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                               k = n_clusters[j], cluster = temp_k))
-      }
-    } else if (cluster_methods_expanded[i] == "diana") {
-      clust_i <- cluster::diana(x = diss, diss = TRUE)
-      for (j in 1:length(n_clusters)) {
-        temp_k <- cutree(clust_i, n_clusters[j])
-        #silh_k <- cluster::silhouette(x = temp_k, dist = diss)
-        silh_k <- silhouette_adjusted(x = temp_k, diss = diss, min_size = silhouette_min_cluster_size)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                               k = n_clusters[j], cluster = temp_k))
-      }
-    #} else if (cluster_methods_expanded[i] == "agnes") {
-    #  
-    #} else if (cluster_methods_expanded[i] == "pam") {
-    #  
-    } else if (cluster_methods_expanded[i] == "kmeans") {
-      if (distance_metric != "euclidean") stop("Only euclidean distance is supported by k-means")
-      for (j in 1:length(n_clusters)) {
-        clust_k <- ClusterR::KMeans_rcpp(data = temp, clusters = n_clusters[j], 
-                                         num_init = kmeans_num_init, max_iters = kmeans_max_iters,
-                                         tol = kmeans_tol)
-        #silh_k <- cluster::silhouette(x = clust_k$clusters, dist = diss)
-        silh_k <- silhouette_adjusted(x = clust_k$clusters, diss = diss, min_size = silhouette_min_cluster_size)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                               k = n_clusters[j], cluster = clust_k$clusters))
-      }
-    #} else if (cluster_methods_expanded[i] == "sota") {
-    #  
-    } else if (cluster_methods_expanded[i] == "model") {
-      if (distance_metric != "euclidean") stop("Only euclidean distance is supported by GMM")
-      for (j in 1:length(n_clusters)) {
-        clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, 
-                                  prior = priorControl(functionName="defaultPrior", shrinkage = gmm_shrinkage), 
-                                  verbose = FALSE)
-        if (is.null(clust_k)) {
-          # Fail
-          warning(paste0("GMM fitting failed (model: ", gmm_modelNames, ", samples: ", 
-                                          dim(temp)[1], ", dimensions = ", dim(temp)[2], ", clusters: ",
-                                          n_clusters[j], ")"))
-          clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                                 k = n_clusters[j], cluster = NA))
-        } else {
-          # Success
-          #silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
-          silh_k <- silhouette_adjusted(x = clust_k$classification, diss = diss, min_size = silhouette_min_cluster_size)
-          metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                               metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-          clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                                 k = n_clusters[j], cluster = clust_k$classification))
-        }
-      }
-    } else if (cluster_methods_expanded[i] == "knn_communities") {
-      clust_k <- knn_communities(t(temp), k = knn_neighbours, jaccard_kernel = knn_jaccard)
-      #silh_k <- cluster::silhouette(x = clust_k, dist = diss)
-      silh_k <- silhouette_adjusted(x = clust_k, diss = diss, min_size = silhouette_min_cluster_size)
-      metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = "variable", 
-                                           metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-      clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                             k = "variable", cluster = clust_k))
-    } else if (cluster_methods_expanded[i] == "spectral") {
-      for (j in 1:length(n_clusters)) {
-        clust_k <- Spectrum::Spectrum(t(temp), method = 3, fixk = n_clusters[j])
-        #silh_k <- cluster::silhouette(x = clust_k$assignments, dist = diss)
-        silh_k <- silhouette_adjusted(x = clust_k$assignments, diss = diss, min_size = silhouette_min_cluster_size)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                               k = n_clusters[j], cluster = clust_k$assignments))
-      }
-    } else if (cluster_methods_expanded[i] == "SC3") {
-      # Multi-thread errors that seemingly cannot be avoided
-      for (j in 1:length(n_clusters)) {
-        # SC3 only accepts input in the form of SingleCellExperiment 
-        hack <- SingleCellExperiment::SingleCellExperiment(assays = list(logcounts = t(temp)))
-        SummarizedExperiment::rowData(hack)$feature_symbol <- colnames(temp)
-        hack <- SC3::sc3(hack, ks = n_clusters[j], gene_filter = FALSE, n_cores = NULL)
-        clust_k <- cutree(hack@metadata$sc3$consensus[[1]]$hc, n_clusters[j])
-        #silh_k <- cluster::silhouette(x = clust_k, dist = diss)
-        silh_k <- silhouette_adjusted(x = clust_k, diss = diss, min_size = silhouette_min_cluster_size)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
-                                               k = n_clusters[j], cluster = clust_k))
-      }
-    }else {
-      stop(paste("Unsupported method:", cluster_methods_expanded[i]))
-    }
-  }
-  
-  out_list <- list()
-  
-  # Combine outputs with metadata
-  out_list$clusters <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
-                                  clusters, 
-                                  by = "id")
-  out_list$clusters <- out_list$clusters[!is.na(out_list$clusters$cluster),] # potential issue with reference fold missing later
-  
-  out_list$metrics <- metrics
-  
-  # Insert meta data (if present)
-  out_list$metrics$run <- dat$run[1]
-  out_list$metrics$fold <- dat$fold[1]
-  out_list$metrics$datname <- dat$datname[1]
-  out_list$metrics$drname <- dat$drname[1]
-  
-  # Pearson's chi-squared test
-  f1 <- function(x, c1, c2) {
-    temp <- tryCatch(suppressWarnings(chisq.test(x[[c1]], x[[c2]])), error = function(e) NULL)
-    if (is.null(temp)) {
-      temp <- data.frame(p = NA)
-    } else {
-      temp <- data.frame(p = temp$p.value)
-    }
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    temp$label <- c2
-    return(temp)
-  }
-  # Other contingency table based metrics
-  f2 <- function(x, c1, c2) {
-    temp <- data.frame(nmi = aricode::NMI(x[[c1]], x[[c2]]),
-                       ari = aricode::ARI(x[[c1]], x[[c2]]))
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    temp$label <- c2
-    return(temp)
-  }
-  
-  if (!is.null(batch_label_names)) {
-    batch_label_chisq <- list()
-    batch_label_assoc <- list()
-    for (i in 1:length(batch_label_names)) {
-      batch_label_chisq[[i]] <- Reduce("rbind", 
-                                       lapply(split(out_list$clusters, 
-                                                    out_list$clusters[c("k", "m")]), 
-                                              f1, c1 = "cluster", c2 = batch_label_names[i]))
-      batch_label_assoc[[i]] <- Reduce("rbind", 
-                                       lapply(split(out_list$clusters, 
-                                                    out_list$clusters[c("k", "m")]), 
-                                              f2, c1 = "cluster", c2 = batch_label_names[i]))
-    }
-    out_list$chisq_pval <- Reduce("rbind", batch_label_chisq)
-    out_list$batch_association <- Reduce("rbind", batch_label_assoc)
-  }
-  
-  if (!is.null(subtype_label_names)) {
-    subtype_label_assoc <- list()
-    for (i in 1:length(subtype_label_names)) {
-      temp <- out_list$clusters[!is.na(out_list$clusters[[subtype_label_names[i]]]),]
-      subtype_label_assoc[[i]] <- Reduce("rbind", 
-                                         lapply(split(temp, 
-                                                      temp[c("k", "m")]), 
-                                                f2, c1 = "cluster", c2 = subtype_label_names[i]))
-    }
-    out_list$subtype_association <- Reduce("rbind", subtype_label_assoc)
-  }
-  
-  f3 <- function(x, c1) {
-    temp <- as.data.frame(t(as.matrix(table(x[[c1]]))))
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    return(temp)
-  }
-  
-  if (cluster_size_table) {
-    out_list$cluster_sizes <-  Reduce(rbind_fill, 
-                                      lapply(split(out_list$clusters, 
-                                                   out_list$clusters[c("k", "m")]), 
-                                             f3, c1 = "cluster"))
-  }
-  
-  return(out_list)
-}
-
-
-#' Clinical association for clustering results
+#' Association analysis for clustering results
 #'
 #' @param clust data.frame with columns id and cluster.
-#' @param clinical_data data.frame with clinical variables, rownames should match with id in \code{clust}.
+#' @param association_data data.frame with association variables, rownames should match with id in \code{clust}.
 #'
 #' @return A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 
 #'         as well as analysis of variance and kruskal-wallis test p-values for 
 #'         continuous variables. 
 #' @export
-clinical_associations <- function(clust, clinical_data) {
-  clinical_data_matched <- clinical_data[match(clust$id, 
-                                               rownames(clinical_data)), 
+cluster_associations <- function(clust, association_data) {
+  association_data_matched <- association_data[match(clust$id, 
+                                               rownames(association_data)), 
                                          , 
                                          drop = FALSE]
   out <- list()
-  for (i in 1:ncol(clinical_data)) {
-    clinical_var <- clinical_data_matched[,i]
-    nna_ind <- which(!is.na(clinical_var))
+  for (i in 1:ncol(association_data)) {
+    association_var <- association_data_matched[,i]
+    nna_ind <- which(!is.na(association_var))
     if (length(nna_ind) > 1) {
-      if (length(unique(clinical_var[nna_ind])) > 1 &
+      if (length(unique(association_var[nna_ind])) > 1 &
           length(unique(clust$cluster[nna_ind])) > 1) {
         valid <- TRUE
       } else {
@@ -646,30 +332,30 @@ clinical_associations <- function(clust, clinical_data) {
       valid <- FALSE
     }
     if(valid) {
-      if (class(clinical_var) %in% c("character", "factor")) {
+      if (class(association_var) %in% c("character", "factor")) {
         out[[i]] <- data.frame(nmi = aricode::NMI(clust$cluster[nna_ind], 
-                                                  clinical_var[nna_ind]), 
+                                                  association_var[nna_ind]), 
                                ari = aricode::ARI(clust$cluster[nna_ind], 
-                                                  clinical_var[nna_ind]))
+                                                  association_var[nna_ind]))
         temp <- tryCatch(suppressWarnings(chisq.test(clust$cluster[nna_ind], 
-                                                     clinical_var[nna_ind])), 
+                                                     association_var[nna_ind])), 
                          error = function(e) NULL)
         if (is.null(temp)) {
           out[[i]]$chisq.p <- NA
         } else {
           out[[i]]$chisq.p <- temp$p.value
         }
-        colnames(out[[i]]) <- paste0(colnames(clinical_data)[i], ".", colnames(out[[i]]))
-      } else if (class(clinical_var) %in% c("numeric", "integer")) {
-        anova_res <- stats::aov(clinical_var[nna_ind] ~ clust$cluster[nna_ind])
-        kruskal_res <- stats::kruskal.test(clinical_var[nna_ind], 
+        colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
+      } else if (class(association_var) %in% c("numeric", "integer")) {
+        anova_res <- stats::aov(association_var[nna_ind] ~ clust$cluster[nna_ind])
+        kruskal_res <- stats::kruskal.test(association_var[nna_ind], 
                                            clust$cluster[nna_ind])
         out[[i]] <- data.frame(aov.p = summary(anova_res)[[1]][1,"Pr(>F)"],
                                kruskal.p = kruskal_res$p.value)
-        colnames(out[[i]]) <- paste0(colnames(clinical_data)[i], ".", colnames(out[[i]]))
+        colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
       } else {
-        warning(paste0("Unknown data type in clinical data column ", 
-                       colnames(clinical_data)[i], "."))
+        warning(paste0("Unknown data type in association data column ", 
+                       colnames(association_data)[i], "."))
       }
     }
   }
@@ -677,21 +363,21 @@ clinical_associations <- function(clust, clinical_data) {
 }
 
 
-#' Gene module correlation score for multiple clustering results
 #' 
-#' Runs \code{\link{gene_module_score}} in parallel. 
+#' 
+#' Runs \code{\link{cluster_associations}} in parallel. 
 #' 
 #' Assumes that a parallel backend has been registered for \code{foreach}.
 #'
 #' @param clusters A data.table or data.frame with clustering information. 
-#' @param clinical_data A data.frame with clinical variables (categoric or numeric).
+#' @param association_data A data.frame with association variables (categoric or numeric).
 #' @param by Column names that identify a single clustering result.
 #' @param ... Extra arguments are ignored.
 #'
-#' @return \code{data.table} containing clinical associations
+#' @return \code{data.table} containing association variables
 #' @export
-clinical_evaluation <- function(clusters, 
-                                clinical_data, 
+association_analysis_cv <- function(clusters, 
+                                association_data, 
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 parallel = 1, 
                                 ...) {
@@ -705,15 +391,15 @@ clinical_evaluation <- function(clusters,
   
   out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...), fill = TRUE),
-                 .export = c("clinical_associations"),
+                 .export = c("cluster_associations"),
                  .packages = c(),
                  .multicombine = TRUE,
                  .maxcombine = length(clust_list)) %dopar% {
-                   clinical_assoc <- clinical_associations(clust, clinical_data)
-                   if (!is.null(clinical_assoc)) {
-                     clinical_assoc <- data.frame(as.data.frame(clust)[1,by], clinical_assoc)
+                   cluster_assoc <- cluster_associations(clust, association_data)
+                   if (!is.null(cluster_assoc)) {
+                     cluster_assoc <- data.frame(as.data.frame(clust)[1,by], cluster_assoc)
                    }
-                   clinical_assoc
+                   cluster_assoc
                  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
@@ -820,66 +506,3 @@ module_evaluation <- function(clusters,
                  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
-
-#' Clustering analysis on cross-validated data sets
-#'
-#' Performs clustering analysis on each fold of an external cross validation.
-#'
-#' Produces clusterings using multiple methods and settings while computing internal validation metrics 
-#' such as Connectivity, Dunn and Silhouette scores. Also computes chi-squared tests with respect to 
-#' a batch label if one is provided. 
-#'
-#' @param dat_embedded list of \code{data.frame}s
-#' @param ... extra arguments are passed through to clustering_evaluation
-#'
-#' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_evaluation}} outputs for every
-#'         combination of CV run, CV fold, clustering method, number of clusters as well as all combinations of
-#'         data sets and dimensionality reduction techniques found in the input \code{data.frame}.
-#' @export
-#' @importFrom foreach foreach %dopar%
-#' @importFrom data.table rbindlist
-cv_clusteval <- function(dat_embedded, 
-                         parallel = 1, 
-                         ...) {
-  temp_list <- list()
-  for (i in 1:length(dat_embedded)) {
-    temp <- dat_embedded[[i]]
-    drname <- names(dat_embedded)[i]
-    if (is.null(drname)) drname <- i
-    temp$drname <- drname
-    temp <- split(temp, temp[,c("run", "fold")])
-    temp_list <- c(temp_list, temp)
-  }
-  # Binding function that concatenates relevant list components
-  cfun <- function(...){
-    bound_list <- list()
-    bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
-    bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
-    #bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
-    #bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
-    #bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
-    bound_list$cluster_sizes <- rbindlist(lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
-    return(bound_list)
-  }
-  
-  parallel_clust <- setup_parallelization(parallel)
-  
-  out <- tryCatch(foreach(temp = temp_list,
-                 .combine = cfun,
-                 .export = c("clustering_evaluation"),
-                 .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
-                 .multicombine = TRUE,
-                 .maxcombine = length(temp_list)) %dopar% {
-    temp_diss <- clustering_dissimilarity(temp, ...)
-    temp_clust <- clustering_only(temp, clustering_dissimilarity = temp_diss, ...)
-    temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)
-    res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
-    res
-  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
-  return(out)
-}
-
-
-
-
-
