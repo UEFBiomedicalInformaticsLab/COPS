@@ -220,6 +220,22 @@ get_best_result <- function(res,
   return(out)
 }
 
+#' Clustering algorithms for Omics based Patient Stratification
+#'
+#' @param dat 
+#' @param nfolds 
+#' @param nruns 
+#' @param association_data 
+#' @param survival_data 
+#' @param module_eigs 
+#' @param verbose 
+#' @param parallel 
+#' @param pathway_enrichment_method 
+#' @param vertical_parallelization 
+#' @param ... 
+#'
+#' @return
+#' @export
 COPS <- function(dat, 
                  nfolds, 
                  nruns, 
@@ -229,8 +245,7 @@ COPS <- function(dat,
                  verbose = TRUE,
                  parallel = 1,
                  pathway_enrichment_method = "none",
-                 #dim_reduction = TRUE,
-                 #pre_clust_cv = FALSE,
+                 vertical_parallelization = FALSE, 
                  ...) {
   if ("list" %in% class(dat)) {
     dat_list <- dat
@@ -256,7 +271,16 @@ COPS <- function(dat,
     data.table::setkey(dat_list[[i]], id)
   }
   
-  #if (vertical_parallelization)
+  if (vertical_parallelization) {
+    out <- vertical_pipeline(dat_list, 
+                             nruns = nruns,
+                             nfolds = nfolds,
+                             survival_data = survival_data, 
+                             association_data = association_data,
+                             parallel = parallel,
+                             ...)
+    return(out)
+  }
   
   # Create cross validation folds
   cv_index <- cv_fold(dat_list = dat_list, 
@@ -371,34 +395,106 @@ COPS <- function(dat,
   return(out)
 }
 
-vertical_pipeline <- function(dat_list, cv_ind, multi_omic = FALSE, ...) {
-  parallel_clust <- setup_parallelization(parallel)
+#' COPS pipeline vertical parallelization
+#'
+#' @param dat_list 
+#' @param nfolds 
+#' @param nruns 
+#' @param survival_data 
+#' @param association_data 
+#' @param multi_omic_methods 
+#' @param parallel 
+#' @param ... 
+#'
+#' @return
+#' @importFrom foreach foreach %dopar% %:%
+vertical_pipeline <- function(dat_list, 
+                              nfolds = 5, 
+                              nruns = 1,
+                              survival_data = NULL,
+                              association_data = NULL, 
+                              multi_omic_methods = NULL, 
+                              parallel = 1, 
+                              ...) {
+  #parallel_clust <- setup_parallelization(parallel)
   #dat_list_fold <- list()
   #for (i in 1:length(dat_list) {
-  #  dat_list_fold[[i]] <- merge(dat_list[[i]], cv_ind, by = "id")
+  #  dat_list_fold[[i]] <- merge(dat_list[[i]], cv_index, by = "id")
   #}
-  if (multi_omic) {
+  if (length(multi_omic_methods) > 0) {
     if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
       warning("Colnames in all views do not match.")
       stop("Cross-validation for missing sample views not implemented.")
     } else {
       cv_index <- cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...)
       cv_index_split <- split(cv_index[[1]], by = c("run", "fold"))
-      out <- foreach(i = 1:length(cv_index_split), 
-                     .combine = c,
-                     .export = c("dat_list", "cv_index"),
-                     .packages = c("iClusterPlus")) %dopar% 
-      {
+      
+      cfun <- function(x, y) {
+        for (i in 1:length(x)) {
+          x[[i]] <- plyr::rbind.fill(x[[i]], y[[i]])
+        }
+        return(x)
+      }
+      parallel_clust <- setup_parallelization(parallel)
+      out <- tryCatch(foreach(i = 1:length(cv_index_split), 
+                     .combine = cfun, 
+                     .inorder = FALSE) %:%
+      foreach(mvc = multi_omic_methods, 
+              .combine = cfun, 
+              .export = c("dat_list", "cv_index"), 
+              .packages = c("iClusterPlus"), 
+              .inorder = FALSE) %dopar% {
         dat_i <- list()
         non_data_cols <- list()
         for (j in 1:length(dat_list)) {
-          dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]])
+          dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
           sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
           non_data_cols[[j]] <- dat_i[[j]][,-..sel]
           dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
         }
-        #multi
-      }
+        # multi-omic clustering
+        # 1) multi-view clustering
+        # 2) multi-view integration/embedding + clustering
+        # Since we are running different methods in parallel we take the first result only
+        clust_i <- multi_omic_clustering(dat_i, 
+                                         non_data_cols, 
+                                         multi_view_methods = mvc,
+                                         ...)
+        # Clustering metrics (How should this be implemented?)
+        
+        # Clustering stability evaluation (must be done after loops)
+        
+        # Survival evaluation
+        if (!is.null(survival_data)) {
+          survival_i <- survival_evaluation(survival_data, 
+                                              clust_i, 
+                                              parallel = 1, 
+                                              by = c("k"),
+                                              ...)
+        } else {
+          survival_i <- NULL
+        }
+        
+        # Clustering association analysis
+        if (!is.null(association_data)) {
+          association_i <- association_analysis_cv(clust_i, 
+                                                   association_data, 
+                                                   parallel = 1, 
+                                                   by = c("k"),
+                                                   ...)
+        } else {
+          association_i <- NULL
+        }
+        # Return
+        out_i <- list(clusters = clust_i)
+        out_i$survival <- survival_i
+        out_i$association <- association_i
+        out_i
+      }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+      out$clusters <- data.table::setDT(out$clusters)
+      out$stability <- stability_eval(out$clusters, by = c("run", "m", "k"))
+      
+      return(out)
     }
   } else {
     

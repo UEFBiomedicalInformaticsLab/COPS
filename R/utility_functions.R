@@ -86,7 +86,7 @@ ecdf_transform <- function(x,
                    .combine = cbind,
                    .export = c(),
                    .multicombine = TRUE,
-                   .maxcombine = ncol(x)) %dopar% {
+                   .maxcombine = max(ncol(x), 2)) %dopar% {
                      score_i <- x * 0
                      for (j in (1:ncol(x))[-i]) {
                        # z-score with respect to each kernel
@@ -500,3 +500,20 @@ setup_parallelization <- function(parallel) {
   }
   return(parallel_clust)
 }
+
+split_by_safe <- function(x, by) {
+  if (length(by) > 0) {
+    if (data.table::is.data.table(x)) {
+      x_list <- split(x, by = by)
+    } else {
+      # probably data.frame
+      x_list <- split(x, x[, by, drop = FALSE])
+    }
+  } else {
+    # Nothing to split by
+    x_list <- list(x)
+  }
+  return(x_list)
+}
+
+

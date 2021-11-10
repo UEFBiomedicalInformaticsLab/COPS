@@ -227,10 +227,7 @@ stability_eval <- function(clust,
   }
   by <- by[by %in% colnames(clust)]
   
-  if (!is.data.table(clust)) data.table::setDT(clust)
-  
-  temp_list <- split(clust, by = by)
-  #temp_list <- split(clust, clust[by])
+  temp_list <- split_by_safe(clust, by)
   
   parallel_clust <- setup_parallelization(parallel)
   
@@ -239,7 +236,7 @@ stability_eval <- function(clust,
                       .export = c(),
                       .packages = c("clusteval", "data.table", "aricode"),
                       .multicombine = TRUE,
-                      .maxcombine = length(temp_list)) %dopar% {
+                      .maxcombine = max(length(temp_list), 2)) %dopar% {
     out <- f2(temp)
     for (j in by) {
       out[[j]] <- temp[[j]][1]
@@ -381,11 +378,7 @@ association_analysis_cv <- function(clusters,
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 parallel = 1, 
                                 ...) {
-  if (data.table::is.data.table(clusters)) {
-    clust_list <- split(clusters, by = by)
-  } else { # data.frame
-    clust_list <- split(clusters, clusters[, by])
-  }
+  clust_list <- split_by_safe(clusters, by)
   
   parallel_clust <- setup_parallelization(parallel)
   
@@ -394,7 +387,7 @@ association_analysis_cv <- function(clusters,
                  .export = c("cluster_associations"),
                  .packages = c(),
                  .multicombine = TRUE,
-                 .maxcombine = length(clust_list)) %dopar% {
+                 .maxcombine = max(length(clust_list), 2)) %dopar% {
                    cluster_assoc <- cluster_associations(clust, association_data)
                    if (!is.null(cluster_assoc)) {
                      cluster_assoc <- data.frame(as.data.frame(clust)[1,by], cluster_assoc)
@@ -486,11 +479,7 @@ module_evaluation <- function(clusters,
                               by = c("run", "fold", "datname", "drname", "k", "m"), 
                               parallel = 1, 
                               ...) {
-  if (data.table::is.data.table(clusters)) {
-    clust_list <- split(clusters, by = by)
-  } else {
-    clust_list <- split(clusters, clusters[, by])
-  }
+  clust_list <- split_by_safe(clusters, by)
   
   parallel_clust <- setup_parallelization(parallel)
   
@@ -499,7 +488,7 @@ module_evaluation <- function(clusters,
                  .export = c("gene_module_score"),
                  .packages = c(),
                  .multicombine = TRUE,
-                 .maxcombine = length(clust_list)) %dopar% {
+                 .maxcombine = max(length(clust_list), 2)) %dopar% {
                    gm_score <- gene_module_score(clust, module_eigs, module_cor_threshold, module_nan.substitute)
                    gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
                    gm_score

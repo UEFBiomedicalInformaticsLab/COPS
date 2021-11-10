@@ -58,18 +58,14 @@ survival_evaluation <- function(event_data,
                                 ...) {
   parallel_clust <- setup_parallelization(parallel)
   
-  if (data.table::is.data.table(clusters)) {
-    clust_list <- split(clusters, by = by)
-  } else {
-    clust_list <- split(clusters, clusters[, by])
-  }
+  clust_list <- split_by_safe(clusters, by)
   
   out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
                  .export = c("by"),
                  .packages = c("survival"),
                  .multicombine = TRUE,
-                 .maxcombine = length(clust_list)) %dopar% {
+                 .maxcombine = max(length(clust_list), 2)) %dopar% {
                    survival_ind <- match(event_data[[row_id]], clust$id)
                    temp <- event_data[!is.na(survival_ind),]
                    temp$cluster <- NA

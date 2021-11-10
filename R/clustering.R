@@ -245,7 +245,7 @@ clustering_metrics <- function(x,
   
   metrics <- data.frame()
   csize <- list()
-  clusters <- split(x, f = x[by])
+  clusters <- split(x, f = x[by, drop = FALSE])
   for (i in 1:length(clusters)) {
     # Silhouette
     silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 
@@ -317,7 +317,7 @@ cv_clusteval <- function(dat_embedded,
                           .export = c("clustering_analysis", "clustering_metrics"),
                           .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
                           .multicombine = TRUE,
-                          .maxcombine = length(temp_list)) %dopar% {
+                          .maxcombine = max(length(temp_list), 2)) %dopar% {
                             temp_diss <- clustering_dissimilarity(temp, ...)
                             temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
                             temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)

@@ -191,7 +191,7 @@ fgsea_wrapper <- function(data_matrix,
                  .combine = rbind, #list, #rbind,
                  .export = c(),
                  .multicombine = TRUE,
-                 .maxcombine = ncol(data_matrix)) %dopar% {
+                 .maxcombine = max(ncol(data_matrix), 2)) %dopar% {
                    # Sum up duplicated gene id:s
                    genes_i <- tapply(genes_i, names(genes_i), sum)
                    genes_i <- genes_i[abs(genes_i) > fgsea_input_cutoff]

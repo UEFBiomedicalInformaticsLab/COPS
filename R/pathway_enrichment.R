@@ -160,7 +160,7 @@ genes_to_pathways <- function(expr,
 #' Assumes a parallel backend has been registered for \code{\link[foreach]{foreach}} with \code{\link[doParallel]{registerDoParallel}}. 
 #' Setting \code{parallel} does nothing. 
 #'
-#' @param dat_list list of data sets corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).
+#' @param dat_list list of data.tables corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).
 #' @param cv_index list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}
 #' @param gene_id_list list of gene name vectors of the corresponding columns in dat_list
 #' @param parallel ignored and set to 1 for spawned subprocesses
@@ -242,7 +242,7 @@ DiffRank <- function(expr,
                 .combine = rbind,
                 .export = c(),
                 .multicombine = TRUE,
-                .maxcombine = length(gene_set_list)) %dopar% {
+                .maxcombine = max(length(gene_set_list), 2)) %dopar% {
     ind <- which(rownames(expr) %in% i)
     # Compare mean ranks of pw genes vs non-pw genes
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
