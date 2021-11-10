@@ -469,7 +469,7 @@ vertical_pipeline <- function(dat_list,
           survival_i <- survival_evaluation(survival_data, 
                                               clust_i, 
                                               parallel = 1, 
-                                              by = c("k"),
+                                              by = c("run", "fold", "m", "k"),
                                               ...)
         } else {
           survival_i <- NULL
@@ -480,7 +480,7 @@ vertical_pipeline <- function(dat_list,
           association_i <- association_analysis_cv(clust_i, 
                                                    association_data, 
                                                    parallel = 1, 
-                                                   by = c("k"),
+                                                   by = c("run", "fold", "m", "k"),
                                                    ...)
         } else {
           association_i <- NULL
@@ -637,17 +637,6 @@ clusteval_scoring <- function(res,
     sassoc_ari <- NULL
   }
   
-  if (!is.null(res$stability)) {
-    # Stability
-    #by_stability <- by[by %in% colnames(res$stability)]
-    stability <- res$stability
-    stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
-    colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
-                                           "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
-  } else {
-    stability <- NULL
-  }
-  
   # Survival likelihood ratio test
   if (!is.null(res$survival)) {
     if (summarise) {
@@ -692,6 +681,17 @@ clusteval_scoring <- function(res,
     cluster_sizes <- NULL
   }
   
+  if (!is.null(res$stability)) {
+    # Stability
+    #by_stability <- by[by %in% colnames(res$stability)]
+    stability <- res$stability
+    stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
+    colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
+                                           "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
+  } else {
+    stability <- NULL
+  }
+  
   # Combine all metrics
   out <- list(mean_internals, 
               chisq_rr, 
@@ -699,13 +699,17 @@ clusteval_scoring <- function(res,
               bassoc_ari, 
               sassoc_nmi, 
               sassoc_ari, 
-              stability, 
               survival, 
               modules,
               association,
-              cluster_sizes)
+              cluster_sizes,
+              stability)
   #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
-  out <- Reduce(function(x,y) plyr::join(x, y, by = intersect(by, intersect(colnames(x), colnames(y)))), 
+  out <- Reduce(function(x,y) plyr::join(x, y, 
+                                         by = intersect(by, 
+                                                        intersect(colnames(x), 
+                                                                  colnames(y))), 
+                                         type = "full"), 
                 out[!sapply(out, is.null)])
   
   # Scoring

@@ -39,7 +39,7 @@ multi_omic_clustering <- function(dat_list_clust,
     for (k in n_clusters) {
       nmf_view_weights <- sapply(dat_list_clust, function(x) mean(sqrt(apply(x^2, 1, sum))))
       temp_res <- nmf.mnnals(dat_list_clust, 
-                             k.range = k, 
+                             k = k, 
                              maxiter = nmf_maxiter,
                              st.count = nmf_st.count,
                              n.ini = nmf_n.ini,
