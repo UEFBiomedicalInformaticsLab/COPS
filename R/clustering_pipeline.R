@@ -492,7 +492,9 @@ vertical_pipeline <- function(dat_list,
         out_i
       }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
       out$clusters <- data.table::setDT(out$clusters)
-      out$stability <- stability_eval(out$clusters, by = c("run", "m", "k"))
+      out$stability <- stability_eval(out$clusters, 
+                                      by = c("run", "m", "k"), 
+                                      parallel = parallel)
       
       return(out)
     }

@@ -237,10 +237,12 @@ stability_eval <- function(clust,
                       .packages = c("clusteval", "data.table", "aricode"),
                       .multicombine = TRUE,
                       .maxcombine = max(length(temp_list), 2)) %dopar% {
-    out <- f2(temp)
-    for (j in by) {
-      out[[j]] <- temp[[j]][1]
-    }
+    out <- tryCatch({
+      out <- f2(temp)
+      for (j in by) {
+        out[[j]] <- temp[[j]][1]
+      }
+      out}, error = function(e) return(NULL))
     out
   }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(as.data.frame(stability))

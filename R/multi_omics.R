@@ -25,31 +25,35 @@ multi_omic_clustering <- function(dat_list_clust,
     if (length(dat_list_clust) == 4) dt4 <- dat_list_clust[[4]] else dt4 <- NULL
     
     for (k in n_clusters) {
-      temp_res <- iClusterPlus::iClusterPlus(dt1, dt2, dt3, dt4, 
-                                             type = rep("gaussian", length(dat_list_clust)),
-                                             K = k-1)
-      k_res <- data.frame(m = "iClusterPlus", 
-                          k = k,
-                          cluster = temp_res$clusters)
-      k_res <- cbind(non_data_cols[[1]], k_res)
-      res <- c(res, list(k_res))
+      k_res <- tryCatch({
+        temp_res <- iClusterPlus::iClusterPlus(dt1, dt2, dt3, dt4, 
+                                               type = rep("gaussian", length(dat_list_clust)),
+                                               K = k-1)
+        k_res <- data.frame(m = "iClusterPlus", 
+                            k = k,
+                            cluster = temp_res$clusters)
+        cbind(non_data_cols[[1]], k_res)
+        }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
   if ("IntNMF" %in% multi_view_methods) {
     for (k in n_clusters) {
-      nmf_view_weights <- sapply(dat_list_clust, function(x) mean(sqrt(apply(x^2, 1, sum))))
-      temp_res <- nmf.mnnals(dat_list_clust, 
-                             k = k, 
-                             maxiter = nmf_maxiter,
-                             st.count = nmf_st.count,
-                             n.ini = nmf_n.ini,
-                             ini.nndsvd = nmf_ini.nndsvd,
-                             wt = nmf_view_weights)
-      k_res <- data.frame(m = "IntNMF", 
-                          k = k,
-                          cluster = temp_res$clusters)
-      k_res <- cbind(non_data_cols[[1]], k_res)
-      res <- c(res, list(k_res))
+      k_res <- tryCatch({
+        nmf_view_weights <- sapply(dat_list_clust, function(x) mean(sqrt(apply(x^2, 1, sum))))
+        temp_res <- nmf.mnnals(dat_list_clust, 
+                               k = k, 
+                               maxiter = nmf_maxiter,
+                               st.count = nmf_st.count,
+                               n.ini = nmf_n.ini,
+                               ini.nndsvd = nmf_ini.nndsvd,
+                               wt = nmf_view_weights)
+        k_res <- data.frame(m = "IntNMF", 
+                            k = k,
+                            cluster = temp_res$clusters)
+        cbind(non_data_cols[[1]], k_res)
+        }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
   return(plyr::rbind.fill(res))
