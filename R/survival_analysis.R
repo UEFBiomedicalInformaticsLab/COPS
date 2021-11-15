@@ -71,7 +71,12 @@ survival_evaluation <- function(event_data,
                    temp$cluster <- NA
                    temp$cluster <- clust$cluster[survival_ind[!is.na(survival_ind)]]
                    temp$cluster <- factor(temp$cluster)
-                   out_i <- data.frame(clust[1,..by], cluster_significance = NA)
+                   if ("data.table" %in% class(clust)) {
+                     out_i <- data.frame(clust[1,..by], cluster_significance = NA)
+                   } else {
+                     out_i <- data.frame(clust[1,by], cluster_significance = NA)
+                   }
+                   
                    colnames(out_i)[-ncol(out_i)] <- by
                    out_i$id <- NULL
                    out_i$cluster <- NULL

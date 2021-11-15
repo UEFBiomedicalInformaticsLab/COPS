@@ -199,14 +199,18 @@ stability_eval <- function(clust,
     nonref$test_ind <- nonref$cv_index == nonref$fold
     
     ref_cols <- c("id", by2[by2 != "fold"], "reference_cluster")
-    nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
+    if ("data.table" %in% class(ref)) {
+      nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
+    } else {
+      nonref <- merge(nonref, ref[, ref_cols], by = c("id", by2[by2 != "fold"]))
+    }
     
-    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
-    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
+    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
+    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
     train_res <- f1(train_nonref, train_ref)
     
-    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
-    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
+    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
+    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
     test_res <- f1(test_nonref, test_ref)
     
     out_f2 <- data.table::data.table(fold = names(train_ref), 
@@ -232,11 +236,11 @@ stability_eval <- function(clust,
   parallel_clust <- setup_parallelization(parallel)
   
   stability <- tryCatch(foreach(temp = temp_list,
-                      .combine = function(...) data.table::rbindlist(list(...)),
-                      .export = c(),
-                      .packages = c("clusteval", "data.table", "aricode"),
-                      .multicombine = TRUE,
-                      .maxcombine = max(length(temp_list), 2)) %dopar% {
+                        .combine = function(...) data.table::rbindlist(list(...)),
+                        .export = c(),
+                        .packages = c("clusteval", "data.table", "aricode"),
+                        .multicombine = TRUE,
+                        .maxcombine = max(length(temp_list), 2)) %dopar% {
     out <- tryCatch({
       out <- f2(temp)
       for (j in by) {

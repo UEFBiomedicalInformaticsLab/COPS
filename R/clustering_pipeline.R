@@ -449,8 +449,14 @@ vertical_pipeline <- function(dat_list,
         for (j in 1:length(dat_list)) {
           dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
           sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
-          non_data_cols[[j]] <- dat_i[[j]][,-..sel]
-          dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+          if ("data.table" %in% class(dat_i[[j]])) {
+            non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+            dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+          } else {
+            non_data_cols[[j]] <- dat_i[[j]][,-sel]
+            dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+          }
+          
         }
         # multi-omic clustering
         # 1) multi-view clustering
