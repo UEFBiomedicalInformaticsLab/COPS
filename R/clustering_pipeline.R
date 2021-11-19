@@ -442,7 +442,7 @@ vertical_pipeline <- function(dat_list,
       foreach(mvc = multi_omic_methods, 
               .combine = cfun, 
               .export = c("dat_list", "cv_index"), 
-              .packages = c("iClusterPlus"), 
+              .packages = c("iClusterPlus", "IntNMF", "MOFA2"), 
               .inorder = FALSE) %dopar% {
         dat_i <- list()
         non_data_cols <- list()

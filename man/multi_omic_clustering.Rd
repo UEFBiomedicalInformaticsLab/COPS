@@ -8,7 +8,17 @@ multi_omic_clustering(
   dat_list_clust,
   non_data_cols,
   multi_view_methods = "iClusterPlus",
-  n_clusters = 2
+  n_clusters = 2,
+  distance_metric = "euclidean",
+  correlation_method = "spearman",
+  nmf_maxiter = 200,
+  nmf_st.count = 20,
+  nmf_n.ini = 30,
+  nmf_ini.nndsvd = TRUE,
+  mofa_scale_views = FALSE,
+  mofa_convergence_mode = "medium",
+  mofa_maxiter = 1000,
+  ...
 )
 }
 \arguments{

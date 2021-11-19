@@ -7,14 +7,22 @@
 #'
 #' @return
 #' @export
+#' @importFrom iClusterPlus iClusterPlus
+#' @importFrom IntNMF nmf.mnnals
+#' @importFrom MOFA2 create_mofa get_default_data_options get_default_model_options get_default_training_options prepare_mofa run_mofa
 multi_omic_clustering <- function(dat_list_clust, 
                                   non_data_cols,
                                   multi_view_methods = "iClusterPlus",
                                   n_clusters = 2, 
+                                  distance_metric = "euclidean", 
+                                  correlation_method = "spearman",
                                   nmf_maxiter = 200,
                                   nmf_st.count = 20,
                                   nmf_n.ini = 30,
                                   nmf_ini.nndsvd = TRUE,
+                                  mofa_scale_views = FALSE,
+                                  mofa_convergence_mode = "medium",
+                                  mofa_maxiter = 1000,
                                   ...) {
   res <- list()
   if("iClusterPlus" %in% multi_view_methods) {
@@ -55,6 +63,40 @@ multi_omic_clustering <- function(dat_list_clust,
         }, error = function(e) return(NULL))
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
+  }
+  if ("MOFA2" %in% multi_view_methods) {
+    temp_res <- tryCatch({
+      mofa_obj <- MOFA2::create_mofa(dat_list_clust)
+      data_opts <- MOFA2::get_default_data_options(mofa_obj)
+      data_opts$scale_views <- mofa_scale_views
+      model_opts <- MOFA2::get_default_model_options(mofa_obj)
+      train_opts <- MOFA2::get_default_training_options(mofa_obj)
+      train_opts$convergence_mode <- mofa_convergence_mode
+      train_opts$maxiter <- mofa_maxiter
+      
+      mofa_obj <- MOFA2::prepare_mofa(
+        object = mofa_obj,
+        data_options = data_opts,
+        model_options = model_opts,
+        training_options = train_opts
+      )
+      
+      mofa_obj <- MOFA2::run_mofa(mofa_obj, outfile = NULL, save_data = FALSE)
+      
+      mofa_embedding <- mofa_obj@expectations$Z$group1
+      colnames(mofa_embedding) <- paste0("dim", 1:ncol(mofa_embedding))
+      mofa_embedding <- as.data.frame(mofa_embedding)
+      mofa_embedding$id <- rownames(mofa_embedding)
+      mofa_embedding$drname <- "MOFA2"
+      
+      mofa_diss <- clustering_dissimilarity(temp, distance_metric, correlation_method)
+      mofa_cops_clust <- COPS::clustering_analysis(mofa_embedding, 
+                                                   n_clusters = n_clusters,
+                                                   clustering_dissimilarity = mofa_diss,
+                                                   ...)
+      cbind(non_data_cols[[1]], mofa_cops_clust)
+    }, error = function(e) return(NULL))
+    if(!is.null(temp_res)) if(nrow(temp_res) > 1) res <- c(res, list(temp_res))
   }
   return(plyr::rbind.fill(res))
 }
