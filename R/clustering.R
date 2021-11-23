@@ -54,7 +54,7 @@ clustering_analysis <- function(dat,
                                 knn_neighbours = 30, 
                                 knn_jaccard = TRUE, 
                                 ...) {
-  temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
+  temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
   

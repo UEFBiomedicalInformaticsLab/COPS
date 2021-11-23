@@ -456,7 +456,6 @@ vertical_pipeline <- function(dat_list,
             non_data_cols[[j]] <- dat_i[[j]][,-sel]
             dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
           }
-          
         }
         # multi-omic clustering
         # 1) multi-view clustering
@@ -501,7 +500,6 @@ vertical_pipeline <- function(dat_list,
       out$stability <- stability_eval(out$clusters, 
                                       by = c("run", "m", "k"), 
                                       parallel = parallel)
-      
       return(out)
     }
   } else {

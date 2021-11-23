@@ -23,6 +23,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mofa_scale_views = FALSE,
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
+                                  anf_neighbors = 20,
                                   ...) {
   res <- list()
   if("iClusterPlus" %in% multi_view_methods) {
@@ -66,7 +67,10 @@ multi_omic_clustering <- function(dat_list_clust,
   }
   if ("MOFA2" %in% multi_view_methods) {
     temp_res <- tryCatch({
-      mofa_obj <- MOFA2::create_mofa(dat_list_clust)
+      Sys.setenv(OMP_NUM_THREADS=1)
+      Sys.setenv(MKL_NUM_THREADS=1)
+      
+      mofa_obj <- MOFA2::create_mofa(lapply(dat_list_clust, t))
       data_opts <- MOFA2::get_default_data_options(mofa_obj)
       data_opts$scale_views <- mofa_scale_views
       model_opts <- MOFA2::get_default_model_options(mofa_obj)
@@ -86,17 +90,20 @@ multi_omic_clustering <- function(dat_list_clust,
       mofa_embedding <- mofa_obj@expectations$Z$group1
       colnames(mofa_embedding) <- paste0("dim", 1:ncol(mofa_embedding))
       mofa_embedding <- as.data.frame(mofa_embedding)
-      mofa_embedding$id <- rownames(mofa_embedding)
+      #mofa_embedding$id <- rownames(mofa_embedding)
       mofa_embedding$drname <- "MOFA2"
       
-      mofa_diss <- clustering_dissimilarity(temp, distance_metric, correlation_method)
-      mofa_cops_clust <- COPS::clustering_analysis(mofa_embedding, 
-                                                   n_clusters = n_clusters,
-                                                   clustering_dissimilarity = mofa_diss,
-                                                   ...)
-      cbind(non_data_cols[[1]], mofa_cops_clust)
+      mofa_diss <- clustering_dissimilarity(mofa_embedding, distance_metric, correlation_method)
+      mofa_cops_clust <- clustering_analysis(cbind(mofa_embedding, non_data_cols[[1]]), 
+                                             n_clusters = n_clusters,
+                                             clustering_dissimilarity = mofa_diss,
+                                             ...)
+      mofa_cops_clust
     }, error = function(e) return(NULL))
     if(!is.null(temp_res)) if(nrow(temp_res) > 1) res <- c(res, list(temp_res))
+  }
+  if ("ANF" %in% multi_view_methods) {
+    temp_res <- ANF::ANF(K = anf_neighbors)
   }
   return(plyr::rbind.fill(res))
 }

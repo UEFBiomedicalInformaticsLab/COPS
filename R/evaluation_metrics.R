@@ -205,13 +205,23 @@ stability_eval <- function(clust,
       nonref <- merge(nonref, ref[, ref_cols], by = c("id", by2[by2 != "fold"]))
     }
     
-    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-    train_res <- f1(train_nonref, train_ref)
+    if (any(!nonref$test_ind)) {
+      train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
+      train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
+      train_res <- f1(train_nonref, train_ref)
+    } else {
+      train_res <- list()
+    }
     
-    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-    test_res <- f1(test_nonref, test_ref)
+    
+    if (any(nonref$test_ind)) {
+      test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
+      test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
+      test_res <- f1(test_nonref, test_ref)
+    } else {
+      test_res <- list()
+    }
+    
     
     out_f2 <- data.table::data.table(fold = names(train_ref), 
                                      train_jsc = train_res$jsc,
