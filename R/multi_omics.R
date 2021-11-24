@@ -10,6 +10,7 @@
 #' @importFrom iClusterPlus iClusterPlus
 #' @importFrom IntNMF nmf.mnnals
 #' @importFrom MOFA2 create_mofa get_default_data_options get_default_model_options get_default_training_options prepare_mofa run_mofa
+#' @importFrom reticulate use_python
 multi_omic_clustering <- function(dat_list_clust, 
                                   non_data_cols,
                                   multi_view_methods = "iClusterPlus",
@@ -23,6 +24,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mofa_scale_views = FALSE,
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
+                                  mofa_environment = NULL,
                                   anf_neighbors = 20,
                                   ...) {
   res <- list()
@@ -69,6 +71,9 @@ multi_omic_clustering <- function(dat_list_clust,
     temp_res <- tryCatch({
       Sys.setenv(OMP_NUM_THREADS=1)
       Sys.setenv(MKL_NUM_THREADS=1)
+      if (!is.null(mofa_environment)) {
+        reticulate::use_python(mofa_environment, require = TRUE)
+      }
       
       mofa_obj <- MOFA2::create_mofa(lapply(dat_list_clust, t))
       data_opts <- MOFA2::get_default_data_options(mofa_obj)

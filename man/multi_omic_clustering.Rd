@@ -18,6 +18,8 @@ multi_omic_clustering(
   mofa_scale_views = FALSE,
   mofa_convergence_mode = "medium",
   mofa_maxiter = 1000,
+  mofa_environment = NULL,
+  anf_neighbors = 20,
   ...
 )
 }
