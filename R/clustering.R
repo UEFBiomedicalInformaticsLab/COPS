@@ -36,7 +36,7 @@
 #' @importFrom aricode NMI ARI
 #' @importFrom flashClust flashClust
 #' @importFrom ClusterR KMeans_rcpp
-#' @importFrom mclust Mclust
+#' @import mclust
 #' @importFrom Spectrum Spectrum
 #' @importFrom cluster silhouette
 clustering_analysis <- function(dat,
