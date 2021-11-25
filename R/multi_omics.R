@@ -82,6 +82,7 @@ multi_omic_clustering <- function(dat_list_clust,
       train_opts <- MOFA2::get_default_training_options(mofa_obj)
       train_opts$convergence_mode <- mofa_convergence_mode
       train_opts$maxiter <- mofa_maxiter
+      train_opts$verbose <- FALSE
       
       mofa_obj <- MOFA2::prepare_mofa(
         object = mofa_obj,
