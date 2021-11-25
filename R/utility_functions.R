@@ -502,16 +502,20 @@ setup_parallelization <- function(parallel) {
 }
 
 split_by_safe <- function(x, by) {
-  if (length(by) > 0) {
-    if (data.table::is.data.table(x)) {
-      x_list <- split(x, by = by)
+  if (!is.null(x) & nrow(x) > 0) {
+    if (length(by) > 0) {
+      if (data.table::is.data.table(x)) {
+        x_list <- split(x, by = by)
+      } else {
+        # probably data.frame
+        x_list <- split(x, x[, by, drop = FALSE])
+      }
     } else {
-      # probably data.frame
-      x_list <- split(x, x[, by, drop = FALSE])
+      # Nothing to split by
+      x_list <- list(x)
     }
   } else {
-    # Nothing to split by
-    x_list <- list(x)
+    x_list <- NULL
   }
   return(x_list)
 }
