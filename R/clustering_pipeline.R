@@ -692,8 +692,8 @@ clusteval_scoring <- function(res,
     #by_stability <- by[by %in% colnames(res$stability)]
     stability <- res$stability
     stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
-    colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
-                                           "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
+    colnames(stability)[stab_col_ind[!is.na(stab_col_ind)]] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
+                                           "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")[!is.na(stab_col_ind)]
   } else {
     stability <- NULL
   }
