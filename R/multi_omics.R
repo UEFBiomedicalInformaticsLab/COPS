@@ -25,6 +25,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
                                   mofa_environment = NULL,
+                                  mofa_threads = 1,
                                   anf_neighbors = 20,
                                   ...) {
   res <- list()
@@ -69,10 +70,10 @@ multi_omic_clustering <- function(dat_list_clust,
   }
   if ("MOFA2" %in% multi_view_methods) {
     temp_res <- tryCatch({
-      Sys.setenv(OMP_NUM_THREADS=1)
-      Sys.setenv(MKL_NUM_THREADS=1)
+      Sys.setenv(OMP_NUM_THREADS=mofa_threads)
+      Sys.setenv(MKL_NUM_THREADS=mofa_threads)
       if (!is.null(mofa_environment)) {
-        reticulate::use_python(mofa_environment, require = TRUE)
+        reticulate::use_python(mofa_environment)
       }
       
       mofa_obj <- MOFA2::create_mofa(lapply(dat_list_clust, t))
