@@ -56,10 +56,9 @@ survival_evaluation <- function(event_data,
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 parallel = 1, 
                                 ...) {
-  parallel_clust <- setup_parallelization(parallel)
-  
+  by <- by[by %in% colnames(clusters)]
   clust_list <- split_by_safe(clusters, by)
-  
+  parallel_clust <- setup_parallelization(parallel)
   out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
                  .export = c("by"),

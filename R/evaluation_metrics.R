@@ -206,18 +206,30 @@ stability_eval <- function(clust,
     }
     
     if (any(!nonref$test_ind)) {
-      train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-      train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-      train_res <- f1(train_nonref, train_ref)
+      if("data.table" %in% class(nonref)) {
+        train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
+        train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind,  ..by2])
+        train_res <- f1(train_nonref, train_ref)
+      } else {
+        train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+        train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+        train_res <- f1(train_nonref, train_ref)
+      }
     } else {
       train_res <- list()
     }
     
     
     if (any(nonref$test_ind)) {
-      test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-      test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, if("data.table" %in% class(nonref)) ..by2 else by2])
-      test_res <- f1(test_nonref, test_ref)
+      if("data.table" %in% class(nonref)) {
+        test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
+        test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
+        test_res <- f1(test_nonref, test_ref)
+      } else {
+        test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+        test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+        test_res <- f1(test_nonref, test_ref)
+      }
     } else {
       test_res <- list()
     }
@@ -394,6 +406,7 @@ association_analysis_cv <- function(clusters,
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 parallel = 1, 
                                 ...) {
+  by <- by[by %in% colnames(clusters)]
   clust_list <- split_by_safe(clusters, by)
   
   parallel_clust <- setup_parallelization(parallel)

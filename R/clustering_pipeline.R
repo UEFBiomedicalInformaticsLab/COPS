@@ -441,7 +441,7 @@ vertical_pipeline <- function(dat_list,
                      .inorder = FALSE) %:%
       foreach(mvc = multi_omic_methods, 
               .combine = cfun, 
-              .export = c("dat_list", "cv_index"), 
+              .export = c("dat_list", "cv_index_split"), 
               .packages = c("iClusterPlus", "IntNMF", "MOFA2"), 
               .inorder = FALSE) %dopar% {
         dat_i <- list()
@@ -474,7 +474,7 @@ vertical_pipeline <- function(dat_list,
           survival_i <- survival_evaluation(survival_data, 
                                               clust_i, 
                                               parallel = 1, 
-                                              by = c("run", "fold", "m", "k"),
+                                              #by = c("run", "fold", "m", "k"),
                                               ...)
         } else {
           survival_i <- NULL
@@ -485,7 +485,7 @@ vertical_pipeline <- function(dat_list,
           association_i <- association_analysis_cv(clust_i, 
                                                    association_data, 
                                                    parallel = 1, 
-                                                   by = c("run", "fold", "m", "k"),
+                                                   #by = c("run", "fold", "m", "k"),
                                                    ...)
         } else {
           association_i <- NULL
@@ -498,7 +498,7 @@ vertical_pipeline <- function(dat_list,
       }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
       out$clusters <- data.table::setDT(out$clusters)
       out$stability <- stability_eval(out$clusters, 
-                                      by = c("run", "m", "k"), 
+                                      #by = c("run", "m", "k"), 
                                       parallel = parallel)
       return(out)
     }
