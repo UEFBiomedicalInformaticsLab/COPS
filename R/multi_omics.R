@@ -27,6 +27,8 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mofa_environment = NULL,
                                   mofa_threads = 1,
                                   anf_neighbors = 20,
+                                  kkmeans_maxiter = 100,
+                                  kkmeans_n_init = 100,
                                   ...) {
   res <- list()
   if("iClusterPlus" %in% multi_view_methods) {
@@ -45,7 +47,7 @@ multi_omic_clustering <- function(dat_list_clust,
                             k = k,
                             cluster = temp_res$clusters)
         cbind(non_data_cols[[1]], k_res)
-        }, error = function(e) return(NULL))
+      }, error = function(e) return(NULL))
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
@@ -111,6 +113,23 @@ multi_omic_clustering <- function(dat_list_clust,
   }
   if ("ANF" %in% multi_view_methods) {
     temp_res <- ANF::ANF(K = anf_neighbors)
+  }
+  if ("kkmeanspp") {
+    # Kernel k-means++
+    # Just linear for now
+    multi_omic_kernels_linear <- lapply(dat_list_clust, function(x) (x) %*% t(x))
+    multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, center_kernel)
+    multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, normalize_kernel)
+    # Average kernel
+    multi_omic_kernels_linear <- Reduce('+', multi_omic_kernels_linear) / length(multi_omic_kernels_linear)
+    for (k in n_clusters) {
+      k_res <- tryCatch({
+        temp_res <- kernel_kmeans(multi_omic_kernels_linear, k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
+        temp_res <- data.frame(m = "kkmeanspp", k = k, temp_res$clusters)
+        cbind(non_data_cols[[1]], temp_res)
+      }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+    }
   }
   return(plyr::rbind.fill(res))
 }
