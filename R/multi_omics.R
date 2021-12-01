@@ -114,7 +114,7 @@ multi_omic_clustering <- function(dat_list_clust,
   if ("ANF" %in% multi_view_methods) {
     temp_res <- ANF::ANF(K = anf_neighbors)
   }
-  if ("kkmeanspp") {
+  if ("kkmeanspp" %in% multi_view_methods) {
     # Kernel k-means++
     # Just linear for now
     multi_omic_kernels_linear <- lapply(dat_list_clust, function(x) (x) %*% t(x))
