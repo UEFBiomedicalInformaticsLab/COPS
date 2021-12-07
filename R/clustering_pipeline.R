@@ -415,6 +415,7 @@ vertical_pipeline <- function(dat_list,
                               association_data = NULL, 
                               multi_omic_methods = NULL, 
                               parallel = 1, 
+                              data_is_kernels = FALSE, 
                               ...) {
   #parallel_clust <- setup_parallelization(parallel)
   #dat_list_fold <- list()
@@ -446,24 +447,45 @@ vertical_pipeline <- function(dat_list,
               .inorder = FALSE) %dopar% {
         dat_i <- list()
         non_data_cols <- list()
-        for (j in 1:length(dat_list)) {
-          dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
-          sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
-          if ("data.table" %in% class(dat_i[[j]])) {
-            non_data_cols[[j]] <- dat_i[[j]][,-..sel]
-            dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
-          } else {
-            non_data_cols[[j]] <- dat_i[[j]][,-sel]
-            dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+        
+        if(data_is_kernels) {
+          for (j in 1:length(dat_list)) {
+            if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
+              stop("Input kernels are not square!")
+            }
+            ij_ind <- match(cv_index_split[[i]]$id, dat_list[[j]]$id)
+            dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
+            
+            temp <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
+            sel <- grep("^dim[0-9]+$", colnames(temp))
+            if ("data.table" %in% class(temp)) {
+              non_data_cols[[j]] <- temp[,-..sel]
+            } else {
+              non_data_cols[[j]] <- temp[,-sel]
+            }
+          }
+        } else {
+          for (j in 1:length(dat_list)) {
+            dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
+            sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+            if ("data.table" %in% class(dat_i[[j]])) {
+              non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+              dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+            } else {
+              non_data_cols[[j]] <- dat_i[[j]][,-sel]
+              dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+            }
           }
         }
+        
         # multi-omic clustering
         # 1) multi-view clustering
         # 2) multi-view integration/embedding + clustering
         # Since we are running different methods in parallel we take the first result only
         clust_i <- multi_omic_clustering(dat_i, 
                                          non_data_cols, 
-                                         multi_view_methods = mvc,
+                                         multi_view_methods = mvc, 
+                                         data_is_kernels = data_is_kernels, 
                                          ...)
         # Clustering metrics (How should this be implemented?)
         

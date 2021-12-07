@@ -29,6 +29,10 @@ multi_omic_clustering <- function(dat_list_clust,
                                   anf_neighbors = 20,
                                   kkmeans_maxiter = 100,
                                   kkmeans_n_init = 100,
+                                  mkkm_mr_lambda = 1, 
+                                  mkkm_mr_tolerance = 1e-8, 
+                                  mkkm_mr_parallel = 1, 
+                                  data_is_kernels = FALSE, 
                                   ...) {
   res <- list()
   if("iClusterPlus" %in% multi_view_methods) {
@@ -116,16 +120,42 @@ multi_omic_clustering <- function(dat_list_clust,
   }
   if ("kkmeanspp" %in% multi_view_methods) {
     # Kernel k-means++
-    # Just linear for now
-    multi_omic_kernels_linear <- lapply(dat_list_clust, function(x) (x) %*% t(x))
-    multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, center_kernel)
-    multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, normalize_kernel)
+    if (data_is_kernels) {
+      multi_omic_kernels_linear <- dat_list_clust
+    } else {
+      # Just linear for now
+      multi_omic_kernels_linear <- lapply(dat_list_clust, function(x) (x) %*% t(x))
+      multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, center_kernel)
+      multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, normalize_kernel)
+    }
+    
     # Average kernel
     multi_omic_kernels_linear <- Reduce('+', multi_omic_kernels_linear) / length(multi_omic_kernels_linear)
     for (k in n_clusters) {
       k_res <- tryCatch({
         temp_res <- kernel_kmeans(multi_omic_kernels_linear, k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
+        cbind(non_data_cols[[1]], temp_res)
+      }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+    }
+  }
+  if ("mkkm_mr" %in% multi_view_methods) {
+    if (data_is_kernels) {
+      kernels <- dat_list_clust
+    } else {
+      # Just linear for now
+      kernels <- lapply(dat_list_clust, function(x) (x) %*% t(x))
+      kernels <- lapply(kernels, center_kernel)
+      kernels <- lapply(kernels, normalize_kernel)
+    }
+    for (k in n_clusters) {
+      k_res <- tryCatch({
+        # Optimize combined kernel
+        optimal_kernel <- mkkm_mr(kernels, k = k, lambda = mkkm_mr_lambda, tolerance = mkkm_mr_tolerance, parallel = mkkm_mr_parallel)$K
+        # Run k-means++
+        temp_res <- kernel_kmeans(optimal_kernel, k = k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
+        temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))

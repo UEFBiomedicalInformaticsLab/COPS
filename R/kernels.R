@@ -140,7 +140,7 @@ mkkm_mr_postprocessing <- function(K, H) {
 #'
 #' @return
 #' @export
-mkkm_mr <- function(K_list, k, lambda, tolerance = 1e-6) {
+mkkm_mr <- function(K_list, k, lambda, tolerance = 1e-6, parallel = 0) {
   M <- matrix(NA, length(K_list), length(K_list))
   for (i in 1:length(K_list)) {
     for (j in i:length(K_list)) {
@@ -159,7 +159,7 @@ mkkm_mr <- function(K_list, k, lambda, tolerance = 1e-6) {
       K <- K + K_list[[i]] * mu[i]**2
     }
     H <- mkkm_mr_h_opt(K, k)
-    mu <- mkkm_mr_mu_opt(K_list, H, M, lambda)
+    mu <- mkkm_mr_mu_opt(K_list, H, M, lambda, parallel)
     objective <- objective_t
     objective_t <- t(mu) %*% M %*% mu
   }
@@ -185,7 +185,7 @@ mkkm_mr_h_opt <- function(K, k) {
 # min muT/2 (2 * Z + lambda * M) mu 
 # s.t. sum(mu) = 1
 # Z = diag(<K_i, I - HHT>_i)
-mkkm_mr_mu_opt <- function(K_list, H, M, lambda) {
+mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0) {
   n <- nrow(H)
   HHT <- diag(rep(1, n)) - H %*% t(H)
   Z <- c()
@@ -195,6 +195,7 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda) {
   Z <- diag(Z)
   
   prob <- list(sense = "min")
+  prob$iparam <- list(NUM_THREADS = parallel)
   prob$A <- Matrix::Matrix(rep(1, length(K_list)), nrow = 1, sparse = TRUE)
   prob$bc <- rbind(blc = 1, buc = 1)
   prob$c <- rep(0, length(K_list))
