@@ -202,7 +202,7 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0) {
   prob$bx <- rbind(blx=rep(0, length(K_list)),
                    bux=rep(Inf, length(K_list)))
   
-  m <- ncol(H)
+  m <- ncol(Z)
   ni <- (m*m+m)/2 # sparse length
   
   # column index
