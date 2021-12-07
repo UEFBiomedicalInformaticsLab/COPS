@@ -125,7 +125,7 @@ multi_omic_clustering <- function(dat_list_clust,
     for (k in n_clusters) {
       k_res <- tryCatch({
         temp_res <- kernel_kmeans(multi_omic_kernels_linear, k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
-        temp_res <- data.frame(m = "kkmeanspp", k = k, temp_res$clusters)
+        temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))

@@ -19,7 +19,10 @@ multi_omic_clustering(
   mofa_convergence_mode = "medium",
   mofa_maxiter = 1000,
   mofa_environment = NULL,
+  mofa_threads = 1,
   anf_neighbors = 20,
+  kkmeans_maxiter = 100,
+  kkmeans_n_init = 100,
   ...
 )
 }

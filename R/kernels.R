@@ -124,8 +124,118 @@ PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
   }
 }
 
-# k-means
+# Will only work for affinity matrix K (nonnegative) 
+# NOT FINISHED
+mkkm_mr_postprocessing <- function(K, H) {
+  D <- diag(apply(K - diag(diag(K)), 1, sum))
+  Z <- 1/sqrt(D) %*% H
+}
 
+#' Multiple kernel k-means with matrix induced regularization (Liu et al. 2016)
+#'
+#' @param K_list 
+#' @param k 
+#' @param lambda 
+#' @param tolerance 
+#'
+#' @return
+#' @export
+mkkm_mr <- function(K_list, k, lambda, tolerance = 1e-6) {
+  M <- matrix(NA, length(K_list), length(K_list))
+  for (i in 1:length(K_list)) {
+    for (j in i:length(K_list)) {
+      M[i,j] <- sum(K_list[[i]] * K_list[[j]])
+      M[j,i] <- M[i,j]
+    }
+  }
+  mu <- rep(1, length(K_list)) / length(K_list)
+  objective <- NA
+  objective_t <- Inf # at least two iterations (initial soution + 1 iteration)
+  first <- TRUE
+  while(first | log(objective) - log(objective_t) > tolerance) {
+    first <- FALSE
+    K <- K_list[[1]] * mu[1]**2
+    for (i in 2:length(K_list)) {
+      K <- K + K_list[[i]] * mu[i]**2
+    }
+    H <- mkkm_mr_h_opt(K, k)
+    mu <- mkkm_mr_mu_opt(K_list, H, M, lambda)
+    objective <- objective_t
+    objective_t <- t(mu) %*% M %*% mu
+  }
+  K <- K_list[[1]] * mu[1]**2
+  for (i in 2:length(K_list)) {
+    K <- K + K_list[[i]] * mu[i]**2
+  }
+  H <- mkkm_mr_h_opt(K, k)
+  return(list(K = K, H = H, mu = mu, objective = objective))
+}
+
+# min <K (I - HHT)>
+# s.t.HTH = I
+# k first eigenvectors is optimal
+mkkm_mr_h_opt <- function(K, k) {
+  #pca <- FactoMineR::PCA(K, scale.unit = FALSE, ncp = k, graph = FALSE)
+  #eig_vecs <- sweep(pca$va$coord, 2, sqrt(pca$eig[1:k, 1]), FUN = "/")
+  eig_vecs <- eigen(K, symmetric = TRUE)$vectors[,1:k]
+  #t(eig_vecs) %*% (eig_vecs) # ~ Identity
+  return(eig_vecs)
+}
+
+# min muT/2 (2 * Z + lambda * M) mu 
+# s.t. sum(mu) = 1
+# Z = diag(<K_i, I - HHT>_i)
+mkkm_mr_mu_opt <- function(K_list, H, M, lambda) {
+  n <- nrow(H)
+  HHT <- diag(rep(1, n)) - H %*% t(H)
+  Z <- c()
+  for (i in 1:length(K_list)) {
+    Z[i] <- sum(as.vector(K_list[[i]]) * as.vector(HHT))
+  }
+  Z <- diag(Z)
+  
+  prob <- list(sense = "min")
+  prob$A <- Matrix::Matrix(rep(1, length(K_list)), nrow = 1, sparse = TRUE)
+  prob$bc <- rbind(blc = 1, buc = 1)
+  prob$c <- rep(0, length(K_list))
+  prob$bx <- rbind(blx=rep(0, length(K_list)),
+                   bux=rep(Inf, length(K_list)))
+  
+  m <- ncol(H)
+  ni <- (m*m+m)/2 # sparse length
+  
+  # column index
+  l <- rep(0, ni)
+  l[cumsum(m:2)+1] <- 1
+  l <- cumsum(l) + 1
+  # row index
+  k <- Reduce("c", lapply(1:m, function(x) x:m))
+  
+  prob$qobj$i <- k
+  prob$qobj$j <- l
+  prob$qobj$v <- (2*Z + lambda * M)[cbind(k,l)]
+  
+  res <- Rmosek::mosek(prob)
+  return(res$sol$itr$xx)
+}
+
+mkkm_mr_objective <- function(K_list, mu) {
+  obj <- 0
+  for (i in 1:(length(K_list)-1)) {
+    for (j in (i+1):length(K_list)) {
+      obj <- obj + sum(K_list[[i]] * K_list[[j]])
+    }
+  }
+  return(obj)
+}
+
+#' Global kernel k-means (Tzortzis & Likas 2008)
+#'
+#' @param K 
+#' @param n_clusters 
+#'
+#' @return
+#' @export
 global_kernel_kmeans <- function(K, n_clusters) {
   k_clusters <- rep(1, nrow(K))
   for (k in 2:n_clusters) {
@@ -141,6 +251,17 @@ global_kernel_kmeans <- function(K, n_clusters) {
   return(res[[best_i]])
 }
 
+#' Kernel k-means 
+#' 
+#' K-means++ with set number of iterations. 
+#'
+#' @param K 
+#' @param n_k 
+#' @param n_initializations 
+#' @param ... 
+#'
+#' @return
+#' @export
 kernel_kmeans <- function(K, n_k, n_initializations = 100, ...) {
   out <- list(clusters = NA, E = Inf)
   if(n_initializations > ncol(K)) {
@@ -202,11 +323,24 @@ kernel_kmeans_algorithm <- function(K, n_k, init, maxiter = 1e3) {
   return(out)
 }
 
+# Utilities
+#' Kernel centering
+#'
+#' @param x kernel matrix
+#'
+#' @return centered kernel matrix
+#' @export
 center_kernel <- function(x) {
   H <- diag(rep(1, times = ncol(x))) - 1 / ncol(x)
   return(H %*% x %*% H)
 }
 
+#' Kernel normalization to unit norm
+#'
+#' @param x  kernel matrix
+#'
+#' @return normalized kernel matrix
+#' @export
 normalize_kernel <- function(x) {
   D <- diag(1/sqrt(diag(x)))
   return(D %*% x %*% D)
