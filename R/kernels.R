@@ -90,6 +90,11 @@ PIK_KEGG <- function(x, normalized_laplacian = TRUE, gene_key = "SYMBOL") {
       rownames(kegg_pw_net_L[[i]]) <- colnames(kegg_pw_net_L[[i]]) <-  kegg_entrez_i
     }
   }
+  out <- lapply(kegg_pw_net_L, function(subnet) PIK(x, subnet))
+  return(out)
+}
+
+PIK <- function(x, gene_subnet_l) {
   common_genes <- rownames(gene_subnet_l)[rownames(gene_subnet_l) %in% colnames(x)]
   out <- (x[, common_genes, drop = FALSE]) %*% gene_subnet_l[common_genes, common_genes] %*% t(x[, common_genes, drop = FALSE])
   return(out)
