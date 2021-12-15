@@ -29,6 +29,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   anf_neighbors = 20,
                                   kkmeans_maxiter = 100,
                                   kkmeans_n_init = 100,
+                                  kkmeans_parallel = 1, 
                                   mkkm_mr_lambda = 1, 
                                   mkkm_mr_tolerance = 1e-8, 
                                   mkkm_mr_parallel = 1, 
@@ -152,9 +153,17 @@ multi_omic_clustering <- function(dat_list_clust,
     for (k in n_clusters) {
       k_res <- tryCatch({
         # Optimize combined kernel
-        optimal_kernel <- mkkm_mr(kernels, k = k, lambda = mkkm_mr_lambda, tolerance = mkkm_mr_tolerance, parallel = mkkm_mr_parallel)
+        optimal_kernel <- mkkm_mr(kernels, 
+                                  k = k, 
+                                  lambda = mkkm_mr_lambda, 
+                                  tolerance = mkkm_mr_tolerance, 
+                                  parallel = mkkm_mr_parallel)
         # Run k-means++
-        temp_res <- kernel_kmeans(optimal_kernel$K, n_k = k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
+        temp_res <- kernel_kmeans(optimal_kernel$K, 
+                                  n_k = k, 
+                                  n_initializations = kkmeans_n_init, 
+                                  maxiter = kkmeans_maxiter,
+                                  parallel = kkmeans_parallel)
         temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))

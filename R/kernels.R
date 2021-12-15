@@ -134,6 +134,7 @@ PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
 mkkm_mr_postprocessing <- function(K, H) {
   D <- diag(apply(K - diag(diag(K)), 1, sum))
   Z <- 1/sqrt(D) %*% H
+  # ...
 }
 
 #' Multiple kernel k-means with matrix induced regularization (Liu et al. 2016)
@@ -268,7 +269,7 @@ global_kernel_kmeans <- function(K, n_clusters) {
 #'
 #' @return
 #' @export
-kernel_kmeans <- function(K, n_k, n_initializations = 100, ...) {
+kernel_kmeans <- function(K, n_k, n_initializations = 100, parallel = 1, ...) {
   out <- list(clusters = NA, E = Inf)
   if(n_initializations > ncol(K)) {
     w1 <- "K-means++ is deterministic for a given initialization."
@@ -277,11 +278,23 @@ kernel_kmeans <- function(K, n_k, n_initializations = 100, ...) {
     warning(paste(w1, w2, w3))
     n_initializations <- ncol(K)
   }
-  ri <- sample(1:ncol(K), n_initializations, replace = FALSE)
-  for (i in 1:n_initializations) {
-    out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri[i], ...)
-    if(out_i$E < out$E) out <- out_i
+  lower_error <- function(x, y) {
+    if(x$E <= y$E) {
+      return(x)
+    } else {
+      return(y)
+    }
   }
+  random_seeds <- sample(1:ncol(K), n_initializations, replace = FALSE)
+  parallel_clust <- setup_parallelization(parallel)
+  out <- tryCatch(foreach(ri = random_seeds, 
+          .combine = lower_error, 
+          .export = c(), 
+          .packages = c(), 
+          .inorder = FALSE) %dopar% {
+  out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, ...)
+  out_i
+  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(out)
 }
 
