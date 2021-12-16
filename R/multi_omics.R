@@ -17,11 +17,15 @@ multi_omic_clustering <- function(dat_list_clust,
                                   n_clusters = 2, 
                                   distance_metric = "euclidean", 
                                   correlation_method = "spearman",
+                                  icp_view_types = rep("gaussian", length(dat_list_clust)),
+                                  icp_bayes_burnin = 1000,
+                                  icp_bayes_draw = 1200,
                                   nmf_maxiter = 200,
                                   nmf_st.count = 20,
                                   nmf_n.ini = 30,
                                   nmf_ini.nndsvd = TRUE,
                                   mofa_scale_views = FALSE,
+                                  mofa_likelihoods = rep("gaussian", length(dat_list_clust)), 
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
                                   mofa_environment = NULL,
@@ -49,6 +53,30 @@ multi_omic_clustering <- function(dat_list_clust,
                                                type = rep("gaussian", length(dat_list_clust)),
                                                K = k-1)
         k_res <- data.frame(m = "iClusterPlus", 
+                            k = k,
+                            cluster = temp_res$clusters)
+        cbind(non_data_cols[[1]], k_res)
+      }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+    }
+  }
+  if("iClusterBayes" %in% multi_view_methods) {
+    if (length(dat_list_clust) > 6) stop("iClusterPlus only supports up to six views.")
+    if (length(dat_list_clust) >= 1) dt1 <- dat_list_clust[[1]] else dt1 <- NULL
+    if (length(dat_list_clust) >= 2) dt2 <- dat_list_clust[[2]] else dt2 <- NULL
+    if (length(dat_list_clust) >= 3) dt3 <- dat_list_clust[[3]] else dt3 <- NULL
+    if (length(dat_list_clust) >= 4) dt4 <- dat_list_clust[[4]] else dt4 <- NULL
+    if (length(dat_list_clust) >= 5) dt5 <- dat_list_clust[[5]] else dt5 <- NULL
+    if (length(dat_list_clust) == 6) dt6 <- dat_list_clust[[6]] else dt6 <- NULL
+    
+    for (k in n_clusters) {
+      k_res <- tryCatch({
+        temp_res <- iClusterPlus::iClusterBayes(dt1, dt2, dt3, dt4, dt5, dt6, 
+                                                type = icp_view_types,
+                                                K = k-1,
+                                                n.burnin = icp_bayes_burnin,
+                                                n.draw = icp_bayes_draw)
+        k_res <- data.frame(m = "iClusterBayes", 
                             k = k,
                             cluster = temp_res$clusters)
         cbind(non_data_cols[[1]], k_res)
@@ -87,6 +115,9 @@ multi_omic_clustering <- function(dat_list_clust,
       data_opts <- MOFA2::get_default_data_options(mofa_obj)
       data_opts$scale_views <- mofa_scale_views
       model_opts <- MOFA2::get_default_model_options(mofa_obj)
+      mofa_view_names <- names(model_opts$likelihoods)
+      model_opts$likelihoods <- mofa_likelihoods
+      names(model_opts$likelihoods) <- mofa_view_names
       train_opts <- MOFA2::get_default_training_options(mofa_obj)
       train_opts$convergence_mode <- mofa_convergence_mode
       train_opts$maxiter <- mofa_maxiter
