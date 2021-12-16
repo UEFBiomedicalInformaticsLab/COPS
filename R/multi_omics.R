@@ -38,7 +38,13 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mkkm_mr_tolerance = 1e-8, 
                                   mkkm_mr_parallel = 1, 
                                   data_is_kernels = FALSE, 
+                                  foldwise_zero_var_removal = TRUE,
                                   ...) {
+  if (foldwise_zero_var_removal) {
+    # Rare binary features such as some somatic mutations could end up missing 
+    # in some of the folds. They cause issues and should be removed. 
+    dat_list_clust <- lapply(dat_list_clust, function(x) x[,apply(x, 2, var) > 0])
+  }
   res <- list()
   if("iClusterPlus" %in% multi_view_methods) {
     if (length(dat_list_clust) > 4) stop("iClusterPlus only supports up to four views.")
@@ -50,7 +56,7 @@ multi_omic_clustering <- function(dat_list_clust,
     for (k in n_clusters) {
       k_res <- tryCatch({
         temp_res <- iClusterPlus::iClusterPlus(dt1, dt2, dt3, dt4, 
-                                               type = rep("gaussian", length(dat_list_clust)),
+                                               type = icp_view_types,
                                                K = k-1)
         k_res <- data.frame(m = "iClusterPlus", 
                             k = k,
