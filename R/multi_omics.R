@@ -40,7 +40,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   data_is_kernels = FALSE, 
                                   foldwise_zero_var_removal = TRUE,
                                   ...) {
-  if (foldwise_zero_var_removal) {
+  if (foldwise_zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
     # in some of the folds. They cause issues and should be removed. 
     dat_list_clust <- lapply(dat_list_clust, function(x) x[,apply(x, 2, var) > 0])
