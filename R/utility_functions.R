@@ -461,7 +461,7 @@ plot_pvalues <- function(x,
                          facety = NULL, 
                          limits = NULL) {
   bp_quantiles <- plyr::ddply(x, by, function(a) quantile(a[[target]], probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1), na.rm = TRUE))
-  colnames(bp_quantiles)[5:11] <- c("Q0", "Q0025", "Q025", "Q05", "Q075", "Q0975", "Q1")
+  colnames(bp_quantiles)[length(by) + 1:7] <- c("Q0", "Q0025", "Q025", "Q05", "Q075", "Q0975", "Q1")
   bp_quantiles$IQR <- log(bp_quantiles$Q075) - log(bp_quantiles$Q025) 
   bp_quantiles$ymax <- apply(cbind(exp(log(bp_quantiles$Q075) + bp_quantiles$IQR * 1.5), bp_quantiles$Q1), 1, min)
   bp_quantiles$ymin <- apply(cbind(exp(log(bp_quantiles$Q025) - bp_quantiles$IQR * 1.5), bp_quantiles$Q0), 1, max)
