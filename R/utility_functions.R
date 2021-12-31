@@ -434,7 +434,13 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
   return(list(PCA = p1, tSNE = p2, UMAP = p3))
 }
 
-# Simple rbind modification which fills missing columns with NA using basic R functions
+#' Rbind modification which fills missing columns with NA using base R functions
+#'
+#' @param a 
+#' @param b 
+#'
+#' @return
+#' @export
 rbind_fill <- function(a,b) {
   all_cols <- union(colnames(a), colnames(b))
   a_fill <- all_cols[!(all_cols %in% colnames(a))]
@@ -451,6 +457,24 @@ rbind_fill <- function(a,b) {
 }
 
 
+#' Plot p-values in -log10 scale with original labels
+#'
+#' @param x 
+#' @param target 
+#' @param x_axis_var 
+#' @param color_var 
+#' @param palette 
+#' @param by 
+#' @param facetx 
+#' @param facety 
+#' @param limits 
+#'
+#' @return
+#' @export
+#'
+#' @importFrom plyr ddply
+#' @importFrom ggplot2 ggplot theme_bw scale_fill_brewer theme scale_y_continuous facet_grid
+#' @importFrom scales trans_new log_breaks
 plot_pvalues <- function(x, 
                          target, 
                          x_axis_var, 
@@ -510,6 +534,7 @@ split_by_safe <- function(x, by) {
         # probably data.frame
         x_list <- split(x, x[, by, drop = FALSE])
       }
+      x_list <- x_list[sapply(x_list, nrow) > 0]
     } else {
       # Nothing to split by
       x_list <- list(x)

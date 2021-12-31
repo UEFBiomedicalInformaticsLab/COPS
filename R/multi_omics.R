@@ -29,6 +29,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
                                   mofa_environment = NULL,
+                                  mofa_lib_path = NULL,
                                   mofa_threads = 1,
                                   anf_neighbors = 20,
                                   kkmeans_maxiter = 100,
@@ -113,8 +114,13 @@ multi_omic_clustering <- function(dat_list_clust,
     temp_res <- tryCatch({
       Sys.setenv(OMP_NUM_THREADS=mofa_threads)
       Sys.setenv(MKL_NUM_THREADS=mofa_threads)
+      if (!is.null(mofa_lib_path)) {
+        Sys.setenv(LD_LIBRARY_PATH = paste(mofa_lib_path, 
+                                           Sys.getenv("LD_LIBRARY_PATH"), 
+                                           sep = ":"))
+      }
       if (!is.null(mofa_environment)) {
-        reticulate::use_python(mofa_environment)
+        reticulate::use_virtualenv(mofa_environment)
       }
       
       mofa_obj <- MOFA2::create_mofa(lapply(dat_list_clust, t))

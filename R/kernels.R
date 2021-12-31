@@ -1,67 +1,92 @@
-if (FALSE) {
-  ###################################
-  # Pathway induced kernel
-  
-  # Load PPI
-  PPI <- read.table("~/tcga/PPI_entrez_ensemble.txt", header = TRUE)
-  PPI <- igraph::graph_from_data_frame(PPI[,1:2], directed = FALSE)
-  
-  PPI_symbols <- AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, igraph::V(PPI)$name, "SYMBOL", "ENTREZID")
-  ambiguous_ind <- PPI_symbols %in% PPI_symbols[duplicated(PPI_symbols)]
-  PPI_symbols[ambiguous_ind] <- igraph::V(PPI)$name[ambiguous_ind]
-  igraph::V(PPI)$name <- PPI_symbols
-  
-  db_annots <- msigdbr::msigdbr(species = "Homo sapiens", "C2", "CP:KEGG")
-  #db_annots <- dplyr::filter(db_annots, grepl(paste(GENE_SETS, collapse = "|"), gs_subcat))
-  list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) unique(x$gene_symbol))
-  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) <= 200 & sapply(list_db_annots, length) >= 5)]
-  
-  # KEGG pathways (including networks)
-  #UPDATE_CACHE = TRUE # Set to true to load updated pathway definitions.
-  #print("Loading pathway DB")
-  kpg <- ROntoTools::keggPathwayGraphs("hsa", verbose = TRUE)
-  #print("Setting edge weights")
-  kpg <- ROntoTools::setEdgeWeights(kpg, 
-                                    edgeTypeAttr = "subtype", 
-                                    edgeWeightByType = list(activation = 1, inhibition = 1, expression = 1, repression = 1), 
-                                    defaultWeight = 0)
-  #print("Setting pathway names.")
-  names(kpg) <- ROntoTools::keggPathwayNames("hsa")[names(kpg)]
-  
-  kegg_pw_net <- lapply(kpg, igraph::graph_from_graphnel)
-  kegg_pw_net <- lapply(kegg_pw_net, igraph::as.undirected, mode = "collapse")
-  
-  kegg_pw_net_L <- lapply(kegg_pw_net, igraph::laplacian_matrix, normalized = TRUE)
-  kegg_pw_net_L <- lapply(kegg_pw_net_L, function(x) {x@x[is.nan(x@x)] <- 0;return(x)})
-  #kegg_pw_net_L_eig <- lapply(kegg_pw_net_L, function(x) eigen(as.matrix(x))$values) # all positive or very close to 0 (numeric imprecision)
-  
-  #kegg_subnets_entrez <- lapply(kegg_pw_net, function(x) suppressMessages(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, gsub("hsa:", "", igraph::V(x)$name), "SYMBOL", "ENTREZID")))
-  # Translate rows to symbols
-  for (i in 1:length(kegg_pw_net_L)) {
-    kegg_entrez_i <-  suppressMessages(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, gsub("hsa:", "", rownames(kegg_pw_net_L[[i]])), "SYMBOL", "ENTREZID"))
-    rownames(kegg_pw_net_L[[i]]) <- colnames(kegg_pw_net_L[[i]]) <-  kegg_entrez_i
-  }
-  
-  PIK <- function(x, gene_subnet_l) {
-    common_genes <- rownames(gene_subnet_l)[rownames(gene_subnet_l) %in% colnames(x)]
-    out <- (x[, common_genes, drop = FALSE]) %*% gene_subnet_l[common_genes, common_genes] %*% t(x[, common_genes, drop = FALSE])
-    return(out)
-  }
-  
-  prad_mrna_scaled <- scale(t(log2(prad_tumour_mrna+1)))
-  
-  prad_pik <- lapply(kegg_pw_net_L, function(x) PIK(prad_mrna_scaled, x))
-  
-  prad_pik <- prad_pik[which(sapply(prad_pik, function(x) var(as.vector(x))) > 0)]
-  
-  pik_eig <- lapply(prad_pik, function(x) eigen(as.matrix(x))$values)
-  all(sapply(prad_pik, function(x) all(diag(as.matrix(x)) > 0)))
+#' PAMOGK (Tepeli et al. 2021)
+#'
+#' @param x 
+#' @param networks 
+#' @param shortest_paths 
+#' @param z_up 
+#' @param z_down 
+#' @param gene_key 
+#' @param parallel 
+#'
+#' @return
+#' @export
+pamogk <- function(x, 
+                   networks, 
+                   shortest_paths, 
+                   z_up = qnorm(0.975), 
+                   z_down = qnorm(0.025), 
+                   gene_key = "SYMBOL", 
+                   parallel = 1) {
+  return(NULL)
 }
 
-
-#' KEGG pathway induced kernels
+#' @describeIn pamogk Parallel computation of node betweenness
 #'
-#' @param x gene expression matrix
+#' @param networks list of igraph objects
+#' @param parallel number of threads
+#'
+#' @return
+#' @export
+#'
+#' @importFrom igraph betweenness
+node_betweenness_parallel <- function(networks, parallel = 1) {
+  parallel_clust <- COPS:::setup_parallelization(parallel)
+  b_list <- tryCatch(foreach(i = 1:length(networks), 
+                             .combine = c, 
+                             .inorder = FALSE) %dopar% {
+                               res <- igraph::betweenness(networks[[i]])
+                               out <- list()
+                               out[[names(networks)[i]]] <- res
+                               out
+                             }, finally = parallel::stopCluster(parallel_clust))
+  return(b_list)
+}
+
+#' @describeIn pamogk Weighted linear kernel
+#'
+#' @param x feature matrix
+#' @param weights feature weights
+#'
+#' @return kernel matrix
+#' @export
+weighted_linear_kernel <- function(x, weights) {
+  weights <- weights[names(weights) %in% rownames(x)]
+  if (length(weights) > 0) {
+    x_weighted <- as.matrix(weights)[,rep(1, ncol(x))] * x[names(weights),]
+    out <- t(x_weighted) %*% (x_weighted)
+  } else {
+    out <- NULL
+  }
+  return(out)
+}
+
+#' Pathway induced kernel (Manica et al. 2019)
+#'
+#' @param x gene feature matrix
+#' @param L pathway graph Laplacian matrix
+#' @param rwr_smoothing apply feature smoothing
+#' @param ... 
+#'
+#' @return kernel matrix
+#' @export
+PIK <- function(x, L, rwr_smoothing = FALSE, ...) {
+  common_genes <- colnames(L)[colnames(L) %in% colnames(x)]
+  if (length(common_genes) > 0) {
+    y <- matrix(0, nrow = nrow(x), ncol = ncol(L), dimnames = list(id = rownames(x), gene = colnames(L)))
+    y[,common_genes] <- x[,common_genes]
+    if (rwr_smoothing) {
+      y <- binary_node_attribute_smoothing_from_adjacency(y, L, ...)
+    }
+    out <- (y) %*% L %*% t(y)
+  } else {
+    out <- NULL
+  }
+  return(out)
+}
+
+#' @describeIn PIK Use KEGG pathways to form pathway induced kernels
+#'
+#' @param x gene feature matrix
 #' @param normalized_laplacian 
 #' @param gene_key
 #'
@@ -70,34 +95,88 @@ if (FALSE) {
 #'
 #' @importFrom ROntoTools keggPathwayGraphs setEdgeWeights keggPathwayNames
 #' @importFrom igraph graph_from_graphnel as.undirected laplacian_matrix
-PIK_KEGG <- function(x, normalized_laplacian = TRUE, gene_key = "SYMBOL") {
+PIK_KEGG <- function(x, gene_key = "SYMBOL", ...) {
+  kegg_pw_net <- KEGG_networks()
+  
+  if (gene_key == "SYMBOL") {
+    for (i in 1:length(kegg_pw_net)) {
+      kegg_symbols <-  suppressMessages(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
+                                                              gsub("hsa:", "", names(igraph::V(kegg_pw_net[[i]]))), 
+                                                              gene_key, 
+                                                              "ENTREZID"))
+      kegg_pw_net[[i]] <- igraph::set.vertex.attribute(kegg_pw_net[[i]] , "name", value = kegg_symbols)
+    }
+  } else {
+    stop(paste("gene_key \"", gene_key, "not supported."))
+  }
+  
+  return(PIK(x, kegg_pw_net, ...))
+}
+
+#' @describeIn PIK Download KEGG pathway graphs
+#'
+#' @return list of undirected igraph objects
+#' @export
+KEGG_networks <- function() {
   kpg <- ROntoTools::keggPathwayGraphs("hsa", verbose = TRUE)
   kpg <- ROntoTools::setEdgeWeights(kpg, 
                                     edgeTypeAttr = "subtype", 
                                     edgeWeightByType = list(activation = 1, inhibition = 1, expression = 1, repression = 1), 
-                                    defaultWeight = 0)
+                                    defaultWeight = 1)
   names(kpg) <- ROntoTools::keggPathwayNames("hsa")[names(kpg)]
   
   kegg_pw_net <- lapply(kpg, igraph::graph_from_graphnel)
   kegg_pw_net <- lapply(kegg_pw_net, igraph::as.undirected, mode = "collapse")
-  
-  kegg_pw_net_L <- lapply(kegg_pw_net, igraph::laplacian_matrix, normalized = normalized_laplacian)
-  kegg_pw_net_L <- lapply(kegg_pw_net_L, function(x) {x@x[is.nan(x@x)] <- 0;return(x)})
-  if (gene_key != "ENTREZID") {
-    # Translate rows names
-    for (i in 1:length(kegg_pw_net_L)) {
-      kegg_entrez_i <-  suppressMessages(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, gsub("hsa:", "", rownames(kegg_pw_net_L[[i]])), gene_key, "ENTREZID"))
-      rownames(kegg_pw_net_L[[i]]) <- colnames(kegg_pw_net_L[[i]]) <-  kegg_entrez_i
-    }
-  }
-  out <- lapply(kegg_pw_net_L, function(subnet) PIK(x, subnet))
-  return(out)
+  return(kegg_pw_net)
 }
 
-PIK <- function(x, gene_subnet_l) {
-  common_genes <- rownames(gene_subnet_l)[rownames(gene_subnet_l) %in% colnames(x)]
-  out <- (x[, common_genes, drop = FALSE]) %*% gene_subnet_l[common_genes, common_genes] %*% t(x[, common_genes, drop = FALSE])
-  return(out)
+#' @describeIn PIK Pathway induced kernel from networks
+#'
+#' @param x gene feature matrix
+#' @param networks list of igraph objects corresponding to pathway graphs
+#' @param normalized_laplacian 
+#' @param parallel 
+#' @param ... 
+#'
+#' @return list of kernel matrices
+#' @export
+#' 
+#' @importFrom igraph V get.vertex.attribute delete_vertices laplacian_matrix
+PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel = 1, ...) {
+  x_genes <- colnames(x)
+  parallel_clust <- COPS:::setup_parallelization(parallel)
+  piks <- tryCatch(foreach(i = 1:length(networks), 
+                           .combine = c, 
+                           .inorder = FALSE,
+                           .packages = c("igraph")) %dopar% {
+                             missing_genes <- igraph::get.vertex.attribute(networks[[i]], "name")[!igraph::get.vertex.attribute(networks[[i]], "name") %in% x_genes]
+                             missing_nodes <- igraph::V(networks[[i]])[missing_genes[!is.na(missing_genes)]]
+                             net <- igraph::delete_vertices(networks[[i]], missing_nodes)
+                             L <- igraph::laplacian_matrix(net, normalized = normalized_laplacian)
+                             L@x[is.nan(L@x)] <- 0
+                             #common_genes <- colnames(L)[colnames(L) %in% colnames(x)]
+                             if (sum(abs(L@x)) > 0) {
+                               out <- PIK(x, L, ...)
+                             } else {
+                               out <- NULL
+                             }
+                             out <- list(out)
+                             names(out) <- names(networks)[i]
+                             out
+                           }, finally = parallel::stopCluster(parallel_clust))
+  piks <- piks[!sapply(piks, is.null)]
+  return(piks)
+}
+
+binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_prob = 0.75, ...) {
+  g <- igraph::graph_from_adjacency_matrix(as.matrix(A), 
+                                           mode = "undirected", weighted = TRUE)
+  y <- dnet::dRWR(g, 
+                  normalise = "none", 
+                  setSeeds = t(y), 
+                  restart = rwr_restart_prob,
+                  parallel = FALSE)
+  return(t(y))
 }
 
 PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
@@ -127,6 +206,7 @@ PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
       k_pw[[pw_i]] <- d_temp %*% k_pw[[pw_i]] %*% d_temp
     }
   }
+  return(k_pw)
 }
 
 # Will only work for affinity matrix K (nonnegative) 

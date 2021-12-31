@@ -12,6 +12,7 @@ vertical_pipeline(
   association_data = NULL,
   multi_omic_methods = NULL,
   parallel = 1,
+  data_is_kernels = FALSE,
   ...
 )
 }

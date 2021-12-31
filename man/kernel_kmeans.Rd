@@ -4,7 +4,7 @@
 \alias{kernel_kmeans}
 \title{Kernel k-means}
 \usage{
-kernel_kmeans(K, n_k, n_initializations = 100, ...)
+kernel_kmeans(K, n_k, n_initializations = 100, parallel = 1, ...)
 }
 \arguments{
 \item{K}{}
