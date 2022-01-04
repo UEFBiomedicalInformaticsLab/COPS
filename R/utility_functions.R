@@ -477,8 +477,9 @@ rbind_fill <- function(a,b) {
 #' @importFrom scales trans_new log_breaks
 plot_pvalues <- function(x, 
                          target, 
-                         x_axis_var, 
-                         color_var, 
+                         x_axis_var = NULL, 
+                         color_var = NULL, 
+                         group_var = NULL,
                          palette = "Dark2",
                          by = c("Approach", "Embedding", "Clustering", "k"), 
                          facetx = NULL, 
@@ -502,7 +503,31 @@ plot_pvalues <- function(x,
     temp_facets <- NULL
   }
   
-  temp <- ggplot(bp_quantiles, aes_string(x = x_axis_var, fill = color_var)) + 
+  #temp_aes <- aes_string()
+  #if (!is.null(x_axis_var)) temp_aes$x <- x_axis_var
+  #if (!is.null(color_var)) temp_aes$fill <- color_var
+  #if (!is.null(group_var)) temp_aes$group <- group_var
+  
+  # Assume that use of fill and group are mutually exclusive
+  if (!is.null(x_axis_var)) {
+    if (!is.null(color_var)) {
+      temp_aes <- aes_string(x = x_axis_var, fill = color_var)
+    } else {
+      if (!is.null(group_var)) {
+        temp_aes <- aes_string(x = x_axis_var, group = group_var)
+      }
+    }
+  } else {
+    if (!is.null(color_var)) {
+      temp_aes <- aes_string(fill = color_var)
+    } else {
+      if (!is.null(group_var)) {
+        temp_aes <- aes_string(group = group_var)
+      }
+    }
+  }
+  
+  temp <- ggplot(bp_quantiles, temp_aes) + 
     geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
                  outlier.shape = NA, stat = "identity", lwd = 0.25) + 
     theme_bw() + scale_fill_brewer(palette = "Dark2") + 
