@@ -160,7 +160,17 @@ multi_omic_clustering <- function(dat_list_clust,
     if(!is.null(temp_res)) if(nrow(temp_res) > 1) res <- c(res, list(temp_res))
   }
   if ("ANF" %in% multi_view_methods) {
-    temp_res <- ANF::ANF(K = anf_neighbors)
+    #aff_list <- lapply(dat_list_clust, knn_g, k = ann_knn, jaccard_kernel = ann_jk)
+    aff_dist <- lapply(dat_list_clust, dist)
+    aff_dist <- lapply(aff_dist, as.matrix)
+    aff_list <- lapply(aff_dist, ANF::affinity_matrix, k = anf_neighbors)
+    aff_mat <- ANF::ANF(aff_list, K = anf_neighbors)
+    for (k in n_clusters) {
+      temp_res <- ANF::spectral_clustering(aff_mat, k)
+      temp_res <- data.frame(m = "ANF", k = k, cluster = temp_res)
+      cbind(non_data_cols[[1]], temp_res)
+      res <- c(res, list(k_res)
+    }
   }
   if ("kkmeanspp" %in% multi_view_methods) {
     # Kernel k-means++
