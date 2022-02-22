@@ -169,7 +169,7 @@ multi_omic_clustering <- function(dat_list_clust,
       temp_res <- ANF::spectral_clustering(aff_mat, k)
       temp_res <- data.frame(m = "ANF", k = k, cluster = temp_res)
       cbind(non_data_cols[[1]], temp_res)
-      res <- c(res, list(k_res)
+      res <- c(res, list(k_res))
     }
   }
   if ("kkmeanspp" %in% multi_view_methods) {
