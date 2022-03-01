@@ -41,6 +41,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   kkmeans_n_init = 100,
                                   mkkm_mr_lambda = 1, 
                                   mkkm_mr_tolerance = 1e-8, 
+                                  mkkm_mr_initialization = TRUE, 
                                   data_is_kernels = FALSE, 
                                   foldwise_zero_var_removal = TRUE,
                                   mvc_threads = 1,
@@ -133,6 +134,11 @@ multi_omic_clustering <- function(dat_list_clust,
         } else if (kernels[i] == "PAMOGK") {
           temp <- dat_list_clust[[i]]
           temp <- scale(temp, scale = TRUE) # z-scores
+          if (mvc_threads > 1) {
+            rwr_threads <- mvc_threads
+          } else {
+            rwr_threads <- NULL
+          }
           for (j in 1:length(pathway_networks)) {
             k_up <- dnet::dRWR(pathway_networks[[j]], 
                                normalise = "laplacian",
@@ -140,9 +146,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                restart = pamogk_restart,
                                normalise.affinity.matrix = "none",
                                parallel = mvc_threads > 1,
-                               multicores = ifelse(mvc_threads > 1, 
-                                                   mvc_threads, 
-                                                   NULL))
+                               multicores = rwr_threads)
             rownames(k_up) <- names(igraph::V(pathway_networks[[j]]))
             colnames(k_up) <- rownames(temp)
             k_up <- weighted_linear_kernel(as.matrix(k_up), nw_weights[[j]])
@@ -162,9 +166,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                restart = pamogk_restart,
                                normalise.affinity.matrix = "none",
                                parallel = mvc_threads > 1,
-                               multicores = ifelse(mvc_threads > 1, 
-                                                   mvc_threads, 
-                                                   NULL))
+                               multicores = rwr_threads)
             rownames(k_dn) <- names(igraph::V(pathway_networks[[j]]))
             colnames(k_dn) <- rownames(temp)
             k_dn <- weighted_linear_kernel(as.matrix(k_dn), nw_weights[[j]])
@@ -350,12 +352,19 @@ multi_omic_clustering <- function(dat_list_clust,
                                   lambda = mkkm_mr_lambda, 
                                   tolerance = mkkm_mr_tolerance, 
                                   parallel = mvc_threads)
-        # Run k-means++
-        temp_res <- kernel_kmeans(optimal_kernel$K, 
-                                  n_k = k, 
-                                  n_initializations = kkmeans_n_init, 
-                                  maxiter = kkmeans_maxiter,
-                                  parallel = mvc_threads)
+        if (mkkm_mr_initialization) {
+          temp_res <- kernel_kmeans_algorithm(optimal_kernel$K, 
+                                              n_k = k, 
+                                              init = apply(optimal_kernel$H, 1, which.max), 
+                                              maxiter = kkmeans_maxiter)
+        } else {
+          # Run k-means++ (random initialization)
+          temp_res <- kernel_kmeans(optimal_kernel$K, 
+                                    n_k = k, 
+                                    n_initializations = kkmeans_n_init, 
+                                    maxiter = kkmeans_maxiter,
+                                    parallel = mvc_threads)
+        }
         temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, 
                                kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
         cbind(non_data_cols[[1]], temp_res)
