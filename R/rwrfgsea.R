@@ -154,7 +154,7 @@ rwr_wrapper <- function(expr,
                         rwr_adjacency_normalization = "laplacian",
                         rwr_affinity_normalization = "none",
                         ...) {
-  gene_ranking <- apply(expr, 2, function(x) order(order(x))) # using order twice is very fast
+  gene_ranking <- apply(expr, 2, rank)
   rownames(gene_ranking) <- rownames(expr)
   
   parallel_clust <- setup_parallelization(parallel)

@@ -25,26 +25,165 @@ multi_omic_clustering <- function(dat_list_clust,
                                   nmf_n.ini = 30,
                                   nmf_ini.nndsvd = TRUE,
                                   mofa_scale_views = FALSE,
-                                  mofa_likelihoods = rep("gaussian", length(dat_list_clust)), 
+                                  mofa_likelihoods = rep_len("gaussian", length(dat_list_clust)), 
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
                                   mofa_environment = NULL,
                                   mofa_lib_path = NULL,
-                                  mofa_threads = 1,
                                   anf_neighbors = 20,
+                                  kernels = rep_len("linear", length(dat_list_clust)),
+                                  kernels_center = TRUE,
+                                  kernels_normalize = TRUE,
+                                  kernel_gammas = rep_len(0.5, length(dat_list_clust)),
+                                  pathway_networks = NULL,
+                                  pamogk_restart = 0.7,
                                   kkmeans_maxiter = 100,
                                   kkmeans_n_init = 100,
-                                  kkmeans_parallel = 1, 
                                   mkkm_mr_lambda = 1, 
                                   mkkm_mr_tolerance = 1e-8, 
-                                  mkkm_mr_parallel = 1, 
                                   data_is_kernels = FALSE, 
                                   foldwise_zero_var_removal = TRUE,
+                                  mvc_threads = 1,
                                   ...) {
   if (foldwise_zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
     # in some of the folds. They cause issues and should be removed. 
     dat_list_clust <- lapply(dat_list_clust, function(x) x[,apply(x, 2, var) > 0])
+  }
+  if (any(multi_view_methods %in% c("kkmeanspp", "mkkm_mr"))) {
+    # In fold centering and normalization
+    if (length(kernels_center) != length(dat_list_clust)) {
+      kernels_center <- rep_len(kernels_center, length(dat_list_clust))
+    }
+    if (length(kernels_normalize) != length(dat_list_clust)) {
+      kernels_normalize <- rep_len(kernels_normalize, length(dat_list_clust))
+    }
+  }
+  if (data_is_kernels) {
+    multi_omic_kernels <- dat_list_clust
+    multi_omic_kernels[kernels_center] <- lapply(multi_omic_kernels[kernels_center],
+                                                 center_kernel)
+    multi_omic_kernels[kernels_normalize] <- lapply(multi_omic_kernels[kernels_normalize],
+                                                    normalize_kernel)
+  } else if (multi_view_methods %in% c("kkmeanspp", "mkkm_mr")) {
+    # Pathway-based kernels need pathway networks
+    if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &
+        is.null(pathway_networks)) {
+      w1 <- "No pathway networks specified for pathway kernel."
+      w2 <- "Defaulting to KEGG pathways mapped to gene symbols."
+      warning(paste(w1, w2))
+      kegg_nets <- KEGG_networks()
+      for (net_i in 1:length(kegg_nets)) {
+        kegg_entrez <- gsub("hsa:", "", names(igraph::V(kegg_nets[[net_i]])))
+        kegg_symbol <- AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, kegg_entrez, 
+                                             "SYMBOL", "ENTREZID")
+        kegg_nets[[net_i]] <- igraph::set.vertex.attribute(kegg_nets[[net_i]] , 
+                                                           "name", 
+                                                           value = kegg_symbol)
+      }
+      pathway_networks <- kegg_nets
+    }
+    if (any(kernels %in% c("BWK", "PAMOGK"))) {
+      nw_weights <- node_betweenness_parallel(pathway_networks, mvc_threads)
+      nw_weights <- lapply(nw_weights, sqrt)
+    }
+    # Construct kernels
+    multi_omic_kernels <- list()
+    for (i in 1:length(dat_list_clust)) {
+      if (kernels[i] == "linear") {
+        temp <- dat_list_clust[[i]] %*% t(dat_list_clust[[i]])
+        if (kernels_center[i]) temp <- center_kernel(temp)
+        if (kernels_normalize[i]) temp <- normalize_kernel(temp)
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
+      } else if (kernels[i] == "gaussian") {
+        temp <- exp(- kernel_gammas[i] * as.matrix(dist(dat_list_clust[[i]]))**2)
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
+      } else if (kernels[i] %in% c("jaccard", "tanimoto")) {
+        temp <- jaccard_matrix(t(dat_list_clust[[i]]))
+        temp[is.nan(temp)] <- 0
+        diag(temp) <- 1
+        if (kernels_center[i]) temp <- center_kernel(temp)
+        if (kernels_normalize[i]) temp <- normalize_kernel(temp)
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
+      } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
+        if (kernels[i] == "PIK") {
+          temp <- dat_list_clust[[i]]
+          temp <- scale(temp, scale = TRUE) # z-scores
+          temp <- PIK_from_networks(temp, pathway_networks, parallel = mvc_threads)
+          names(temp) <- paste0(names(dat_list_clust)[i], "_", names(temp))
+          temp <- lapply(temp, as.matrix)
+          if (kernels_normalize[i]) {
+            temp <- lapply(temp, normalize_kernel)
+            temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
+          }
+          multi_omic_kernels <- c(multi_omic_kernels, temp)
+        } else if (kernels[i] == "BWK") {
+          temp <- t(dat_list_clust[[i]])
+          temp <- lapply(nw_weights, function(w) weighted_linear_kernel(temp, w))
+          names(temp) <- paste0(names(dat_list_clust)[i], "_", names(temp))
+          temp <- temp[!sapply(temp, is.null)]
+          temp <- lapply(temp, as.matrix)
+          temp <- temp[which(sapply(temp, function(x) var(as.vector(x))) > 0)]
+          if (kernels_center[i]) temp <- lapply(temp, center_kernel)
+          if (kernels_normalize[i]) {
+            temp <- lapply(temp, normalize_kernel)
+            temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
+          }
+          multi_omic_kernels <- c(multi_omic_kernels, temp)
+        } else if (kernels[i] == "PAMOGK") {
+          temp <- dat_list_clust[[i]]
+          temp <- scale(temp, scale = TRUE) # z-scores
+          for (j in 1:length(pathway_networks)) {
+            k_up <- dnet::dRWR(pathway_networks[[j]], 
+                               normalise = "laplacian",
+                               setSeeds = t(temp) > qnorm(0.975),
+                               restart = pamogk_restart,
+                               normalise.affinity.matrix = "none",
+                               parallel = mvc_threads > 1,
+                               multicores = ifelse(mvc_threads > 1, 
+                                                   mvc_threads, 
+                                                   NULL))
+            rownames(k_up) <- names(igraph::V(pathway_networks[[j]]))
+            colnames(k_up) <- rownames(temp)
+            k_up <- weighted_linear_kernel(as.matrix(k_up), nw_weights[[j]])
+            if (!is.null(k_up)) {
+              if (var(as.vector(k_up)) > 0) {
+                if (kernels_center[i]) k_up <- center_kernel(k_up)
+                if (kernels_normalize[i]) {
+                  k_up <- normalize_kernel(k_up)
+                  k_up[is.na(k_up)] <- 0
+                }
+                multi_omic_kernels <- c(multi_omic_kernels, list(k_up))
+              }
+            }
+            k_dn <- dnet::dRWR(pathway_networks[[j]], 
+                               normalise = "laplacian",
+                               setSeeds = t(temp) < qnorm(0.025),
+                               restart = pamogk_restart,
+                               normalise.affinity.matrix = "none",
+                               parallel = mvc_threads > 1,
+                               multicores = ifelse(mvc_threads > 1, 
+                                                   mvc_threads, 
+                                                   NULL))
+            rownames(k_dn) <- names(igraph::V(pathway_networks[[j]]))
+            colnames(k_dn) <- rownames(temp)
+            k_dn <- weighted_linear_kernel(as.matrix(k_dn), nw_weights[[j]])
+            if (!is.null(k_dn)) {
+              if (var(as.vector(k_dn)) > 0) {
+                if (kernels_center[i]) k_dn <- center_kernel(k_dn)
+                if (kernels_normalize[i]) {
+                  k_dn <- normalize_kernel(k_dn)
+                  k_dn[is.na(k_dn)] <- 0
+                }
+                multi_omic_kernels <- c(multi_omic_kernels, list(k_dn))
+              }
+            }
+          }
+        } 
+      } else {
+        stop(paste0("Kernel \"", kernels[i], "\" is not supported."))
+      }
+    }
   }
   res <- list()
   if("iClusterPlus" %in% multi_view_methods) {
@@ -112,8 +251,8 @@ multi_omic_clustering <- function(dat_list_clust,
   }
   if ("MOFA2" %in% multi_view_methods) {
     temp_res <- tryCatch({
-      Sys.setenv(OMP_NUM_THREADS=mofa_threads)
-      Sys.setenv(MKL_NUM_THREADS=mofa_threads)
+      Sys.setenv(OMP_NUM_THREADS=mvc_threads)
+      Sys.setenv(MKL_NUM_THREADS=mvc_threads)
       if (!is.null(mofa_lib_path)) {
         Sys.setenv(LD_LIBRARY_PATH = paste(mofa_lib_path, 
                                            Sys.getenv("LD_LIBRARY_PATH"), 
@@ -175,19 +314,19 @@ multi_omic_clustering <- function(dat_list_clust,
   if ("kkmeanspp" %in% multi_view_methods) {
     # Kernel k-means++
     if (data_is_kernels) {
-      multi_omic_kernels_linear <- dat_list_clust
+      multi_omic_kernels <- dat_list_clust
     } else {
       # Just linear for now
-      multi_omic_kernels_linear <- lapply(dat_list_clust, function(x) (x) %*% t(x))
-      multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, center_kernel)
-      multi_omic_kernels_linear <- lapply(multi_omic_kernels_linear, normalize_kernel)
+      multi_omic_kernels <- lapply(dat_list_clust, function(x) (x) %*% t(x))
+      multi_omic_kernels <- lapply(multi_omic_kernels, center_kernel)
+      multi_omic_kernels <- lapply(multi_omic_kernels, normalize_kernel)
     }
     
     # Average kernel
-    multi_omic_kernels_linear <- Reduce('+', multi_omic_kernels_linear) / length(multi_omic_kernels_linear)
+    multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
     for (k in n_clusters) {
       k_res <- tryCatch({
-        temp_res <- kernel_kmeans(multi_omic_kernels_linear, k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
+        temp_res <- kernel_kmeans(multi_omic_kernels, k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))
@@ -196,28 +335,29 @@ multi_omic_clustering <- function(dat_list_clust,
   }
   if ("mkkm_mr" %in% multi_view_methods) {
     if (data_is_kernels) {
-      kernels <- dat_list_clust
+      multi_omic_kernels <- dat_list_clust
     } else {
       # Just linear for now
-      kernels <- lapply(dat_list_clust, function(x) (x) %*% t(x))
-      kernels <- lapply(kernels, center_kernel)
-      kernels <- lapply(kernels, normalize_kernel)
+      multi_omic_kernels <- lapply(dat_list_clust, function(x) (x) %*% t(x))
+      multi_omic_kernels <- lapply(multi_omic_kernels, center_kernel)
+      multi_omic_kernels <- lapply(multi_omic_kernels, normalize_kernel)
     }
     for (k in n_clusters) {
       k_res <- tryCatch({
         # Optimize combined kernel
-        optimal_kernel <- mkkm_mr(kernels, 
+        optimal_kernel <- mkkm_mr(multi_omic_kernels, 
                                   k = k, 
                                   lambda = mkkm_mr_lambda, 
                                   tolerance = mkkm_mr_tolerance, 
-                                  parallel = mkkm_mr_parallel)
+                                  parallel = mvc_threads)
         # Run k-means++
         temp_res <- kernel_kmeans(optimal_kernel$K, 
                                   n_k = k, 
                                   n_initializations = kkmeans_n_init, 
                                   maxiter = kkmeans_maxiter,
-                                  parallel = kkmeans_parallel)
-        temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
+                                  parallel = mvc_threads)
+        temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, 
+                               kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))

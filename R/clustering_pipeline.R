@@ -438,8 +438,8 @@ vertical_pipeline <- function(dat_list,
       }
       parallel_clust <- setup_parallelization(parallel)
       out <- tryCatch(foreach(i = 1:length(cv_index_split), 
-                     .combine = cfun, 
-                     .inorder = FALSE) %:%
+                      .combine = cfun, 
+                      .inorder = FALSE) %:%
       foreach(mvc = multi_omic_methods, 
               .combine = cfun, 
               .export = c("dat_list", "cv_index_split"), 

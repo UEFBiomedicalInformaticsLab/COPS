@@ -1,6 +1,6 @@
 ---
 title: "Introduction to COPS"
-author: "Vittorio Fortino and Teemu Rintala"
+author: "Teemu Rintala and Vittorio Fortino"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >

@@ -30,7 +30,7 @@ pamogk <- function(x,
 #'
 #' @importFrom igraph betweenness
 node_betweenness_parallel <- function(networks, parallel = 1) {
-  parallel_clust <- COPS:::setup_parallelization(parallel)
+  parallel_clust <- setup_parallelization(parallel)
   b_list <- tryCatch(foreach(i = 1:length(networks), 
                              .combine = c, 
                              .inorder = FALSE) %dopar% {
@@ -50,7 +50,7 @@ node_betweenness_parallel <- function(networks, parallel = 1) {
 #' @return kernel matrix
 #' @export
 weighted_linear_kernel <- function(x, weights) {
-  weights <- weights[names(weights) %in% rownames(x)]
+  weights <- weights[names(weights) %in% rownames(x) & !is.na(names(weights))]
   if (length(weights) > 0) {
     x_weighted <- as.matrix(weights)[,rep(1, ncol(x))] * x[names(weights),]
     out <- t(x_weighted) %*% (x_weighted)
@@ -144,7 +144,7 @@ KEGG_networks <- function() {
 #' @importFrom igraph V get.vertex.attribute delete_vertices laplacian_matrix
 PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel = 1, ...) {
   x_genes <- colnames(x)
-  parallel_clust <- COPS:::setup_parallelization(parallel)
+  parallel_clust <- setup_parallelization(parallel)
   piks <- tryCatch(foreach(i = 1:length(networks), 
                            .combine = c, 
                            .inorder = FALSE,

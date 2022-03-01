@@ -370,7 +370,6 @@ expressionToRWFeatures <- function(dat,
   list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) <= pw_max.size & 
                                            sapply(list_db_annots, length) >= pw_min.size)]
   
-  #out <- fromGeneToNetworksToPathwayFeatures(dat, disease.genes, gene.network, list_db_annots, ...) # TODO: change to RWRFGSEA
   out <- RWRFGSEA(dat, gene.network, list_db_annots, disease.genes, ...)
   return(out)
 }
