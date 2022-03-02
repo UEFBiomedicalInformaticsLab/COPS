@@ -209,14 +209,6 @@ PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
   return(k_pw)
 }
 
-# Will only work for affinity matrix K (nonnegative) 
-# NOT FINISHED
-mkkm_mr_postprocessing <- function(K, H) {
-  D <- diag(apply(K - diag(diag(K)), 1, sum))
-  Z <- 1/sqrt(D) %*% H
-  # ...
-}
-
 #' Multiple kernel k-means with matrix induced regularization (Liu et al. 2016)
 #'
 #' @param K_list 
@@ -226,7 +218,12 @@ mkkm_mr_postprocessing <- function(K, H) {
 #'
 #' @return
 #' @export
-mkkm_mr <- function(K_list, k, lambda, tolerance = 1e-6, parallel = 0) {
+mkkm_mr <- function(K_list, 
+                    k, 
+                    lambda, 
+                    tolerance = 1e-6, 
+                    parallel = 0, 
+                    use_mosek = FALSE) {
   M <- matrix(NA, length(K_list), length(K_list))
   for (i in 1:length(K_list)) {
     for (j in i:length(K_list)) {
@@ -245,7 +242,7 @@ mkkm_mr <- function(K_list, k, lambda, tolerance = 1e-6, parallel = 0) {
       K <- K + K_list[[i]] * mu[i]**2
     }
     H <- mkkm_mr_h_opt(K, k)
-    mu <- mkkm_mr_mu_opt(K_list, H, M, lambda, parallel)
+    mu <- mkkm_mr_mu_opt(K_list, H, M, lambda, parallel, use_mosek)
     objective <- objective_t
     objective_t <- t(mu) %*% M %*% mu
   }
@@ -269,9 +266,9 @@ mkkm_mr_h_opt <- function(K, k) {
 }
 
 # min muT/2 (2 * Z + lambda * M) mu 
-# s.t. sum(mu) = 1
+# s.t. sum(mu) = 1, mu_i >= 0
 # Z = diag(<K_i, I - HHT>_i)
-mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0) {
+mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0, use_mosek = FALSE) {
   n <- nrow(H)
   HHT <- diag(rep(1, n)) - H %*% t(H)
   Z <- c()
@@ -280,15 +277,23 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0) {
   }
   Z <- diag(Z)
   
+  if (use_mosek) {
+    return(mkkm_mr_mu_opt_mosek(Z, M, lambda, parallel = parallel))
+  } else {
+    return(mkkm_mr_mu_opt_cvxr(Z, M, lambda, parallel = parallel))
+  }
+}
+
+mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
+  m <- ncol(Z)
   prob <- list(sense = "min")
   prob$iparam <- list(NUM_THREADS = parallel)
-  prob$A <- Matrix::Matrix(rep(1, length(K_list)), nrow = 1, sparse = TRUE)
+  prob$A <- Matrix::Matrix(rep(1, m), nrow = 1, sparse = TRUE)
   prob$bc <- rbind(blc = 1, buc = 1)
-  prob$c <- rep(0, length(K_list))
-  prob$bx <- rbind(blx=rep(0, length(K_list)),
-                   bux=rep(Inf, length(K_list)))
+  prob$c <- rep(0, m)
+  prob$bx <- rbind(blx=rep(0, m),
+                   bux=rep(Inf, m))
   
-  m <- ncol(Z)
   ni <- (m*m+m)/2 # sparse length
   
   # column index
@@ -304,6 +309,19 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0) {
   
   res <- Rmosek::mosek(prob)
   return(res$sol$itr$xx)
+}
+
+mkkm_mr_mu_opt_cvxr <- function(Z, M, lambda, parallel = 0) {
+  parallel <- 0 # parallel solver is not implemented
+  m <- ncol(Z)
+  mu <- CVXR::Variable(m)
+  #objective <- CVXR::Minimize(0.5 * t(mu) %*% (2 * Z + lambda * M) %*% mu)
+  objective <- CVXR::Minimize(CVXR::quad_form(mu, 0.5 * (2 * Z + lambda * M)))
+  constraints <- list(CVXR::sum_entries(mu) == 1, mu >= 0)
+  problem <- CVXR::Problem(objective, constraints)
+  solution <- CVXR::solve(problem, parallel = parallel, solver = "ECOS")
+  mu_sol <- solution$getValue(mu)
+  return(mu_sol)
 }
 
 mkkm_mr_objective <- function(K_list, mu) {

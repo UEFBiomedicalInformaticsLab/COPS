@@ -42,6 +42,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mkkm_mr_lambda = 1, 
                                   mkkm_mr_tolerance = 1e-8, 
                                   mkkm_mr_initialization = TRUE, 
+                                  mkkm_mr_mosek = FALSE,
                                   data_is_kernels = FALSE, 
                                   foldwise_zero_var_removal = TRUE,
                                   mvc_threads = 1,
@@ -314,16 +315,6 @@ multi_omic_clustering <- function(dat_list_clust,
     }
   }
   if ("kkmeanspp" %in% multi_view_methods) {
-    # Kernel k-means++
-    if (data_is_kernels) {
-      multi_omic_kernels <- dat_list_clust
-    } else {
-      # Just linear for now
-      multi_omic_kernels <- lapply(dat_list_clust, function(x) (x) %*% t(x))
-      multi_omic_kernels <- lapply(multi_omic_kernels, center_kernel)
-      multi_omic_kernels <- lapply(multi_omic_kernels, normalize_kernel)
-    }
-    
     # Average kernel
     multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
     for (k in n_clusters) {
@@ -336,14 +327,6 @@ multi_omic_clustering <- function(dat_list_clust,
     }
   }
   if ("mkkm_mr" %in% multi_view_methods) {
-    if (data_is_kernels) {
-      multi_omic_kernels <- dat_list_clust
-    } else {
-      # Just linear for now
-      multi_omic_kernels <- lapply(dat_list_clust, function(x) (x) %*% t(x))
-      multi_omic_kernels <- lapply(multi_omic_kernels, center_kernel)
-      multi_omic_kernels <- lapply(multi_omic_kernels, normalize_kernel)
-    }
     for (k in n_clusters) {
       k_res <- tryCatch({
         # Optimize combined kernel
@@ -351,7 +334,8 @@ multi_omic_clustering <- function(dat_list_clust,
                                   k = k, 
                                   lambda = mkkm_mr_lambda, 
                                   tolerance = mkkm_mr_tolerance, 
-                                  parallel = mvc_threads)
+                                  parallel = mvc_threads,
+                                  use_mosek = mkkm_mr_mosek)
         if (mkkm_mr_initialization) {
           temp_res <- kernel_kmeans_algorithm(optimal_kernel$K, 
                                               n_k = k, 
