@@ -46,6 +46,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   data_is_kernels = FALSE, 
                                   foldwise_zero_var_removal = TRUE,
                                   mvc_threads = 1,
+                                  gene_id_list = NULL,
                                   ...) {
   if (foldwise_zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
@@ -108,6 +109,8 @@ multi_omic_clustering <- function(dat_list_clust,
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
         multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
+        gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list_clust[[i]])))
+        colnames(dat_list_clust[[i]]) <- gene_id_list[[i]][gene_col_ind]
         if (kernels[i] == "PIK") {
           temp <- dat_list_clust[[i]]
           temp <- scale(temp, scale = TRUE) # z-scores

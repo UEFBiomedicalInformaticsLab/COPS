@@ -256,11 +256,10 @@ COPS <- function(dat,
   pipeline_start <- Sys.time()
   if(verbose) print("Processing data sets ..."); flush.console()
   
-  if (pathway_enrichment_method != "none") {
-    # Collect gene names for later
-    gene_id_list <- lapply(dat_list, rownames)
-  }
-  
+  # Collect gene names for later. 
+  # They are required for pathway-based approaches
+  gene_id_list <- lapply(dat_list, rownames)
+
   # Convert data to data.table to optimize memory usage
   for (i in 1:length(dat_list)) {
     id <- colnames(dat_list[[i]])
@@ -278,6 +277,7 @@ COPS <- function(dat,
                              survival_data = survival_data, 
                              association_data = association_data,
                              parallel = parallel,
+                             gene_id_list = gene_id_list,
                              ...)
     return(out)
   }

@@ -38,7 +38,7 @@ node_betweenness_parallel <- function(networks, parallel = 1) {
                                out <- list()
                                out[[names(networks)[i]]] <- res
                                out
-                             }, finally = parallel::stopCluster(parallel_clust))
+                             }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   return(b_list)
 }
 
@@ -163,7 +163,7 @@ PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel
                              out <- list(out)
                              names(out) <- names(networks)[i]
                              out
-                           }, finally = parallel::stopCluster(parallel_clust))
+                           }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
   piks <- piks[!sapply(piks, is.null)]
   return(piks)
 }
