@@ -4,7 +4,7 @@
 \alias{mkkm_mr}
 \title{Multiple kernel k-means with matrix induced regularization (Liu et al. 2016)}
 \usage{
-mkkm_mr(K_list, k, lambda, tolerance = 1e-06, parallel = 0)
+mkkm_mr(K_list, k, lambda, tolerance = 1e-06, parallel = 0, use_mosek = FALSE)
 }
 \arguments{
 \item{K_list}{}

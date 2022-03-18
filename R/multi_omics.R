@@ -43,6 +43,12 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mkkm_mr_tolerance = 1e-8, 
                                   mkkm_mr_initialization = TRUE, 
                                   mkkm_mr_mosek = FALSE,
+                                  ecmc_a = 1, 
+                                  ecmc_b = 1, 
+                                  ecmc_eps = 1e-6,
+                                  ecmc_maxiter = 100,
+                                  ecmc_solver = "MOSEK",
+                                  ecmc_mkkm_mr = TRUE, 
                                   data_is_kernels = FALSE, 
                                   foldwise_zero_var_removal = TRUE,
                                   mvc_threads = 1,
@@ -317,12 +323,31 @@ multi_omic_clustering <- function(dat_list_clust,
       res <- c(res, list(k_res))
     }
   }
+  if ("kkmeans" %in% multi_view_methods) {
+    # Average kernel
+    multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
+    approximation <- eigen(multi_omic_kernels, symmetric = TRUE)$vectors
+    for (k in n_clusters) {
+      k_res <- tryCatch({
+        temp_res <- kernel_kmeans_algorithm(multi_omic_kernels, 
+                                            n_k = k, 
+                                            init = apply(approximation[,1:k], 1, which.max), 
+                                            maxiter = kkmeans_maxiter)
+        temp_res <- data.frame(m = "kkmeans", k = k, cluster = temp_res$clusters)
+        cbind(non_data_cols[[1]], temp_res)
+      }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+    }
+  }
   if ("kkmeanspp" %in% multi_view_methods) {
     # Average kernel
     multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
     for (k in n_clusters) {
       k_res <- tryCatch({
-        temp_res <- kernel_kmeans(multi_omic_kernels, k, n_initializations = kkmeans_n_init, maxiter = kkmeans_maxiter)
+        temp_res <- kernel_kmeans(multi_omic_kernels, 
+                                  k, 
+                                  n_initializations = kkmeans_n_init, 
+                                  maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))
@@ -353,6 +378,52 @@ multi_omic_clustering <- function(dat_list_clust,
                                     parallel = mvc_threads)
         }
         temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, 
+                               kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
+        cbind(non_data_cols[[1]], temp_res)
+      }, error = function(e) return(NULL))
+      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+    }
+  }
+  if ("ECMC" %in% multi_view_methods) {
+    for (k in n_clusters) {
+      k_res <- tryCatch({
+        # Find consensus kernels
+        consensus_res <- ECMC(multi_omic_kernels, 
+                              a = ecmc_a, 
+                              b = ecmc_b,
+                              eps = ecmc_eps,
+                              n_threads = mvc_threads,
+                              maxiter = ecmc_maxiter,
+                              solver = ecmc_solver)
+        if (ecmc_mkkm_mr) {
+          # Optimize combined kernel
+          optimal_kernel <- mkkm_mr(consensus_res$C, 
+                                    k = k, 
+                                    lambda = mkkm_mr_lambda, 
+                                    tolerance = mkkm_mr_tolerance, 
+                                    parallel = mvc_threads,
+                                    use_mosek = mkkm_mr_mosek)
+          if (mkkm_mr_initialization) {
+            temp_res <- kernel_kmeans_algorithm(optimal_kernel$K, 
+                                                n_k = k, 
+                                                init = apply(optimal_kernel$H, 1, which.max), 
+                                                maxiter = kkmeans_maxiter)
+          } else {
+            # Run k-means++ (random initialization)
+            temp_res <- kernel_kmeans(optimal_kernel$K, 
+                                      n_k = k, 
+                                      n_initializations = kkmeans_n_init, 
+                                      maxiter = kkmeans_maxiter,
+                                      parallel = mvc_threads)
+          }
+        } else {
+          approximation <- eigen(consensus_res$C_sum, symmetric = TRUE)$vectors
+          temp_res <- kernel_kmeans_algorithm(consensus_res$C_sum, 
+                                              n_k = k, 
+                                              init = apply(approximation[,1:k], 1, which.max), 
+                                              maxiter = kkmeans_maxiter)
+        }
+        temp_res <- data.frame(m = "ecmc", k = k, cluster = temp_res$clusters, 
                                kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))

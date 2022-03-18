@@ -7,8 +7,9 @@
 plot_pvalues(
   x,
   target,
-  x_axis_var,
-  color_var,
+  x_axis_var = NULL,
+  color_var = NULL,
+  group_var = NULL,
   palette = "Dark2",
   by = c("Approach", "Embedding", "Clustering", "k"),
   facetx = NULL,
