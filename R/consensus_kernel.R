@@ -3,18 +3,20 @@
 ecmc_opt <- function(X, 
                      ret_sol = FALSE, 
                      ret_optime = FALSE, 
-                     verbosity = 0) {
+                     verbosity = 0,
+                     parallel = 0) {
   n_mat <- length(X)
   #if (length(X) > 1) if(!all(sapply(X[-1], function(x) identical(X[[1]], x)))) {
   #  stop("Objectives are not of the same size")
   #}
   n_samples <- sapply(X, ncol) #dim(X[[1]])[1]
-  # Specify the non-matrix variable part of the problem. (constraints)
+  # Specify the non-matrix variable part of the problem. 
   prob <- list(sense="max")
-  # One constraint
+  prob$iparam <- list(NUM_THREADS = parallel)
+  # Constraints
   prob$A <- Matrix::Matrix(nrow = n_mat, ncol = 0)
   prob$c <- numeric(0)
-  # PSD variable constraint
+  # PSD variable constraint (trace == 1)
   prob$bc <- rbind(blc=rep(1, n_mat),
                    buc=rep(1, n_mat))
   prob$bx <- rbind(blx=numeric(0),
@@ -106,9 +108,9 @@ ecmc_opt <- function(X,
 #' @param a consensus reward
 #' @param b disagreement penalty
 #' @param eps stopping threshold for mean difference in solution
-#' @param n_threads number of threads to use in SDP solver, only for MOSEK
 #' @param solver only MOSEK for now
 #' @param maxiter maximum number of iterations before terminating
+#' @param parallel number of threads for optimization
 #'
 #' @return
 #' @export
@@ -116,9 +118,9 @@ ECMC <- function(x,
                  a, 
                  b, 
                  eps = 1e-6, 
-                 n_threads = FALSE, 
                  solver = "MOSEK", 
-                 maxiter = 5) {
+                 maxiter = 10,
+                 parallel = 0) {
   N_col <- sapply(x, ncol)
   N_row <- sapply(x, ncol)
   if (any(c(N_col, N_row) != N_col[1])) stop("Input dimensions do not match.")
@@ -150,7 +152,7 @@ ECMC <- function(x,
     for (i in 1:length(x)) {
       M[[i]] <- H %*% (x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum) %*% H
     }
-    mosek_sol <- ecmc_opt(M, ret_sol = TRUE, ret_optime = TRUE)
+    mosek_sol <- ecmc_opt(M, ret_sol = TRUE, ret_optime = TRUE, parallel = parallel)
     Ct <- lapply(mosek_sol$solution, as.matrix)
     solution_vals_c <- c(solution_vals_c, mosek_sol$val)
     for (i in 1:length(x)) {

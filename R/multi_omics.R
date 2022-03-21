@@ -392,9 +392,9 @@ multi_omic_clustering <- function(dat_list_clust,
                               a = ecmc_a, 
                               b = ecmc_b,
                               eps = ecmc_eps,
-                              n_threads = mvc_threads,
                               maxiter = ecmc_maxiter,
-                              solver = ecmc_solver)
+                              solver = ecmc_solver,
+                              parallel = mvc_threads)
         if (ecmc_mkkm_mr) {
           # Optimize combined kernel
           optimal_kernel <- mkkm_mr(consensus_res$C, 
