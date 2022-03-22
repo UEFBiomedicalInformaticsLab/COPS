@@ -143,7 +143,8 @@ ECMC <- function(x,
     iter <- iter + 1
     if (iter > maxiter) {
       warning(paste0("Not converged in ", maxiter, ". Stopping ..."))
-      return(list(consensus_score = NA, reconstruction_objective = NA))
+      break()
+      #return(list(consensus_score = NA, reconstruction_objective = NA))
     }
     delta_m <- 0
     
