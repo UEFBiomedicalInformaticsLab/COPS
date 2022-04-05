@@ -27,7 +27,7 @@ clustering_metrics(
 
 \item{silhouette_min_cluster_size}{proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.}
 
-\item{...}{extra arguments are passed to \code{\link{clustering_dissimilarity}}}
+\item{...}{extra arguments are passed to \code{\link{clustering_dissimilarity_from_data}}}
 }
 \value{
 Returns a \code{list} containing metrics and cluster sizes

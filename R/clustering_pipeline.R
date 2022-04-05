@@ -487,17 +487,33 @@ vertical_pipeline <- function(dat_list,
                                          multi_view_methods = mvc, 
                                          data_is_kernels = data_is_kernels, 
                                          ...)
-        # Clustering metrics (How should this be implemented?)
-        
-        # Clustering stability evaluation (must be done after loops)
+        # Clustering metrics 
+        silh_i <- list()
+        if (data_is_kernels) {
+          # While the unnormalized linear kernel could be used to compute 
+          # silhouette in the original space, other kernels cannot. 
+          silh_i <- NULL
+        } else {
+          for (j in 1:length(dat_list)) {
+            silh_i[[j]] <- clustering_metrics(clust_i, 
+                                              dat = dat_list[[j]], 
+                                              by = c("run", "fold", "m", "k"),
+                                              clustering_dissimilarity = NULL, 
+                                              cluster_size_table = FALSE, 
+                                              silhouette_min_cluster_size = 0.0,
+                                              distance_metric = "euclidean")
+            colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[i], "_Silhouette")
+          }
+          silh_i <- Reduce(plyr::join, silh_i)
+        }
         
         # Survival evaluation
         if (!is.null(survival_data)) {
           survival_i <- survival_evaluation(survival_data, 
-                                              clust_i, 
-                                              parallel = 1, 
-                                              #by = c("run", "fold", "m", "k"),
-                                              ...)
+                                            clust_i, 
+                                            parallel = 1, 
+                                            by = c("run", "fold", "m", "k"),
+                                            ...)
         } else {
           survival_i <- NULL
         }
@@ -507,18 +523,21 @@ vertical_pipeline <- function(dat_list,
           association_i <- association_analysis_cv(clust_i, 
                                                    association_data, 
                                                    parallel = 1, 
-                                                   #by = c("run", "fold", "m", "k"),
+                                                   by = c("run", "fold", "m", "k"),
                                                    ...)
         } else {
           association_i <- NULL
         }
         # Return
         out_i <- list(clusters = clust_i)
+        out_i <- silh_i
         out_i$survival <- survival_i
         out_i$association <- association_i
         out_i
       }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
       out$clusters <- data.table::setDT(out$clusters)
+      
+      # Clustering stability evaluation
       out$stability <- stability_eval(out$clusters, 
                                       #by = c("run", "m", "k"), 
                                       parallel = parallel)

@@ -29,7 +29,7 @@ clustering_analysis(
 
 \item{cluster_methods}{A vector of clustering method names, see details for options.}
 
-\item{clustering_dissimilarity}{A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity}} if missing.}
+\item{clustering_dissimilarity}{A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity_from_data}} if missing.}
 
 \item{distance_metric}{Either "euclidean" or "correlation".}
 

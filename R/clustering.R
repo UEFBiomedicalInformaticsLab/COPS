@@ -15,7 +15,7 @@
 #' @param dat A data matrix with samples on columns.
 #' @param n_clusters A vector of integers, numbers of clusters to be generated.
 #' @param cluster_methods A vector of clustering method names, see details for options.
-#' @param clustering_dissimilarity A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity}} if missing. 
+#' @param clustering_dissimilarity A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity_from_data}} if missing. 
 #' @param distance_metric Either "euclidean" or "correlation".
 #' @param correlation_method Method for \code{\link[stats]{cor}}.
 #' @param hierarchical_linkage See \code{\link[flashClust]{flashClust}}.
@@ -62,7 +62,7 @@ clustering_analysis <- function(dat,
   if (!is.null(clustering_dissimilarity)) {
     diss <- clustering_dissimilarity
   } else {
-    clustering_dissimilarity(temp, distance_metric, correlation_method)
+    diss <- clustering_dissimilarity_from_data(temp, distance_metric, correlation_method)
   }
   
   # Prepare case with multiple linkage methods
@@ -181,10 +181,10 @@ clustering_analysis <- function(dat,
 #'
 #' @return
 #' @export
-clustering_dissimilarity <- function(x, 
-                                     distance_metric = "euclidean", 
-                                     correlation_method = "spearman", 
-                                     ...) {
+clustering_dissimilarity_from_data <- function(x, 
+                                               distance_metric = "euclidean", 
+                                               correlation_method = "spearman", 
+                                               ...) {
   temp <- x[grepl("^dim[0-9]+$", colnames(x))]
   temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- x$id
@@ -218,7 +218,7 @@ clustering_dissimilarity <- function(x,
 #' @param clustering_dissimilarity a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}
 #' @param cluster_size_table return cluster sizes if \code{TRUE}.
 #' @param silhouette_min_cluster_size proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.
-#' @param ... extra arguments are passed to \code{\link{clustering_dissimilarity}}
+#' @param ... extra arguments are passed to \code{\link{clustering_dissimilarity_from_data}}
 #'
 #' @return Returns a \code{list} containing metrics and cluster sizes
 #' @export
@@ -240,7 +240,7 @@ clustering_metrics <- function(x,
     temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
     temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
     rownames(temp) <- dat$id
-    clustering_dissimilarity(temp, ...)
+    diss <- clustering_dissimilarity_from_data(temp, ...)
   }
   
   metrics <- data.frame()
