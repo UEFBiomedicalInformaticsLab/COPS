@@ -17,7 +17,8 @@ multi_omic_clustering <- function(dat_list_clust,
                                   n_clusters = 2, 
                                   distance_metric = "euclidean", 
                                   correlation_method = "spearman",
-                                  icp_view_types = rep("gaussian", length(dat_list_clust)),
+                                  non_negativity_transform = rep_len("none", length(dat_list_clust)),
+                                  icp_view_types = rep_len("gaussian", length(dat_list_clust)),
                                   icp_bayes_burnin = 1000,
                                   icp_bayes_draw = 1200,
                                   nmf_maxiter = 200,
@@ -243,6 +244,17 @@ multi_omic_clustering <- function(dat_list_clust,
     }
   }
   if ("IntNMF" %in% multi_view_methods) {
+    for (i in 1:length(dat_list_clust)) {
+      if (non_negativity_transform[i] == "logistic") {
+        dat_list_clust[[i]] <- 1/(1 + exp(-dat_list_clust[[i]]))
+      }
+      if (non_negativity_transform[i] == "rank") {
+        dat_list_clust[[i]] <- apply(dat_list_clust[[i]], 2, function(x) rank(x) / length(x))
+      }
+      if (non_negativity_transform[i] == "offset2") {
+        dat_list_clust[[i]] <- dat_list_clust[[i]] + 2
+      }
+    }
     for (k in n_clusters) {
       k_res <- tryCatch({
         nmf_view_weights <- sapply(dat_list_clust, function(x) mean(sqrt(apply(x^2, 1, sum))))
