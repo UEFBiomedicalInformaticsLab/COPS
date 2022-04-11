@@ -238,7 +238,7 @@ clustering_metrics <- function(x,
       stop("Cannot evaluate metrics, both dissimilarity and data are missing.")
     }
     temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
-    temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
+    temp <- temp[,apply(!is.na(temp), 2, all)]
     rownames(temp) <- dat$id
     diss <- clustering_dissimilarity_from_data(temp, ...)
   }
