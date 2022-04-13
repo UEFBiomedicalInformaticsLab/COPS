@@ -60,7 +60,7 @@ multi_omic_clustering <- function(dat_list_clust,
     # in some of the folds. They cause issues and should be removed. 
     dat_list_clust <- lapply(dat_list_clust, function(x) x[,apply(x, 2, var) > 0])
   }
-  if (any(multi_view_methods %in% c("kkmeanspp", "mkkm_mr"))) {
+  if (any(multi_view_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     # In fold centering and normalization
     if (length(kernels_center) != length(dat_list_clust)) {
       kernels_center <- rep_len(kernels_center, length(dat_list_clust))
@@ -75,7 +75,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                                  center_kernel)
     multi_omic_kernels[kernels_normalize] <- lapply(multi_omic_kernels[kernels_normalize],
                                                     normalize_kernel)
-  } else if (multi_view_methods %in% c("kkmeanspp", "mkkm_mr")) {
+  } else if (any(multi_view_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     # Pathway-based kernels need pathway networks
     if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &
         is.null(pathway_networks)) {
