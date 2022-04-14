@@ -500,7 +500,7 @@ vertical_pipeline <- function(dat_list,
         } else {
           for (j in 1:length(dat_list)) {
             silh_i[[j]] <- clustering_metrics(clust_i, 
-                                              dat = dat_list[[j]], 
+                                              dat = as.data.frame(dat_list[[j]]), 
                                               by = c("run", "fold", "m", "k"),
                                               clustering_dissimilarity = NULL, 
                                               cluster_size_table = FALSE, 

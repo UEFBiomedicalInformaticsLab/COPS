@@ -55,7 +55,7 @@ clustering_analysis <- function(dat,
                                 knn_jaccard = TRUE, 
                                 ...) {
   temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]
-  temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
+  temp <- temp[,sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
   
   # Create dissimilarity matrix for Silhouette computation and HC
@@ -185,9 +185,9 @@ clustering_dissimilarity_from_data <- function(x,
                                                distance_metric = "euclidean", 
                                                correlation_method = "spearman", 
                                                ...) {
-  temp <- x[grepl("^dim[0-9]+$", colnames(x))]
-  temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
-  rownames(temp) <- x$id
+  #temp <- x[,grepl("^dim[0-9]+$", colnames(x))]
+  #temp <- temp[,sapply(temp, function(x) all(!is.na(x)))]
+  #rownames(temp) <- x$id
   if (distance_metric == "euclidean") {
     diss <- dist(x)
   } else if(distance_metric == "correlation") {
@@ -237,8 +237,8 @@ clustering_metrics <- function(x,
     if (is.null(dat)) {
       stop("Cannot evaluate metrics, both dissimilarity and data are missing.")
     }
-    temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
-    temp <- temp[,apply(!is.na(temp), 2, all)]
+    temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]#, with = FALSE]
+    temp <- temp[,apply(!is.na(temp), 2, all)]#, with = FALSE]
     rownames(temp) <- dat$id
     diss <- clustering_dissimilarity_from_data(temp, ...)
   }
