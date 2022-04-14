@@ -436,13 +436,16 @@ vertical_pipeline <- function(dat_list,
         }
         return(x)
       }
+      
+      f_args <- list(...)
+      
       parallel_clust <- setup_parallelization(parallel)
       out <- tryCatch(foreach(i = 1:length(cv_index_split), 
                       .combine = cfun, 
                       .inorder = FALSE) %:%
       foreach(mvc = multi_omic_methods, 
               .combine = cfun, 
-              .export = c("dat_list", "cv_index_split"), 
+              .export = c("dat_list", "cv_index_split", "f_args"), 
               .packages = c("iClusterPlus", "IntNMF", "MOFA2"), 
               .inorder = FALSE) %dopar% {
         dat_i <- list()
@@ -482,11 +485,12 @@ vertical_pipeline <- function(dat_list,
         # 1) multi-view clustering
         # 2) multi-view integration/embedding + clustering
         # Since we are running different methods in parallel we take the first result only
-        clust_i <- multi_omic_clustering(dat_i, 
-                                         non_data_cols, 
-                                         multi_view_methods = mvc, 
-                                         data_is_kernels = data_is_kernels, 
-                                         ...)
+        temp_args <- c(list(dat_list_clust = dat_i, 
+                            non_data_cols = non_data_cols, 
+                            multi_view_methods = mvc,
+                            data_is_kernels = data_is_kernels),
+                       f_args)
+        clust_i <- do.call(multi_omic_clustering, temp_args)
         # Clustering metrics 
         silh_i <- list()
         if (data_is_kernels) {
@@ -509,22 +513,24 @@ vertical_pipeline <- function(dat_list,
         
         # Survival evaluation
         if (!is.null(survival_data)) {
-          survival_i <- survival_evaluation(survival_data, 
-                                            clust_i, 
-                                            parallel = 1, 
-                                            by = c("run", "fold", "m", "k"),
-                                            ...)
+          temp_args <- c(list(event_data = survival_data, 
+                              clusters = clust_i, 
+                              parallel = 1,
+                              by = c("run", "fold", "m", "k")),
+                         f_args)
+          survival_i <- do.call(survival_evaluation, temp_args)
         } else {
           survival_i <- NULL
         }
         
         # Clustering association analysis
         if (!is.null(association_data)) {
-          association_i <- association_analysis_cv(clust_i, 
-                                                   association_data, 
-                                                   parallel = 1, 
-                                                   by = c("run", "fold", "m", "k"),
-                                                   ...)
+          temp_args <- c(list(clusters = clust_i, 
+                              association_data = association_data, 
+                              by = c("run", "fold", "m", "k"),
+                              parallel = 1),
+                         f_args)
+          association_i <- do.call(association_analysis_cv, temp_args)
         } else {
           association_i <- NULL
         }
