@@ -225,11 +225,12 @@ clustering_dissimilarity_from_data <- function(x,
 #' @importFrom cluster silhouette
 clustering_metrics <- function(x, 
                                dat = NULL, 
-                               by = c("k", "m"),
+                               by = c("k", "m"), # must have k and m # TODO: fix?
                                clustering_dissimilarity = NULL, 
                                cluster_size_table = TRUE, 
                                silhouette_min_cluster_size = 0.0,
                                ...) {
+  x <- as.data.frame(x)
   # Create dissimilarity matrix for Silhouette computation and HC
   if (!is.null(clustering_dissimilarity)) {
     diss <- clustering_dissimilarity
@@ -245,7 +246,7 @@ clustering_metrics <- function(x,
   
   metrics <- data.frame()
   csize <- list()
-  clusters <- split(x, f = x[by, drop = FALSE])
+  clusters <- split(x, f = x[,by, drop = FALSE])
   for (i in 1:length(clusters)) {
     # Silhouette
     silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 

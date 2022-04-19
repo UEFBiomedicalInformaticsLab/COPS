@@ -498,15 +498,15 @@ vertical_pipeline <- function(dat_list,
           # silhouette in the original space, other kernels cannot. 
           silh_i <- NULL
         } else {
-          for (j in 1:length(dat_list)) {
+          for (j in 1:length(dat_i)) {
             silh_i[[j]] <- clustering_metrics(clust_i, 
-                                              dat = as.data.frame(dat_list[[j]]), 
-                                              by = c("run", "fold", "m", "k"),
+                                              dat = as.data.frame(dat_i[[j]]), 
+                                              by = c("m", "k"),
                                               clustering_dissimilarity = NULL, 
                                               cluster_size_table = FALSE, 
                                               silhouette_min_cluster_size = 0.0,
                                               distance_metric = "euclidean")
-            colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[i], "_Silhouette")
+            colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
           }
           silh_i <- Reduce(plyr::join, silh_i)
         }

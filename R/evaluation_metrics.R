@@ -72,7 +72,7 @@ silhouette_adjusted <- function(x, diss, min_size = 0.05) {
     out[x == names(csize)[i]] <- x_main[apply(diss_main[x == names(csize)[i], ], 1, which.min)]
   }
   silh <- cluster::silhouette(out, diss)
-  if (is.na(silh)) {
+  if (length(silh)) == 1 & is.na(silh)) {
     silh <- data.frame(sil_width = NA)
   }
   return(silh)
