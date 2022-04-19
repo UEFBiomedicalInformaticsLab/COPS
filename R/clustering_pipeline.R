@@ -505,8 +505,9 @@ vertical_pipeline <- function(dat_list,
                                               clustering_dissimilarity = NULL, 
                                               cluster_size_table = FALSE, 
                                               silhouette_min_cluster_size = 0.0,
-                                              distance_metric = "euclidean")
-            colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+                                              distance_metric = "euclidean")$metrics
+            silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+            #colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
           }
           silh_i <- Reduce(plyr::join, silh_i)
         }
