@@ -491,6 +491,7 @@ vertical_pipeline <- function(dat_list,
                             data_is_kernels = data_is_kernels),
                        f_args)
         clust_i <- do.call(multi_omic_clustering, temp_args)
+        
         # Clustering metrics 
         silh_i <- list()
         if (data_is_kernels) {
@@ -501,7 +502,7 @@ vertical_pipeline <- function(dat_list,
           for (j in 1:length(dat_i)) {
             silh_i[[j]] <- clustering_metrics(clust_i, 
                                               dat = as.data.frame(dat_i[[j]]), 
-                                              by = c("m", "k"),
+                                              by = c("run", "fold", "m", "k"),
                                               clustering_dissimilarity = NULL, 
                                               cluster_size_table = FALSE, 
                                               silhouette_min_cluster_size = 0.0,
@@ -509,7 +510,7 @@ vertical_pipeline <- function(dat_list,
             silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
             #colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
           }
-          silh_i <- Reduce(plyr::join, silh_i)
+          silh_i <- Reduce(rbind, silh_i)
         }
         
         # Survival evaluation
@@ -537,7 +538,7 @@ vertical_pipeline <- function(dat_list,
         }
         # Return
         out_i <- list(clusters = clust_i)
-        out_i <- silh_i
+        out_i$internal_metrics <- silh_i
         out_i$survival <- survival_i
         out_i$association <- association_i
         out_i
