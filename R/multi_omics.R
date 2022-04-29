@@ -104,17 +104,17 @@ multi_omic_clustering <- function(dat_list_clust,
         temp <- dat_list_clust[[i]] %*% t(dat_list_clust[[i]])
         if (kernels_center[i]) temp <- center_kernel(temp)
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
-        multi_omic_kernels <- c(multi_omic_kernels, temp)
+        multi_omic_kernels <- c(multi_omic_kernels, list(temp))
       } else if (kernels[i] == "gaussian") {
         temp <- exp(- kernel_gammas[i] * as.matrix(dist(dat_list_clust[[i]]))**2)
-        multi_omic_kernels <- c(multi_omic_kernels, temp)
+        multi_omic_kernels <- c(multi_omic_kernels, list(temp))
       } else if (kernels[i] %in% c("jaccard", "tanimoto")) {
         temp <- jaccard_matrix(t(dat_list_clust[[i]]))
         temp[is.nan(temp)] <- 0
         diag(temp) <- 1
         if (kernels_center[i]) temp <- center_kernel(temp)
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
-        multi_omic_kernels <- c(multi_omic_kernels, temp)
+        multi_omic_kernels <- c(multi_omic_kernels, list(temp))
       } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
         gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list_clust[[i]])))
         colnames(dat_list_clust[[i]]) <- gene_id_list[[i]][gene_col_ind]
@@ -128,7 +128,7 @@ multi_omic_clustering <- function(dat_list_clust,
             temp <- lapply(temp, normalize_kernel)
             temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
           }
-          multi_omic_kernels <- c(multi_omic_kernels, temp)
+          multi_omic_kernels <- c(multi_omic_kernels, list(temp))
         } else if (kernels[i] == "BWK") {
           temp <- t(dat_list_clust[[i]])
           temp <- lapply(nw_weights, function(w) weighted_linear_kernel(temp, w))
@@ -141,7 +141,7 @@ multi_omic_clustering <- function(dat_list_clust,
             temp <- lapply(temp, normalize_kernel)
             temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
           }
-          multi_omic_kernels <- c(multi_omic_kernels, temp)
+          multi_omic_kernels <- c(multi_omic_kernels, list(temp))
         } else if (kernels[i] == "PAMOGK") {
           temp <- dat_list_clust[[i]]
           temp <- scale(temp, scale = TRUE) # z-scores
