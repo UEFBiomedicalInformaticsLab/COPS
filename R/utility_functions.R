@@ -94,7 +94,7 @@ ecdf_transform <- function(x,
                      }
                      # sum over kernels
                      apply(score_i, 1, sum) / (ncol(x) - 1) 
-                   }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                   }, finally = close_parallel_cluster(parallel_clust))
   out <- score - 0.5
   colnames(out) <- colnames(x)
   return(out)
@@ -562,14 +562,18 @@ plot_pvalues <- function(x,
 }
 
 setup_parallelization <- function(parallel) {
+  if (is.null(parallel)) return(NULL)
   if (parallel > 1) {
     parallel_clust <- parallel::makeCluster(parallel)
     doParallel::registerDoParallel(parallel_clust)
-  } else {
-    parallel_clust <- NULL
-    foreach::registerDoSEQ()
+    return(parallel_clust)
   }
-  return(parallel_clust)
+  foreach::registerDoSEQ()
+  return(NULL)
+}
+
+close_parallel_cluster <- function(cluster) {
+  if(!is.null(cluster)) parallel::stopCluster(cluster)
 }
 
 split_by_safe <- function(x, by) {

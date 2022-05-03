@@ -156,6 +156,6 @@ cv_dimred <- function(dat_list,
     dr_temp <- dim_reduction_suite(i[,sel], ...)
     dr_temp <- lapply(dr_temp, function(x) cbind(i[,-sel], as.data.frame(x)))
     dr_temp
-  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+  }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }

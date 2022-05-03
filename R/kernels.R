@@ -38,7 +38,7 @@ node_betweenness_parallel <- function(networks, parallel = 1) {
                                out <- list()
                                out[[names(networks)[i]]] <- res
                                out
-                             }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                             }, finally = close_parallel_cluster(parallel_clust))
   return(b_list)
 }
 
@@ -118,7 +118,7 @@ PIK_KEGG <- function(x, gene_key = "SYMBOL", ...) {
 #' @return list of undirected igraph objects
 #' @export
 KEGG_networks <- function() {
-  kpg <- ROntoTools::keggPathwayGraphs("hsa", verbose = TRUE)
+  kpg <- ROntoTools::keggPathwayGraphs("hsa", verbose = FALSE)
   kpg <- ROntoTools::setEdgeWeights(kpg, 
                                     edgeTypeAttr = "subtype", 
                                     edgeWeightByType = list(activation = 1, inhibition = 1, expression = 1, repression = 1), 
@@ -163,7 +163,7 @@ PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel
                              out <- list(out)
                              names(out) <- names(networks)[i]
                              out
-                           }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                           }, finally = close_parallel_cluster(parallel_clust))
   piks <- piks[!sapply(piks, is.null)]
   return(piks)
 }
@@ -218,6 +218,8 @@ PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
 #'
 #' @return
 #' @export
+#' 
+#' @importFrom CVXR Variable Minimize Problem solve quad_form sum_entries
 mkkm_mr <- function(K_list, 
                     k, 
                     lambda, 
@@ -392,7 +394,7 @@ kernel_kmeans <- function(K, n_k, n_initializations = 100, parallel = 1, ...) {
           .inorder = FALSE) %dopar% {
   out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, ...)
   out_i
-  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+  }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
 

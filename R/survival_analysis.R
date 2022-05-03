@@ -97,6 +97,6 @@ survival_evaluation <- function(event_data,
                    }
                    
                    out_i
-                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }

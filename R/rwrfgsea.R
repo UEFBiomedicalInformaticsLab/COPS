@@ -166,7 +166,7 @@ rwr_wrapper <- function(expr,
                     normalise.affinity.matrix = rwr_affinity_normalization, 
                     parallel = parallel > 1, 
                     multicores = parallel, 
-                    verbose = FALSE), finally = if (parallel > 1) parallel::stopCluster(parallel_clust))
+                    verbose = FALSE), finally = close_parallel_cluster(parallel_clust))
   rownames(rwr) <- names(igraph::V(gene_network))
   colnames(rwr) <- colnames(expr)
   
@@ -204,7 +204,7 @@ fgsea_wrapper <- function(data_matrix,
                    res_out[match(res_i$pathway, names(gene_set_list))] <- res_i$NES * (-log10(res_i$pval)) 
                    
                    res_out
-                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                 }, finally = close_parallel_cluster(parallel_clust))
   rownames(res) <- colnames(data_matrix)
   colnames(res) <- names(gene_set_list)
   # Remove pathways with only NA

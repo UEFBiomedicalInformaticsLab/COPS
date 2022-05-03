@@ -542,7 +542,7 @@ vertical_pipeline <- function(dat_list,
         out_i$survival <- survival_i
         out_i$association <- association_i
         out_i
-      }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+      }, finally = close_parallel_cluster(parallel_clust))
       out$clusters <- data.table::setDT(out$clusters)
       
       # Clustering stability evaluation

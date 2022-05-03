@@ -216,7 +216,7 @@ cv_pathway_enrichment <- function(dat_list,
                      pw_temp[[j]]$datname <- names(pw_temp)[j]
                    }
                    pw_temp
-                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
 
@@ -246,7 +246,7 @@ DiffRank <- function(expr,
     ind <- which(rownames(expr) %in% i)
     # Compare mean ranks of pw genes vs non-pw genes
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
-  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+  }, finally = close_parallel_cluster(parallel_clust))
   
   rownames(out) <- names(gene_set_list)
   out <- out[!apply(out, 1, function(x) all(is.na(x))),]

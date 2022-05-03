@@ -319,11 +319,11 @@ cv_clusteval <- function(dat_embedded,
                           .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
                           .multicombine = TRUE,
                           .maxcombine = max(length(temp_list), 2)) %dopar% {
-                            temp_diss <- clustering_dissimilarity(temp, ...)
+                            temp_diss <- clustering_dissimilarity_from_data(temp, ...)
                             temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
                             temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)
                             res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
                             res
-                          }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                          }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }

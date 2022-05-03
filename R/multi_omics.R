@@ -7,6 +7,7 @@
 #'
 #' @return
 #' @export
+#' @importFrom ANF ANF
 #' @importFrom iClusterPlus iClusterPlus
 #' @importFrom IntNMF nmf.mnnals
 #' @importFrom MOFA2 create_mofa get_default_data_options get_default_model_options get_default_training_options prepare_mofa run_mofa

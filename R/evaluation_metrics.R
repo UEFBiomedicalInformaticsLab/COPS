@@ -270,7 +270,7 @@ stability_eval <- function(clust,
       }
       out}, error = function(e) return(NULL))
     out
-  }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+  }, finally = close_parallel_cluster(parallel_clust))
   return(as.data.frame(stability))
 }
 
@@ -422,7 +422,7 @@ association_analysis_cv <- function(clusters,
                      cluster_assoc <- data.frame(as.data.frame(clust)[1,by], cluster_assoc)
                    }
                    cluster_assoc
-                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
 
@@ -521,6 +521,6 @@ module_evaluation <- function(clusters,
                    gm_score <- gene_module_score(clust, module_eigs, module_cor_threshold, module_nan.substitute)
                    gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
                    gm_score
-                 }, finally = if(parallel > 1) parallel::stopCluster(parallel_clust))
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
