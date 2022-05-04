@@ -218,8 +218,6 @@ PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
 #'
 #' @return
 #' @export
-#' 
-#' @importFrom CVXR Variable Minimize Problem solve quad_form sum_entries
 mkkm_mr <- function(K_list, 
                     k, 
                     lambda, 
@@ -287,6 +285,9 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0, use_mosek = FALSE
 }
 
 mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
+  if (!requireNamespace("Rmosek", quetly = TRUE)) {
+    stop("Trying to run MKKM-MR with MOSEK, but Rmosek has not been installed.")
+  }
   m <- ncol(Z)
   prob <- list(sense = "min")
   prob$iparam <- list(NUM_THREADS = parallel)
@@ -314,6 +315,9 @@ mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
 }
 
 mkkm_mr_mu_opt_cvxr <- function(Z, M, lambda, parallel = 0) {
+  if (!requireNamespace("CVXR", quetly = TRUE)) {
+    stop("Trying to run MKKM-MR with CVXR, but CVXR has not been installed.")
+  }
   parallel <- 0 # parallel solver is not implemented
   m <- ncol(Z)
   mu <- CVXR::Variable(m)

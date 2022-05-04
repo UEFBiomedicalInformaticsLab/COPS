@@ -9,6 +9,7 @@ Description: Clustering algorithms for Omics-driven Patient Stratification provi
     from omics data.
 Depends: R (>= 3.5.0)
 Imports: 
+    ANF,
     AnnotationDbi,
     aricode,
     biomaRt,
@@ -49,10 +50,13 @@ Imports:
     uwot
 Suggests:
     caret,
+    curatedTCGAData,
     dynamicTreeCut,
     knitr,
     markdown,
     rmarkdown,
+    CVXR,
+    Rmosek,
     swamp,
     TCGAutils,
     TCGAbiolinks,
@@ -61,4 +65,4 @@ VignetteBuilder: knitr
 License: MIT
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2

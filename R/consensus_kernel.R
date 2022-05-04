@@ -5,6 +5,9 @@ ecmc_opt <- function(X,
                      ret_optime = FALSE, 
                      verbosity = 0,
                      parallel = 0) {
+  if (!requireNamespace("Rmosek", quetly = TRUE)) {
+    stop("Trying to run ECMC with MOSEK, but Rmosek has not been installed.")
+  }
   n_mat <- length(X)
   #if (length(X) > 1) if(!all(sapply(X[-1], function(x) identical(X[[1]], x)))) {
   #  stop("Objectives are not of the same size")
