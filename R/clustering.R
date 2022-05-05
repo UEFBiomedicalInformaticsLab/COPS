@@ -252,14 +252,12 @@ clustering_metrics <- function(x,
     silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 
                                   diss = diss, 
                                   min_size = silhouette_min_cluster_size)
-    metrics <- rbind(metrics, data.frame(m = clusters[[i]]$m[1], 
-                                         k = clusters[[i]]$k[1],
+    metrics <- rbind(metrics, data.frame(clusters[[i]][1, by], 
                                          metric = "Silhouette",
                                          value = mean(silh_i[,"sil_width"])))
     if (cluster_size_table) {
-      csize[[i]] <- as.data.frame(t(as.matrix(table(clusters[[i]]$cluster))),
-                                  m = clusters[[i]]$m[1], 
-                                  k = clusters[[i]]$k[1])
+      csize[[i]] <- data.frame(clusters[[i]][1, by], 
+                               as.data.frame(t(as.matrix(table(clusters[[i]]$cluster)))))
     }
   }
   out_list <- list(metrics = metrics)
