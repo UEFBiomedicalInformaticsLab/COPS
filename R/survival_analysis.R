@@ -1,4 +1,6 @@
 #' Pre-process event data for survival analysis
+#' 
+#' Use when survival data is not in time and event format e.g., TCGA clinical data.
 #'
 #' @param event_data A data.frame that contains survival times, event data and covariates.
 #' @param event_time_name Name of the column that contains time to event. 
