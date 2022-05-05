@@ -446,7 +446,7 @@ vertical_pipeline <- function(dat_list,
       foreach(mvc = multi_omic_methods, 
               .combine = cfun, 
               .export = c("dat_list", "cv_index_split", "f_args"), 
-              .packages = c("COPS", "iClusterPlus", "IntNMF", "MOFA2"), 
+              .packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
               .inorder = FALSE) %dopar% {
         dat_i <- list()
         non_data_cols <- list()
@@ -537,7 +537,8 @@ vertical_pipeline <- function(dat_list,
           association_i <- NULL
         }
         # Return
-        out_i <- list(clusters = clust_i)
+        out_i <- list()
+        out_i$clusters <- clust_i
         out_i$internal_metrics <- silh_i
         out_i$survival <- survival_i
         out_i$association <- association_i
@@ -552,7 +553,7 @@ vertical_pipeline <- function(dat_list,
       return(out)
     }
   } else {
-    
+    stop("Not implemented.")
   }
 }
 
