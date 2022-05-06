@@ -220,6 +220,30 @@ get_best_result <- function(res,
   return(out)
 }
 
+data_preprocess <- function(dat, verbose = TRUE) {
+  if ("list" %in% class(dat)) {
+    dat_list <- dat
+  } else {
+    dat_list <- list(dat)
+  }
+  if(verbose) print("Processing data sets ..."); flush.console()
+  
+  # Collect gene names for later. 
+  # They are required for pathway-based approaches
+  gene_id_list <- lapply(dat_list, rownames)
+  
+  # Convert data to data.table to optimize memory usage
+  for (i in 1:length(dat_list)) {
+    id <- colnames(dat_list[[i]])
+    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
+    #data.table::setDT(dat_list[[i]])
+    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
+    dat_list[[i]]$id <- id
+    data.table::setkey(dat_list[[i]], id)
+  }
+  return(list(dat_list = dat_list, gene_id_list = gene_id_list))
+}
+
 #' Clustering algorithms for Omics based Patient Stratification
 #'
 #' @param dat 
@@ -247,58 +271,39 @@ COPS <- function(dat,
                  pathway_enrichment_method = "none",
                  vertical_parallelization = FALSE, 
                  ...) {
-  if ("list" %in% class(dat)) {
-    dat_list <- dat
-  } else {
-    dat_list <- list(dat)
-  }
-  
   pipeline_start <- Sys.time()
-  if(verbose) print("Processing data sets ..."); flush.console()
   
-  # Collect gene names for later. 
-  # They are required for pathway-based approaches
-  gene_id_list <- lapply(dat_list, rownames)
-
-  # Convert data to data.table to optimize memory usage
-  for (i in 1:length(dat_list)) {
-    id <- colnames(dat_list[[i]])
-    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
-    #data.table::setDT(dat_list[[i]])
-    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
-    dat_list[[i]]$id <- id
-    data.table::setkey(dat_list[[i]], id)
-  }
+  dat <- data_preprocess(dat, verbose)
   
   if (vertical_parallelization) {
-    out <- vertical_pipeline(dat_list, 
+    out <- vertical_pipeline(dat$dat_list, 
                              nruns = nruns,
                              nfolds = nfolds,
                              survival_data = survival_data, 
                              association_data = association_data,
                              parallel = parallel,
-                             gene_id_list = gene_id_list,
+                             gene_id_list = dat$gene_id_list,
                              ...)
     return(out)
   }
   
   # Create cross validation folds
-  cv_index <- cv_fold(dat_list = dat_list, 
+  cv_index <- cv_fold(dat_list = dat$dat_list, 
                       nfolds = nfolds, 
                       nruns = nruns, 
                       ...)
   
   # Pathway enrichment
   if (pathway_enrichment_method != "none") {
-    if (length(dat_list) > 1) {
+    if (length(dat$dat_list) > 1) {
       stop("Multiple data sets with pathway enrichment enabled is not implemented.")
       # TODO: make it compatible. Currently datname is being used as pwname. 
     }
     pw_start <- Sys.time()
     if(verbose) print("Starting pathway enrichment ..."); flush.console()
-    dat_pw <- cv_pathway_enrichment(dat_list, 
+    dat_pw <- cv_pathway_enrichment(dat$dat_list, 
                                     cv_index, 
-                                    gene_id_list, 
+                                    dat$gene_id_list, 
                                     enrichment_method = pathway_enrichment_method, 
                                     parallel = parallel, 
                                     ...)
@@ -319,7 +324,7 @@ COPS <- function(dat,
     # Dimensionality reduction
     dimred_start <- Sys.time()
     if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-    dat_embedded <- cv_dimred(dat_list, 
+    dat_embedded <- cv_dimred(dat$dat_list, 
                               cv_index, 
                               parallel = parallel, 
                               ...)
@@ -417,141 +422,251 @@ vertical_pipeline <- function(dat_list,
                               parallel = 1, 
                               data_is_kernels = FALSE, 
                               ...) {
-  #parallel_clust <- setup_parallelization(parallel)
-  #dat_list_fold <- list()
-  #for (i in 1:length(dat_list) {
-  #  dat_list_fold[[i]] <- merge(dat_list[[i]], cv_index, by = "id")
-  #}
   if (length(multi_omic_methods) > 0) {
-    if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
-      warning("Colnames in all views do not match.")
-      stop("Cross-validation for missing sample views not implemented.")
-    } else {
-      cv_index <- cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...)
-      cv_index_split <- split(cv_index[[1]], by = c("run", "fold"))
+    cv_index <- multi_view_cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
+    cv_index_split <- split(cv_index[[1]], by = c("run", "fold"))
+    
+    cfun <- function(x, y) {
+      for (i in 1:length(x)) {
+        x[[i]] <- plyr::rbind.fill(x[[i]], y[[i]])
+      }
+      return(x)
+    }
+    
+    f_args <- list(...)
+    
+    parallel_clust <- setup_parallelization(parallel)
+    out <- tryCatch(foreach(i = 1:length(cv_index_split), 
+                    .combine = cfun, 
+                    .inorder = FALSE) %:%
+    foreach(mvc = multi_omic_methods, 
+            .combine = cfun, 
+            .export = c("dat_list", "cv_index_split", "f_args"), 
+            .packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
+            .inorder = FALSE) %dopar% {
+      dat_i <- list()
+      non_data_cols <- list()
       
-      cfun <- function(x, y) {
-        for (i in 1:length(x)) {
-          x[[i]] <- plyr::rbind.fill(x[[i]], y[[i]])
+      if(data_is_kernels) {
+        for (j in 1:length(dat_list)) {
+          if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
+            stop("Input kernels are not square!")
+          }
+          ij_ind <- match(cv_index_split[[i]]$id, dat_list[[j]]$id)
+          dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
+          
+          temp <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
+          sel <- grep("^dim[0-9]+$", colnames(temp))
+          if ("data.table" %in% class(temp)) {
+            non_data_cols[[j]] <- temp[,-..sel]
+          } else {
+            non_data_cols[[j]] <- temp[,-sel]
+          }
         }
-        return(x)
+      } else {
+        for (j in 1:length(dat_list)) {
+          dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
+          sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+          if ("data.table" %in% class(dat_i[[j]])) {
+            non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+            dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+          } else {
+            non_data_cols[[j]] <- dat_i[[j]][,-sel]
+            dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+          }
+        }
       }
       
-      f_args <- list(...)
+      # multi-omic clustering
+      # 1) multi-view clustering
+      # 2) multi-view integration/embedding + clustering
+      # Since we are running different methods in parallel we take the first result only
+      temp_args <- c(list(dat_list_clust = dat_i, 
+                          non_data_cols = non_data_cols, 
+                          multi_view_methods = mvc,
+                          data_is_kernels = data_is_kernels),
+                     f_args)
+      clust_i <- do.call(multi_omic_clustering, temp_args)
       
-      parallel_clust <- setup_parallelization(parallel)
-      out <- tryCatch(foreach(i = 1:length(cv_index_split), 
-                      .combine = cfun, 
-                      .inorder = FALSE) %:%
-      foreach(mvc = multi_omic_methods, 
-              .combine = cfun, 
-              .export = c("dat_list", "cv_index_split", "f_args"), 
-              .packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
-              .inorder = FALSE) %dopar% {
-        dat_i <- list()
-        non_data_cols <- list()
-        
-        if(data_is_kernels) {
-          for (j in 1:length(dat_list)) {
-            if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
-              stop("Input kernels are not square!")
-            }
-            ij_ind <- match(cv_index_split[[i]]$id, dat_list[[j]]$id)
-            dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
-            
-            temp <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
-            sel <- grep("^dim[0-9]+$", colnames(temp))
-            if ("data.table" %in% class(temp)) {
-              non_data_cols[[j]] <- temp[,-..sel]
-            } else {
-              non_data_cols[[j]] <- temp[,-sel]
-            }
-          }
-        } else {
-          for (j in 1:length(dat_list)) {
-            dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
-            sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
-            if ("data.table" %in% class(dat_i[[j]])) {
-              non_data_cols[[j]] <- dat_i[[j]][,-..sel]
-              dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
-            } else {
-              non_data_cols[[j]] <- dat_i[[j]][,-sel]
-              dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
-            }
-          }
+      # Clustering metrics 
+      silh_i <- list()
+      if (data_is_kernels) {
+        # While the unnormalized linear kernel could be used to compute 
+        # silhouette in the original space, other kernels cannot. 
+        silh_i <- NULL
+      } else {
+        for (j in 1:length(dat_i)) {
+          silh_i[[j]] <- clustering_metrics(clust_i, 
+                                            dat = as.data.frame(dat_i[[j]]), 
+                                            by = c("run", "fold", "m", "k"),
+                                            clustering_dissimilarity = NULL, 
+                                            cluster_size_table = FALSE, 
+                                            silhouette_min_cluster_size = 0.0,
+                                            distance_metric = "euclidean")$metrics
+          silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+          #colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
         }
-        
-        # multi-omic clustering
-        # 1) multi-view clustering
-        # 2) multi-view integration/embedding + clustering
-        # Since we are running different methods in parallel we take the first result only
-        temp_args <- c(list(dat_list_clust = dat_i, 
-                            non_data_cols = non_data_cols, 
-                            multi_view_methods = mvc,
-                            data_is_kernels = data_is_kernels),
+        silh_i <- Reduce(rbind, silh_i)
+      }
+      
+      # Survival evaluation
+      if (!is.null(survival_data)) {
+        temp_args <- c(list(event_data = survival_data, 
+                            clusters = clust_i, 
+                            parallel = 1,
+                            by = c("run", "fold", "m", "k")),
                        f_args)
-        clust_i <- do.call(multi_omic_clustering, temp_args)
-        
-        # Clustering metrics 
-        silh_i <- list()
-        if (data_is_kernels) {
-          # While the unnormalized linear kernel could be used to compute 
-          # silhouette in the original space, other kernels cannot. 
-          silh_i <- NULL
-        } else {
-          for (j in 1:length(dat_i)) {
-            silh_i[[j]] <- clustering_metrics(clust_i, 
-                                              dat = as.data.frame(dat_i[[j]]), 
-                                              by = c("run", "fold", "m", "k"),
-                                              clustering_dissimilarity = NULL, 
-                                              cluster_size_table = FALSE, 
-                                              silhouette_min_cluster_size = 0.0,
-                                              distance_metric = "euclidean")$metrics
-            silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
-            #colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
-          }
-          silh_i <- Reduce(rbind, silh_i)
-        }
-        
-        # Survival evaluation
-        if (!is.null(survival_data)) {
-          temp_args <- c(list(event_data = survival_data, 
-                              clusters = clust_i, 
-                              parallel = 1,
-                              by = c("run", "fold", "m", "k")),
-                         f_args)
-          survival_i <- do.call(survival_evaluation, temp_args)
-        } else {
-          survival_i <- NULL
-        }
-        
-        # Clustering association analysis
-        if (!is.null(association_data)) {
-          temp_args <- c(list(clusters = clust_i, 
-                              association_data = association_data, 
-                              by = c("run", "fold", "m", "k"),
-                              parallel = 1),
-                         f_args)
-          association_i <- do.call(association_analysis_cv, temp_args)
-        } else {
-          association_i <- NULL
-        }
-        # Return
-        out_i <- list()
-        out_i$clusters <- clust_i
-        out_i$internal_metrics <- silh_i
-        out_i$survival <- survival_i
-        out_i$association <- association_i
-        out_i
-      }, finally = close_parallel_cluster(parallel_clust))
-      out$clusters <- data.table::setDT(out$clusters)
+        survival_i <- do.call(survival_evaluation, temp_args)
+      } else {
+        survival_i <- NULL
+      }
       
-      # Clustering stability evaluation
-      out$stability <- stability_eval(out$clusters, 
-                                      #by = c("run", "m", "k"), 
-                                      parallel = parallel)
-      return(out)
+      # Clustering association analysis
+      if (!is.null(association_data)) {
+        temp_args <- c(list(clusters = clust_i, 
+                            association_data = association_data, 
+                            by = c("run", "fold", "m", "k"),
+                            parallel = 1),
+                       f_args)
+        association_i <- do.call(association_analysis_cv, temp_args)
+      } else {
+        association_i <- NULL
+      }
+      # Return
+      out_i <- list()
+      out_i$clusters <- clust_i
+      out_i$internal_metrics <- silh_i
+      out_i$survival <- survival_i
+      out_i$association <- association_i
+      out_i
+    }, finally = close_parallel_cluster(parallel_clust))
+    out$clusters <- data.table::setDT(out$clusters)
+    
+    # Clustering stability evaluation
+    out$stability <- stability_eval(out$clusters, 
+                                    #by = c("run", "m", "k"), 
+                                    parallel = parallel)
+    return(out)
+  } else {
+    stop("Not implemented.")
+  }
+}
+
+multi_view_cv_fold <- function(dat_list, nfolds = 5, nruns = 2, ...) {
+  if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
+    warning("Colnames in all views do not match.")
+    stop("Cross-validation for missing sample views not implemented.")
+  }
+  return(cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...))
+}
+
+subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
+  dat_i <- list()
+  non_data_cols <- list()
+  if(data_is_kernels) {
+    for (j in 1:length(dat_list)) {
+      if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
+        stop("Input kernels are not square!")
+      }
+      ij_ind <- match(cv_index$id, dat_list[[j]]$id)
+      dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
+      
+      temp <- merge(cv_index, dat_list[[j]], by = "id")
+      sel <- grep("^dim[0-9]+$", colnames(temp))
+      if ("data.table" %in% class(temp)) {
+        non_data_cols[[j]] <- temp[,-..sel]
+      } else {
+        non_data_cols[[j]] <- temp[,-sel]
+      }
     }
+  } else {
+    for (j in 1:length(dat_list)) {
+      dat_i[[j]] <- merge(cv_index, dat_list[[j]], by = "id")
+      sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+      if ("data.table" %in% class(dat_i[[j]])) {
+        non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+        dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+      } else {
+        non_data_cols[[j]] <- dat_i[[j]][,-sel]
+        dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+      }
+    }
+  }
+  return(list(dat_i = dat_i, non_data_cols = non_data_cols))
+}
+
+embarassingly_parallel_pipeline <- function(dat_list, 
+                                            cv_index,
+                                            fold = 6, 
+                                            run = 1,
+                                            survival_data = NULL,
+                                            association_data = NULL, 
+                                            multi_omic_methods = NULL, 
+                                            parallel = 1, 
+                                            data_is_kernels = FALSE, 
+                                            ...) {
+  cvi <- cv_index[cv_index$fold == fold & cv_index$run == run,]
+  if (length(multi_omic_methods) == 1) {
+    dat_i <- subset_cv_data(dat_list, cvi, data_is_kernels)
+    
+    # multi-omic clustering
+    # 1) multi-view clustering
+    # 2) multi-view integration/embedding + clustering
+    clust_i <- multi_omic_clustering(dat_list_clust = dat_i$dat_i,
+                                     non_data_cols = dat_i$non_data_cols, 
+                                     multi_view_methods = multi_omic_methods,
+                                     data_is_kernels = data_is_kernels,
+                                     ...)
+    
+    # Clustering metrics 
+    silh_i <- list()
+    if (data_is_kernels) {
+      # While the unnormalized linear kernel could be used to compute 
+      # silhouette in the original space, other kernels cannot. 
+      silh_i <- NULL
+    } else {
+      for (j in 1:length(dat_i$dat_i)) {
+        silh_i[[j]] <- clustering_metrics(clust_i, 
+                                          dat = as.data.frame(dat_i$dat_i[[j]]), 
+                                          by = c("run", "fold", "m", "k"),
+                                          clustering_dissimilarity = NULL, 
+                                          cluster_size_table = FALSE, 
+                                          silhouette_min_cluster_size = 0.0,
+                                          distance_metric = "euclidean")$metrics
+        silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+      }
+      silh_i <- Reduce(rbind, silh_i)
+    }
+    
+    # Survival evaluation
+    if (!is.null(survival_data)) {
+      survival_i <- survival_evaluation(event_data = survival_data, 
+                                        clusters = clust_i, 
+                                        parallel = 1,
+                                        by = c("run", "fold", "m", "k"),
+                                        ...)
+    } else {
+      survival_i <- NULL
+    }
+    
+    # Clustering association analysis
+    if (!is.null(association_data)) {
+      association_i <- association_analysis_cv(clusters = clust_i, 
+                                               association_data = association_data, 
+                                               by = c("run", "fold", "m", "k"),
+                                               parallel = 1,
+                                               ...)
+    } else {
+      association_i <- NULL
+    }
+    # Return
+    out <- list()
+    out$clusters <- clust_i
+    out$internal_metrics <- silh_i
+    out$survival <- survival_i
+    out$association <- association_i
+    out$clusters <- data.table::setDT(out$clusters)
+    return(out)
   } else {
     stop("Not implemented.")
   }
