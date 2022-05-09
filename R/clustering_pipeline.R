@@ -595,16 +595,16 @@ subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
   return(list(dat_i = dat_i, non_data_cols = non_data_cols))
 }
 
-embarassingly_parallel_pipeline <- function(dat_list, 
-                                            cv_index,
-                                            fold = 6, 
-                                            run = 1,
-                                            survival_data = NULL,
-                                            association_data = NULL, 
-                                            multi_omic_methods = NULL, 
-                                            parallel = 1, 
-                                            data_is_kernels = FALSE, 
-                                            ...) {
+embarrassingly_parallel_pipeline <- function(dat_list, 
+                                             cv_index,
+                                             fold = 6, 
+                                             run = 1,
+                                             survival_data = NULL,
+                                             association_data = NULL, 
+                                             multi_omic_methods = NULL, 
+                                             parallel = 1, 
+                                             data_is_kernels = FALSE, 
+                                             ...) {
   cvi <- cv_index[cv_index$fold == fold & cv_index$run == run,]
   if (length(multi_omic_methods) == 1) {
     dat_i <- subset_cv_data(dat_list, cvi, data_is_kernels)
