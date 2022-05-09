@@ -318,7 +318,7 @@ multi_omic_clustering <- function(dat_list_clust,
       #mofa_embedding$id <- rownames(mofa_embedding)
       mofa_embedding$drname <- "MOFA2"
       
-      mofa_diss <- clustering_dissimilarity(mofa_embedding, distance_metric, correlation_method)
+      mofa_diss <- clustering_dissimilarity_from_data(mofa_embedding, distance_metric, correlation_method)
       mofa_cops_clust <- clustering_analysis(cbind(mofa_embedding, non_data_cols[[1]]), 
                                              n_clusters = n_clusters,
                                              clustering_dissimilarity = mofa_diss,
