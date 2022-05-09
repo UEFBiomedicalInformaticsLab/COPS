@@ -5,7 +5,7 @@ ecmc_opt <- function(X,
                      ret_optime = FALSE, 
                      verbosity = 0,
                      parallel = 0) {
-  if (!requireNamespace("Rmosek", quetly = TRUE)) {
+  if (!requireNamespace("Rmosek", quietly = TRUE)) {
     stop("Trying to run ECMC with MOSEK, but Rmosek has not been installed.")
   }
   n_mat <- length(X)

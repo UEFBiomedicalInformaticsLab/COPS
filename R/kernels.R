@@ -285,7 +285,7 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0, use_mosek = FALSE
 }
 
 mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
-  if (!requireNamespace("Rmosek", quetly = TRUE)) {
+  if (!requireNamespace("Rmosek", quietly = TRUE)) {
     stop("Trying to run MKKM-MR with MOSEK, but Rmosek has not been installed.")
   }
   m <- ncol(Z)
@@ -315,7 +315,7 @@ mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
 }
 
 mkkm_mr_mu_opt_cvxr <- function(Z, M, lambda, parallel = 0) {
-  if (!requireNamespace("CVXR", quetly = TRUE)) {
+  if (!requireNamespace("CVXR", quietly = TRUE)) {
     stop("Trying to run MKKM-MR with CVXR, but CVXR has not been installed.")
   }
   parallel <- 0 # parallel solver is not implemented
