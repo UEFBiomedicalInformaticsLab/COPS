@@ -11,6 +11,7 @@ multi_omic_clustering(
   n_clusters = 2,
   distance_metric = "euclidean",
   correlation_method = "spearman",
+  standardize_data = FALSE,
   non_negativity_transform = rep_len("none", length(dat_list_clust)),
   icp_view_types = rep_len("gaussian", length(dat_list_clust)),
   icp_bayes_burnin = 1000,
