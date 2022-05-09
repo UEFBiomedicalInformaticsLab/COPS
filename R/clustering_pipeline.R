@@ -538,6 +538,11 @@ vertical_pipeline <- function(dat_list,
       out_i$internal_metrics <- silh_i
       out_i$survival <- survival_i
       out_i$association <- association_i
+      if (!is.null(attributes(clust_i)$extra_output)) {
+        if (!is.null(attributes(clust_i)$extra_output$mkkm_mr_weights)) {
+          out_i$mkkm_mr_weights <- attributes(clust_i)$extra_output$mkkm_mr_weights
+        }
+      }
       out_i
     }, finally = close_parallel_cluster(parallel_clust))
     out$clusters <- data.table::setDT(out$clusters)
@@ -592,6 +597,8 @@ subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
       }
     }
   }
+  names(dat_i) <- names(dat_list)
+  names(non_data_cols) <- names(dat_list)
   return(list(dat_i = dat_i, non_data_cols = non_data_cols))
 }
 
@@ -665,6 +672,11 @@ embarrassingly_parallel_pipeline <- function(dat_list,
     out$internal_metrics <- silh_i
     out$survival <- survival_i
     out$association <- association_i
+    if (!is.null(attributes(clust_i)$extra_output)) {
+      if (!is.null(attributes(clust_i)$extra_output$mkkm_mr_weights)) {
+        out$mkkm_mr_weights <- attributes(clust_i)$extra_output$mkkm_mr_weights
+      }
+    }
     out$clusters <- data.table::setDT(out$clusters)
     return(out)
   } else {
@@ -875,6 +887,9 @@ clusteval_scoring <- function(res,
               association,
               cluster_sizes,
               stability)
+  if (!is.null(res$mkkm_mr_weights) & !summarise) {
+    out$mkkm_mr_weights <- res$mkkm_mr_weights
+  }
   #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   out <- Reduce(function(x,y) plyr::join(x, y, 
                                          by = intersect(by, 

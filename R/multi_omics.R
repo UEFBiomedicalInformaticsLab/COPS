@@ -57,6 +57,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   mvc_threads = 1,
                                   gene_id_list = NULL,
                                   ...) {
+  extra_output <- NULL # For returning things like view weights
   if (foldwise_zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
     # in some of the folds. They cause issues and should be removed. 
@@ -372,6 +373,8 @@ multi_omic_clustering <- function(dat_list_clust,
     }
   }
   if ("mkkm_mr" %in% multi_view_methods) {
+    if (is.null(extra_output)) extra_output <- list()
+    if (is.null(extra_output$mkkm_mr_weights)) extra_output$mkkm_mr_weights <- data.frame()
     for (k in n_clusters) {
       k_res <- tryCatch({
         # Optimize combined kernel
@@ -394,8 +397,13 @@ multi_omic_clustering <- function(dat_list_clust,
                                     maxiter = kkmeans_maxiter,
                                     parallel = mvc_threads)
         }
-        temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters, 
-                               kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
+        temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters)
+        extra_output$mkkm_mr_weights <- rbind(extra_output$mkkm_mr_weights, 
+                                              data.frame(m = "mkkm_mr", k = k, 
+                                                         kernel_mix = paste0(names(multi_omic_kernels), 
+                                                                             ":", 
+                                                                             optimal_kernel$mu, 
+                                                                             collapse = ";")))
         cbind(non_data_cols[[1]], temp_res)
       }, error = function(e) return(NULL))
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -413,6 +421,8 @@ multi_omic_clustering <- function(dat_list_clust,
                               solver = ecmc_solver,
                               parallel = mvc_threads)
         if (ecmc_mkkm_mr) {
+          if (is.null(extra_output)) extra_output <- list()
+          if (is.null(extra_output$mkkm_mr_weights)) extra_output$mkkm_mr_weights <- data.frame()
           # Optimize combined kernel
           optimal_kernel <- mkkm_mr(consensus_res$C, 
                                     k = k, 
@@ -420,6 +430,12 @@ multi_omic_clustering <- function(dat_list_clust,
                                     tolerance = mkkm_mr_tolerance, 
                                     parallel = mvc_threads,
                                     use_mosek = mkkm_mr_mosek)
+          extra_output$mkkm_mr_weights <- rbind(extra_output$mkkm_mr_weights, 
+                                                data.frame(m = "mkkm_mr", k = k, 
+                                                           kernel_mix = paste0(names(multi_omic_kernels), 
+                                                                               ":", 
+                                                                               optimal_kernel$mu, 
+                                                                               collapse = ";")))
           if (mkkm_mr_initialization) {
             temp_res <- kernel_kmeans_algorithm(optimal_kernel$K, 
                                                 n_k = k, 
@@ -447,5 +463,7 @@ multi_omic_clustering <- function(dat_list_clust,
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
-  return(plyr::rbind.fill(res))
+  out <- plyr::rbind.fill(res)
+  if (!is.null(extra_output)) attributes(out)$extra_output <- extra_output
+  return(out)
 }
