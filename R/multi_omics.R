@@ -133,7 +133,7 @@ multi_omic_clustering <- function(dat_list_clust,
             temp <- lapply(temp, normalize_kernel)
             temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
           }
-          multi_omic_kernels <- c(multi_omic_kernels, list(temp))
+          multi_omic_kernels <- c(multi_omic_kernels, temp)
         } else if (kernels[i] == "BWK") {
           temp <- t(dat_list_clust[[i]])
           temp <- lapply(nw_weights, function(w) weighted_linear_kernel(temp, w))
@@ -146,7 +146,7 @@ multi_omic_clustering <- function(dat_list_clust,
             temp <- lapply(temp, normalize_kernel)
             temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
           }
-          multi_omic_kernels <- c(multi_omic_kernels, list(temp))
+          multi_omic_kernels <- c(multi_omic_kernels, temp)
         } else if (kernels[i] == "PAMOGK") {
           temp <- dat_list_clust[[i]]
           temp <- scale(temp, scale = TRUE) # z-scores
