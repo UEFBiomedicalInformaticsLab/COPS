@@ -18,6 +18,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   n_clusters = 2, 
                                   distance_metric = "euclidean", 
                                   correlation_method = "spearman",
+                                  standardize_data = FALSE,
                                   non_negativity_transform = rep_len("none", length(dat_list_clust)),
                                   icp_view_types = rep_len("gaussian", length(dat_list_clust)),
                                   icp_bayes_burnin = 1000,
@@ -60,6 +61,9 @@ multi_omic_clustering <- function(dat_list_clust,
     # Rare binary features such as some somatic mutations could end up missing 
     # in some of the folds. They cause issues and should be removed. 
     dat_list_clust <- lapply(dat_list_clust, function(x) x[,apply(x, 2, var) > 0])
+  }
+  if (standardize_data) {
+    dat_list_clust <- lapply(dat_list_clust, scale)
   }
   if (any(multi_view_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     # In fold centering and normalization
