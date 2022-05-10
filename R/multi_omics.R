@@ -137,9 +137,9 @@ multi_omic_clustering <- function(dat_list_clust,
         multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
         gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list_clust[[i]])))
-        colnames(dat_list_clust[[i]]) <- gene_id_list[[i]][gene_col_ind]
+        temp <- dat_list_clust[[i]]
+        colnames(temp) <- gene_id_list[[i]][gene_col_ind]
         if (kernels[i] == "PIK") {
-          temp <- dat_list_clust[[i]]
           temp <- scale(temp, scale = TRUE) # z-scores
           temp <- PIK_from_networks(temp, pathway_networks, parallel = mvc_threads)
           names(temp) <- paste0(names(dat_list_clust)[i], "_", names(temp))
@@ -151,7 +151,7 @@ multi_omic_clustering <- function(dat_list_clust,
           if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
           multi_omic_kernels <- c(multi_omic_kernels, temp)
         } else if (kernels[i] == "BWK") {
-          temp <- t(dat_list_clust[[i]])
+          temp <- t(temp)
           temp <- lapply(nw_weights, function(w) weighted_linear_kernel(temp, w))
           names(temp) <- paste0(names(dat_list_clust)[i], "_", names(temp))
           temp <- temp[!sapply(temp, is.null)]
@@ -165,7 +165,6 @@ multi_omic_clustering <- function(dat_list_clust,
           if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
           multi_omic_kernels <- c(multi_omic_kernels, temp)
         } else if (kernels[i] == "PAMOGK") {
-          temp <- dat_list_clust[[i]]
           temp <- scale(temp, scale = TRUE) # z-scores
           if (mvc_threads > 1) {
             rwr_threads <- mvc_threads
