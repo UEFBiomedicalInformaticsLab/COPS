@@ -37,6 +37,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   kernels = rep_len("linear", length(dat_list_clust)),
                                   kernels_center = TRUE,
                                   kernels_normalize = TRUE,
+                                  kernels_scale_norm = FALSE,
                                   kernel_gammas = rep_len(0.5, length(dat_list_clust)),
                                   pathway_networks = NULL,
                                   pamogk_restart = 0.7,
@@ -74,6 +75,9 @@ multi_omic_clustering <- function(dat_list_clust,
     if (length(kernels_normalize) != length(dat_list_clust)) {
       kernels_normalize <- rep_len(kernels_normalize, length(dat_list_clust))
     }
+    if (length(kernels_scale_norm) != length(dat_list_clust)) {
+      kernels_scale_norm <- rep_len(kernels_scale_norm, length(dat_list_clust))
+    }
   }
   if (data_is_kernels) {
     multi_omic_kernels <- dat_list_clust
@@ -81,6 +85,8 @@ multi_omic_clustering <- function(dat_list_clust,
                                                  center_kernel)
     multi_omic_kernels[kernels_normalize] <- lapply(multi_omic_kernels[kernels_normalize],
                                                     normalize_kernel)
+    multi_omic_kernels[kernels_scale_norm] <- lapply(multi_omic_kernels[kernels_scale_norm],
+                                                          scale_kernel_norm)
   } else if (any(multi_view_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     # Pathway-based kernels need pathway networks
     if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &
@@ -110,17 +116,25 @@ multi_omic_clustering <- function(dat_list_clust,
         temp <- dat_list_clust[[i]] %*% t(dat_list_clust[[i]])
         if (kernels_center[i]) temp <- center_kernel(temp)
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
-        multi_omic_kernels <- c(multi_omic_kernels, list(temp))
+        if (kernels_scale_norm[i]) temp <- scale_kernel_norm(temp)
+        temp <- list(temp)
+        names(temp) <- names(dat_list_clust)[i]
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] == "gaussian") {
         temp <- exp(- kernel_gammas[i] * as.matrix(dist(dat_list_clust[[i]]))**2)
-        multi_omic_kernels <- c(multi_omic_kernels, list(temp))
+        temp <- list(temp)
+        names(temp) <- names(dat_list_clust)[i]
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("jaccard", "tanimoto")) {
         temp <- jaccard_matrix(t(dat_list_clust[[i]]))
         temp[is.nan(temp)] <- 0
         diag(temp) <- 1
         if (kernels_center[i]) temp <- center_kernel(temp)
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
-        multi_omic_kernels <- c(multi_omic_kernels, list(temp))
+        if (kernels_scale_norm[i]) temp <- scale_kernel_norm(temp)
+        temp <- list(temp)
+        names(temp) <- names(dat_list_clust)[i]
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
         gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list_clust[[i]])))
         colnames(dat_list_clust[[i]]) <- gene_id_list[[i]][gene_col_ind]
@@ -134,6 +148,7 @@ multi_omic_clustering <- function(dat_list_clust,
             temp <- lapply(temp, normalize_kernel)
             temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
           }
+          if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
           multi_omic_kernels <- c(multi_omic_kernels, temp)
         } else if (kernels[i] == "BWK") {
           temp <- t(dat_list_clust[[i]])
@@ -147,6 +162,7 @@ multi_omic_clustering <- function(dat_list_clust,
             temp <- lapply(temp, normalize_kernel)
             temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
           }
+          if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
           multi_omic_kernels <- c(multi_omic_kernels, temp)
         } else if (kernels[i] == "PAMOGK") {
           temp <- dat_list_clust[[i]]
@@ -174,6 +190,7 @@ multi_omic_clustering <- function(dat_list_clust,
                   k_up <- normalize_kernel(k_up)
                   k_up[is.na(k_up)] <- 0
                 }
+                if (kernels_scale_norm[i]) k_up <- scale_kernel_norm(k_up)
                 multi_omic_kernels <- c(multi_omic_kernels, list(k_up))
               }
             }
@@ -194,6 +211,7 @@ multi_omic_clustering <- function(dat_list_clust,
                   k_dn <- normalize_kernel(k_dn)
                   k_dn[is.na(k_dn)] <- 0
                 }
+                if (kernels_scale_norm[i]) k_dn <- scale_kernel_norm(k_dn)
                 multi_omic_kernels <- c(multi_omic_kernels, list(k_dn))
               }
             }

@@ -133,7 +133,7 @@ ECMC <- function(x,
   C <- lapply(x, function(xi) xi - Matrix::Diagonal(N_col[1]) * 2)
   D <- lapply(x, function(xi) Matrix::Diagonal(N_col[1]) * 2)
   
-  # Normalize initial matrices so that they are in the feasible set
+  # Scale initial matrices based on Frobenius norm so that they are in the feasible set
   C <- lapply(x, function(xi) xi / Matrix::norm(xi, "F"))
   D <- lapply(x, function(xi) xi / Matrix::norm(xi, "F"))
   

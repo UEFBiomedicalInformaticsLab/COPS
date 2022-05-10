@@ -468,3 +468,8 @@ normalize_kernel <- function(x) {
   D <- diag(1/sqrt(diag(x)))
   return(D %*% x %*% D)
 }
+
+scale_kernel_norm <- function(x) {
+  return(x / Matrix::norm(x, "F"))
+}
+
