@@ -249,8 +249,9 @@ clustering_metrics <- function(x,
   clusters <- split(x, f = x[,by, drop = FALSE])
   for (i in 1:length(clusters)) {
     # Silhouette
+    matched_ind <- match(clusters[[i]]$id, labels(diss))
     silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 
-                                  diss = diss, 
+                                  diss = as.matrix(diss)[matched_ind, matched_ind], 
                                   min_size = silhouette_min_cluster_size)
     metrics <- rbind(metrics, data.frame(clusters[[i]][1, by], 
                                          metric = "Silhouette",
