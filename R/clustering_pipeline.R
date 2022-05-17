@@ -421,6 +421,7 @@ vertical_pipeline <- function(dat_list,
                               multi_omic_methods = NULL, 
                               parallel = 1, 
                               data_is_kernels = FALSE, 
+                              silhouette_dissimilarities = NULL,
                               ...) {
   if (length(multi_omic_methods) > 0) {
     cv_index <- multi_view_cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
@@ -441,7 +442,7 @@ vertical_pipeline <- function(dat_list,
                     .inorder = FALSE) %:%
     foreach(mvc = multi_omic_methods, 
             .combine = cfun, 
-            .export = c("dat_list", "cv_index_split", "f_args"), 
+            .export = c("dat_list", "cv_index_split", "f_args", "silhouette_dissimilarities"), 
             .packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
             .inorder = FALSE) %dopar% {
       dat_i <- list()
@@ -494,6 +495,18 @@ vertical_pipeline <- function(dat_list,
         # While the unnormalized linear kernel could be used to compute 
         # silhouette in the original space, other kernels cannot. 
         silh_i <- NULL
+      } else if (!is.null(silhouette_dissimilarities)) {
+        for (j in 1:length(silhouette_dissimilarities)) {
+          silh_i[[j]] <- clustering_metrics(clust_i, 
+                                            dat = NULL, 
+                                            by = c("run", "fold", "m", "k"),
+                                            clustering_dissimilarity = silhouette_dissimilarities[[j]], 
+                                            cluster_size_table = FALSE, 
+                                            silhouette_min_cluster_size = 0.0,
+                                            distance_metric = "euclidean")$metrics
+          silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(silhouette_dissimilarities)[j], "_Silhouette")
+        }
+        silh_i <- Reduce(rbind, silh_i)
       } else {
         for (j in 1:length(dat_i)) {
           silh_i[[j]] <- clustering_metrics(clust_i, 
@@ -611,6 +624,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
                                              multi_omic_methods = NULL, 
                                              parallel = 1, 
                                              data_is_kernels = FALSE, 
+                                             silhouette_dissimilarities = NULL,
                                              ...) {
   cvi <- cv_index[cv_index$fold == fold & cv_index$run == run,]
   if (length(multi_omic_methods) == 1) {
@@ -631,6 +645,18 @@ embarrassingly_parallel_pipeline <- function(dat_list,
       # While the unnormalized linear kernel could be used to compute 
       # silhouette in the original space, other kernels cannot. 
       silh_i <- NULL
+    } else if (!is.null(silhouette_dissimilarities)) {
+      for (j in 1:length(silhouette_dissimilarities)) {
+        silh_i[[j]] <- clustering_metrics(clust_i, 
+                                          dat = NULL, 
+                                          by = c("run", "fold", "m", "k"),
+                                          clustering_dissimilarity = silhouette_dissimilarities[[j]], 
+                                          cluster_size_table = FALSE, 
+                                          silhouette_min_cluster_size = 0.0,
+                                          distance_metric = "euclidean")$metrics
+        silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(silhouette_dissimilarities)[j], "_Silhouette")
+      }
+      silh_i <- Reduce(rbind, silh_i)
     } else {
       for (j in 1:length(dat_i$dat_i)) {
         silh_i[[j]] <- clustering_metrics(clust_i, 
