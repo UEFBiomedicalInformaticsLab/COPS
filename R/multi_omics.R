@@ -393,37 +393,42 @@ multi_omic_clustering <- function(dat_list_clust,
     if (is.null(extra_output)) extra_output <- list()
     if (is.null(extra_output$mkkm_mr_weights)) extra_output$mkkm_mr_weights <- data.frame()
     for (k in n_clusters) {
-      k_res <- tryCatch({
-        # Optimize combined kernel
-        optimal_kernel <- mkkm_mr(multi_omic_kernels, 
-                                  k = k, 
-                                  lambda = mkkm_mr_lambda, 
-                                  tolerance = mkkm_mr_tolerance, 
-                                  parallel = mvc_threads,
-                                  use_mosek = mkkm_mr_mosek)
-        if (mkkm_mr_initialization) {
-          temp_res <- kernel_kmeans_algorithm(optimal_kernel$K, 
-                                              n_k = k, 
-                                              init = apply(optimal_kernel$H, 1, which.max), 
-                                              maxiter = kkmeans_maxiter)
-        } else {
-          # Run k-means++ (random initialization)
-          temp_res <- kernel_kmeans(optimal_kernel$K, 
-                                    n_k = k, 
-                                    n_initializations = kkmeans_n_init, 
-                                    maxiter = kkmeans_maxiter,
-                                    parallel = mvc_threads)
-        }
-        temp_res <- data.frame(m = "mkkm_mr", k = k, cluster = temp_res$clusters)
-        extra_output$mkkm_mr_weights <- rbind(extra_output$mkkm_mr_weights, 
-                                              data.frame(m = "mkkm_mr", k = k, 
-                                                         kernel_mix = paste0(names(multi_omic_kernels), 
-                                                                             ":", 
-                                                                             optimal_kernel$mu, 
-                                                                             collapse = ";")))
-        cbind(non_data_cols[[1]], temp_res)
-      }, error = function(e) return(NULL))
-      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+      for (lambda_i in mkkm_mr_lambda) {
+        k_res <- tryCatch({
+          # Optimize combined kernel
+          optimal_kernel <- mkkm_mr(multi_omic_kernels, 
+                                    k = k, 
+                                    lambda = lambda_i, 
+                                    tolerance = mkkm_mr_tolerance, 
+                                    parallel = mvc_threads,
+                                    use_mosek = mkkm_mr_mosek)
+          if (mkkm_mr_initialization) {
+            temp_res <- kernel_kmeans_algorithm(optimal_kernel$K, 
+                                                n_k = k, 
+                                                init = apply(optimal_kernel$H, 1, which.max), 
+                                                maxiter = kkmeans_maxiter)
+          } else {
+            # Run k-means++ (random initialization)
+            temp_res <- kernel_kmeans(optimal_kernel$K, 
+                                      n_k = k, 
+                                      n_initializations = kkmeans_n_init, 
+                                      maxiter = kkmeans_maxiter,
+                                      parallel = mvc_threads)
+          }
+          temp_res <- data.frame(m = "mkkm_mr", 
+                                 k = k, 
+                                 mkkm_mr_lambda = lambda_i, 
+                                 cluster = temp_res$clusters)
+          extra_output$mkkm_mr_weights <- rbind(extra_output$mkkm_mr_weights, 
+                                                data.frame(m = "mkkm_mr", k = k, 
+                                                           kernel_mix = paste0(names(multi_omic_kernels), 
+                                                                               ":", 
+                                                                               optimal_kernel$mu, 
+                                                                               collapse = ";")))
+          cbind(non_data_cols[[1]], temp_res)
+        }, error = function(e) return(NULL))
+        if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+      }
     }
   }
   if ("ECMC" %in% multi_view_methods) {
