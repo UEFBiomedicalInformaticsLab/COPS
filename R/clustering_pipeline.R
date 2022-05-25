@@ -447,6 +447,7 @@ vertical_pipeline <- function(dat_list,
             .inorder = FALSE) %dopar% {
       dat_i <- list()
       non_data_cols <- list()
+      by <- c("run", "fold", "m", "k", "lambda")
       
       if(data_is_kernels) {
         for (j in 1:length(dat_list)) {
@@ -499,7 +500,7 @@ vertical_pipeline <- function(dat_list,
         for (j in 1:length(silhouette_dissimilarities)) {
           silh_i[[j]] <- clustering_metrics(clust_i, 
                                             dat = NULL, 
-                                            by = c("run", "fold", "m", "k"),
+                                            by = by,
                                             clustering_dissimilarity = silhouette_dissimilarities[[j]], 
                                             cluster_size_table = FALSE, 
                                             silhouette_min_cluster_size = 0.0,
@@ -511,7 +512,7 @@ vertical_pipeline <- function(dat_list,
         for (j in 1:length(dat_i)) {
           silh_i[[j]] <- clustering_metrics(clust_i, 
                                             dat = as.data.frame(dat_i[[j]]), 
-                                            by = c("run", "fold", "m", "k"),
+                                            by = by,
                                             clustering_dissimilarity = NULL, 
                                             cluster_size_table = FALSE, 
                                             silhouette_min_cluster_size = 0.0,
@@ -527,7 +528,7 @@ vertical_pipeline <- function(dat_list,
         temp_args <- c(list(event_data = survival_data, 
                             clusters = clust_i, 
                             parallel = 1,
-                            by = c("run", "fold", "m", "k")),
+                            by = by),
                        f_args)
         survival_i <- do.call(survival_evaluation, temp_args)
       } else {
@@ -538,7 +539,7 @@ vertical_pipeline <- function(dat_list,
       if (!is.null(association_data)) {
         temp_args <- c(list(clusters = clust_i, 
                             association_data = association_data, 
-                            by = c("run", "fold", "m", "k"),
+                            by = by,
                             parallel = 1),
                        f_args)
         association_i <- do.call(association_analysis_cv, temp_args)
@@ -562,7 +563,7 @@ vertical_pipeline <- function(dat_list,
     
     # Clustering stability evaluation
     out$stability <- stability_eval(out$clusters, 
-                                    #by = c("run", "m", "k"), 
+                                    by = by[!by %in% "fold"], 
                                     parallel = parallel)
     return(out)
   } else {
@@ -629,6 +630,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
   cvi <- cv_index[cv_index$fold == fold & cv_index$run == run,]
   if (length(multi_omic_methods) == 1) {
     dat_i <- subset_cv_data(dat_list, cvi, data_is_kernels)
+    by <- c("run", "fold", "m", "k", "lambda")
     
     # multi-omic clustering
     # 1) multi-view clustering
@@ -649,7 +651,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
       for (j in 1:length(silhouette_dissimilarities)) {
         silh_i[[j]] <- clustering_metrics(clust_i, 
                                           dat = NULL, 
-                                          by = c("run", "fold", "m", "k"),
+                                          by = by,
                                           clustering_dissimilarity = silhouette_dissimilarities[[j]], 
                                           cluster_size_table = FALSE, 
                                           silhouette_min_cluster_size = 0.0,
@@ -661,7 +663,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
       for (j in 1:length(dat_i$dat_i)) {
         silh_i[[j]] <- clustering_metrics(clust_i, 
                                           dat = as.data.frame(dat_i$dat_i[[j]]), 
-                                          by = c("run", "fold", "m", "k"),
+                                          by = by,
                                           clustering_dissimilarity = NULL, 
                                           cluster_size_table = FALSE, 
                                           silhouette_min_cluster_size = 0.0,
@@ -676,7 +678,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
       survival_i <- survival_evaluation(event_data = survival_data, 
                                         clusters = clust_i, 
                                         parallel = 1,
-                                        by = c("run", "fold", "m", "k"),
+                                        by = by,
                                         ...)
     } else {
       survival_i <- NULL
@@ -686,7 +688,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
     if (!is.null(association_data)) {
       association_i <- association_analysis_cv(clusters = clust_i, 
                                                association_data = association_data, 
-                                               by = c("run", "fold", "m", "k"),
+                                               by = by,
                                                parallel = 1,
                                                ...)
     } else {
@@ -755,7 +757,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #' @importFrom reshape2 melt dcast
 #' @importFrom stats sd as.formula
 clusteval_scoring <- function(res,
-                              by = c("datname", "drname", "k", "m"),
+                              by = c("datname", "drname", "k", "m", "lambda"),
                               wsum = TrainStabilityJaccard + Silhouette,
                               chisq_significance_level = 0.05,
                               summarise = TRUE) {
@@ -798,7 +800,7 @@ clusteval_scoring <- function(res,
     chisq_rr <- NULL
   }
   
-  # Batch label associations
+  # Batch label associations (to be deprecated)
   if (!is.null(res$batch_association)) {
     if (nrow(res$batch_association) > 0) {
       by_bassoc <- by[by %in% colnames(res$batch_association)]
@@ -822,7 +824,7 @@ clusteval_scoring <- function(res,
     bassoc_ari <- NULL
   }
   
-  # Subtype label associations
+  # Subtype label associations (to be deprecated)
   if (!is.null(res$subtype_association)) {
     if (nrow(res$subtype_association) > 0) {
       by_sassoc <- by[by %in% colnames(res$subtype_association)]
@@ -875,28 +877,42 @@ clusteval_scoring <- function(res,
   if (!is.null(res$association)) {
     if (summarise) {
       warning("Currently summary of association p-values is not implemented.")
+      assoc_string <- "\\.nmi$|\\.ari$"
+    } else {
+      assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
     }
-    association <- res$association
+    by_association <- by[by %in% colnames(res$association)]
+    association <- plyr::ddply(res$association, 
+                               by_association, 
+                               function(x) as.data.frame(lapply(x[grepl(assoc_string, colnames(x))], mean, na.rm = TRUE)))
   } else {
     association <- NULL
   }
   
   if (!is.null(res$cluster_sizes)) {
+    # TODO: fix clustering analysis so that drname, run and fold are present in res$cluster_sizes
+    by_cluster_sizes <- by[by %in% colnames(res$cluster_sizes)]
     cluster_sizes <- res$cluster_sizes
-    cluster_cols <- which(!is.na(suppressWarnings(as.numeric(colnames(cluster_sizes)))))
-    csize_names <- paste0("Cluster_", colnames(cluster_sizes)[cluster_cols], "_size")
+    cluster_cols <- grep("X[0-9]+", colnames(cluster_sizes))
+    csize_names <- paste0("Cluster_", gsub("^X", "", colnames(cluster_sizes))[cluster_cols], "_size")
     colnames(cluster_sizes)[cluster_cols] <- csize_names
+    cluster_sizes <- plyr::ddply(cluster_sizes, 
+                                 by_cluster_sizes, 
+                                 function(x) as.data.frame(lapply(x[grepl("^Cluster_[0-9]+_size", colnames(x))], mean, na.rm = TRUE)))
   } else {
     cluster_sizes <- NULL
   }
   
   if (!is.null(res$stability)) {
     # Stability
-    #by_stability <- by[by %in% colnames(res$stability)]
+    by_stability <- by[by %in% colnames(res$stability)]
     stability <- res$stability
     stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
     colnames(stability)[stab_col_ind[!is.na(stab_col_ind)]] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
                                            "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")[!is.na(stab_col_ind)]
+    stability <- plyr::ddply(stability, 
+                             by_stability, 
+                             function(x) as.data.frame(lapply(x[grepl("Stability", colnames(x))], mean, na.rm = TRUE)))
   } else {
     stability <- NULL
   }

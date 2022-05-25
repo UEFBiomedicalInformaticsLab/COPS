@@ -184,10 +184,14 @@ clustering_analysis <- function(dat,
 clustering_dissimilarity_from_data <- function(x, 
                                                distance_metric = "euclidean", 
                                                correlation_method = "spearman", 
+                                               preprocess = FALSE, 
                                                ...) {
-  #temp <- x[,grepl("^dim[0-9]+$", colnames(x))]
-  #temp <- temp[,sapply(temp, function(x) all(!is.na(x)))]
-  #rownames(temp) <- x$id
+  if (preprocess) {
+    temp <- x[,grepl("^dim[0-9]+$", colnames(x))]
+    temp <- temp[,sapply(temp, function(x) all(!is.na(x)))]
+    rownames(temp) <- x$id
+    x <- temp
+  }
   if (distance_metric == "euclidean") {
     diss <- dist(x)
   } else if(distance_metric == "correlation") {
@@ -318,7 +322,7 @@ cv_clusteval <- function(dat_embedded,
                           .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
                           .multicombine = TRUE,
                           .maxcombine = max(length(temp_list), 2)) %dopar% {
-                            temp_diss <- clustering_dissimilarity_from_data(temp, ...)
+                            temp_diss <- clustering_dissimilarity_from_data(temp, ..., preprocess = TRUE)
                             temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
                             temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)
                             res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)

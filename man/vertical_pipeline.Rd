@@ -13,6 +13,7 @@ vertical_pipeline(
   multi_omic_methods = NULL,
   parallel = 1,
   data_is_kernels = FALSE,
+  silhouette_dissimilarities = NULL,
   ...
 )
 }

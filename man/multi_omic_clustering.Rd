@@ -30,6 +30,7 @@ multi_omic_clustering(
   kernels = rep_len("linear", length(dat_list_clust)),
   kernels_center = TRUE,
   kernels_normalize = TRUE,
+  kernels_scale_norm = FALSE,
   kernel_gammas = rep_len(0.5, length(dat_list_clust)),
   pathway_networks = NULL,
   pamogk_restart = 0.7,
