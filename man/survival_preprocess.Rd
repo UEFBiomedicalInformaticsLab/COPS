@@ -33,5 +33,5 @@ survival_preprocess(
 
 }
 \description{
-Pre-process event data for survival analysis
+Use when survival data is not in time and event format e.g., TCGA clinical data.
 }

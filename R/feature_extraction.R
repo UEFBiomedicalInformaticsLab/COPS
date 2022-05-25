@@ -77,7 +77,7 @@ dim_reduction_suite <- function(dat,
       } else if (m == "tsne") {
         if (3 * d > dim(dat)[1] - 1) stop("t-SNE perplexity is too high.")
         if (tsne_pca) {
-          tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(initial_dims, dim(dat)[2]), graph = FALSE)
+          tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(c(initial_dims, dim(dat))), graph = FALSE)
           tsne_input <- tsne_pca_temp$ind$coord
         } else {
           tsne_input <- dat
@@ -96,7 +96,7 @@ dim_reduction_suite <- function(dat,
         temp <- uwot::umap(dat,
                            n_neighbors = umap_neighbors,
                            n_components = d,
-                           pca = min(initial_dims, dim(dat)[2]),
+                           pca = min(c(initial_dims, dim(dat))),
                            verbose = FALSE,
                            init = "normlaplacian")
         colnames(temp) <- paste0("dim", 1:d)
@@ -113,7 +113,7 @@ dim_reduction_suite <- function(dat,
 
 #' Dimensionality reduction on cross-validated data sets
 #'
-#' @param dat_list A list of data sets.
+#' @param dat_list A list of data.tables.
 #' @param cv_index A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.
 #' @param cv_split_data Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.
 #' @param ... Extra arguments are passed to \code{\link{dim_reduction_suite}}.
@@ -123,7 +123,11 @@ dim_reduction_suite <- function(dat,
 #'
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table
-cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
+cv_dimred <- function(dat_list, 
+                      cv_index, 
+                      cv_split_data = TRUE, 
+                      parallel = 1, 
+                      ...) {
   temp_list <- list()
   if (cv_split_data) {
     for (i in 1:length(cv_index)) {
@@ -142,7 +146,9 @@ cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
     }
   }
   
-  out <- foreach(i = temp_list, 
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(i = temp_list, 
                  .combine = c,
                  .export = c("dim_reduction_suite"), #"dat_list"),
                  .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
@@ -150,6 +156,6 @@ cv_dimred <- function(dat_list, cv_index, cv_split_data = TRUE, ...) {
     dr_temp <- dim_reduction_suite(i[,sel], ...)
     dr_temp <- lapply(dr_temp, function(x) cbind(i[,-sel], as.data.frame(x)))
     dr_temp
-  }
+  }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }

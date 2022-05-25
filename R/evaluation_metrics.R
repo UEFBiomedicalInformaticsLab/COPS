@@ -2,7 +2,7 @@
 #'
 #' Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 #' Based on \url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.95.1128}.
-#' Can be used to measure batch effect. TODO: fix implementation
+#' Can be used to measure batch effect. 
 #'
 #' @param data_matrix numeric matrix, samples on columns
 #' @param batch_label categorical variable, must be vector
@@ -10,18 +10,32 @@
 #' @return Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
 #' @export
 DSC <- function(data_matrix, batch_label) {
-  stop("Not implemented")
-  # Incorrect implementation for Sw? No batch label involved??
-  # Dispersion within batches
-  Sw <- scale(t(data_matrix), center = TRUE, scale = FALSE)**2 / dim(data_matrix)[2] # vectorized
-  Dw <- sqrt(sum(Sw))
-  #Dw <- sqrt(sum(sapply(split(data.frame(t(data_matrix)), batch_label), function(x) sum(diag(cov(x))))))
-  # Dispersion between batches
-  M = apply(data_matrix, 1, mean)
-  mean_var <- function(x) {o <- apply(x, 2, mean) - M; return(sum(o**2))} # vectorized
-  #mean_var <- function(x) {o <- apply(x, 2, mean) - M; return(sum(diag(o%*%t(o))))}
-  Sb <- sapply(split(data.frame(t(data_matrix)), batch_label), mean_var)
-  Db = sqrt(sum(Sb))
+  if (is.null(names(batch_label))) names(batch_label) <- colnames(data_matrix)
+  n <- table(batch_label)
+  p <- n / sum(n)
+  
+  # traces of covariance matrices
+  Sw <- sapply(split(names(batch_label), batch_label), function(x) sum(apply(data_matrix[, x, drop = FALSE], 1, var)))
+  
+  Dw <- sqrt(sum(Sw * p[names(Sw)], na.rm = TRUE))
+  
+  mu <-  lapply(split(names(batch_label), batch_label), 
+                function(x) apply(data_matrix[, x, drop = FALSE], 1, mean))
+  
+  # Global mean
+  #M <- apply(data_matrix, 1, mean)
+  # This is actually more efficient (not much though)
+  M <- rep(0, nrow(data_matrix))
+  for (i in names(mu)) {
+    M <- M + p[[i]] * mu[[i]]
+  }
+  
+  Sb <- c()
+  for (i in names(mu)) {
+    Sb[i] <- sum((mu[[i]] - M)**2)
+  }
+  Db <- sqrt(sum(Sb * p[names(Sb)]))
+  
   return(Db/Dw)
 }
 
@@ -48,7 +62,21 @@ JaccardSimCoef <- function(a,b) {
   return(s1 / s2)
 }
 
-
+silhouette_adjusted <- function(x, diss, min_size = 0.05) {
+  csize <- table(x)
+  under_size <- which(csize/length(x) < min_size)
+  diss_main <- as.matrix(diss)[,!x %in% names(csize)[under_size]]
+  x_main <- x[!x %in% names(csize)[under_size]]
+  out <- x
+  for (i in under_size) {
+    out[x == names(csize)[i]] <- x_main[apply(diss_main[x == names(csize)[i], ], 1, which.min)]
+  }
+  silh <- cluster::silhouette(out, diss)
+  if (length(silh) == 1 && is.na(silh)) {
+    silh <- data.frame(sil_width = NA)
+  }
+  return(silh)
+}
 
 #' Average Jaccard dissimilarity coefficient between multiple clustering results
 #'
@@ -111,7 +139,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'
 #' @param clust clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}
 #' @param by vector of column names to keep
-#' @param by2 vector of column names to split by, "run" and "fold" by default
+# @param by2 vector of column names to split by, must contain "fold"
 #' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{data.frame} where each row corresponds to clustering stability
@@ -121,10 +149,12 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #' @importFrom data.table data.table is.data.table rbindlist setDT setDTthreads
 #'
 stability_eval <- function(clust,
-                           by = c("datname", "drname", "k", "m"),
-                           by2 = c("run", "fold"),
+                           by = c("datname", "drname", "run", "k", "m"),
+                           #by2 = c("fold"),
+                           parallel = 1, 
                            ...)
 {
+  by2 = c("fold")
   # Function to be applied for each
   f1 <- function(clust, clustref) {
     if (length(clust) != length(clustref)) {
@@ -141,15 +171,19 @@ stability_eval <- function(clust,
         nmi[i] <- aricode::NMI(clust[[i]], clustref[[i]])
         ari[i] <- aricode::ARI(clust[[i]], clustref[[i]])
       }
-      mean_jsc <- mean(jsc, na.rm = TRUE)
-      mean_nmi <- mean(nmi, na.rm = TRUE)
-      mean_ari <- mean(ari, na.rm = TRUE)
+      #mean_jsc <- mean(jsc, na.rm = TRUE)
+      #mean_nmi <- mean(nmi, na.rm = TRUE)
+      #mean_ari <- mean(ari, na.rm = TRUE)
     } else {
-      mean_jsc <- NA
-      mean_nmi <- NA
-      mean_ari <- NA
+      #mean_jsc <- NA
+      #mean_nmi <- NA
+      #mean_ari <- NA
+      jsc <- NA
+      nmi <- NA
+      ari <- NA
     }
-    return(list(mean_jsc = mean_jsc, mean_nmi = mean_nmi, mean_ari = mean_ari))
+    #return(list(mean_jsc = mean_jsc, mean_nmi = mean_nmi, mean_ari = mean_ari))
+    return(list(jsc = jsc, nmi = nmi, ari = ari))
   }
   # Function to be applied for method combinations in clustering table
   f2 <- function(x) {
@@ -165,41 +199,78 @@ stability_eval <- function(clust,
     nonref$test_ind <- nonref$cv_index == nonref$fold
     
     ref_cols <- c("id", by2[by2 != "fold"], "reference_cluster")
-    nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
+    if ("data.table" %in% class(ref)) {
+      nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
+    } else {
+      nonref <- merge(nonref, ref[, ref_cols], by = c("id", by2[by2 != "fold"]))
+    }
     
-    train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
-    train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
-    train_res <- f1(train_nonref, train_ref)
+    if (any(!nonref$test_ind)) {
+      if("data.table" %in% class(nonref)) {
+        train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, ..by2])
+        train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind,  ..by2])
+        train_res <- f1(train_nonref, train_ref)
+      } else {
+        train_nonref <- split(nonref$cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+        train_ref <- split(nonref$reference_cluster[!nonref$test_ind], nonref[!nonref$test_ind, by2])
+        train_res <- f1(train_nonref, train_ref)
+      }
+    } else {
+      train_res <- list()
+    }
     
-    test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
-    test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
-    test_res <- f1(test_nonref, test_ref)
     
-    return(data.table::data.table(train_jsc = train_res$mean_jsc, 
-                                  train_nmi = train_res$mean_nmi, 
-                                  train_ari = train_res$mean_ari, 
-                                  test_jsc = test_res$mean_jsc,
-                                  test_nmi = test_res$mean_nmi,
-                                  test_ari = test_res$mean_ari))
+    if (any(nonref$test_ind)) {
+      if("data.table" %in% class(nonref)) {
+        test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
+        test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
+        test_res <- f1(test_nonref, test_ref)
+      } else {
+        test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+        test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, by2])
+        test_res <- f1(test_nonref, test_ref)
+      }
+    } else {
+      test_res <- list()
+    }
+    
+    
+    out_f2 <- data.table::data.table(fold = names(train_ref), 
+                                     train_jsc = train_res$jsc,
+                                     train_nmi = train_res$nmi,
+                                     train_ari = train_res$ari,
+                                     test_jsc = test_res$jsc,
+                                     test_nmi = test_res$nmi,
+                                     test_ari = test_res$ari)
+    
+    #out_f2 <- data.table::data.table(train_jsc = train_res$mean_jsc, 
+    #                                 train_nmi = train_res$mean_nmi, 
+    #                                 train_ari = train_res$mean_ari, 
+    #                                 test_jsc = test_res$mean_jsc, 
+    #                                 test_nmi = test_res$mean_nmi, 
+    #                                 test_ari = test_res$mean_ari)
+    return(out_f2)
   }
   by <- by[by %in% colnames(clust)]
   
-  if (!is.data.table(clust)) data.table::setDT(clust)
+  temp_list <- split_by_safe(clust, by)
   
-  temp_list <- split(clust, by = by)
-  #temp_list <- split(clust, clust[by])
-  stability <- foreach(temp = temp_list,
-                      .combine = function(...) data.table::rbindlist(list(...)),
-                      .export = c(),
-                      .packages = c("clusteval", "data.table", "aricode"),
-                      .multicombine = TRUE,
-                      .maxcombine = length(temp_list)) %dopar% {
-    out <- f2(temp)
-    for (j in by) {
-      out[[j]] <- temp[[j]][1]
-    }
+  parallel_clust <- setup_parallelization(parallel)
+  
+  stability <- tryCatch(foreach(temp = temp_list,
+                        .combine = function(...) data.table::rbindlist(list(...)),
+                        .export = c(),
+                        .packages = c("clusteval", "data.table", "aricode"),
+                        .multicombine = TRUE,
+                        .maxcombine = max(length(temp_list), 2)) %dopar% {
+    out <- tryCatch({
+      out <- f2(temp)
+      for (j in by) {
+        out[[j]] <- temp[[j]][1]
+      }
+      out}, error = function(e) return(NULL))
     out
-  }
+  }, finally = close_parallel_cluster(parallel_clust))
   return(as.data.frame(stability))
 }
 
@@ -220,7 +291,10 @@ stability_eval <- function(clust,
 #' @importFrom FactoMineR PCA
 #' @importFrom kBET batch_sil
 #' @importFrom kBET pcRegression
-class_associations <-  function(dat, class, n_pc_max = 10, ...){
+embedding_associations <-  function(dat, 
+                                    class, 
+                                    n_pc_max = 10, 
+                                    ...){
   out <- list()
   if (is.null(dim(class))) class <- cbind(as.character(class), c())
 
@@ -231,14 +305,14 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
     # PCA based
     dat_pca <- FactoMineR::PCA(t(dat),
                                scale.unit = FALSE,
-                               ncp = min(n_pc_max, nrow(dat)),
+                               ncp = min(c(n_pc_max, dim(dat))),
                                graph = FALSE)
     pca_silh[[i]] <- kBET::batch_sil(list(x = dat_pca$ind$coord),
                                      class[,i],
-                                     nPCs = min(n_pc_max, nrow(dat)))
+                                     nPCs = min(c(n_pc_max, dim(dat))))
     pca_reg[[i]] <- suppressWarnings(kBET::pcRegression(list(x = dat_pca$ind$coord),
                                        class[,i],
-                                       n_top = min(n_pc_max, nrow(dat))))
+                                       n_top = min(c(n_pc_max, dim(dat)))))
 
     # Other
     #DSC_res[i] <- DSC(dat, class[,i])
@@ -254,244 +328,102 @@ class_associations <-  function(dat, class, n_pc_max = 10, ...){
   return(out)
 }
 
-
-#' Clustering, internal evaluation and batch effect estimation
+#' Association analysis for clustering results
 #'
-#' Single embedding or dataset evaluation
+#' @param clust data.frame with columns id and cluster.
+#' @param association_data data.frame with association variables, rownames should match with id in \code{clust}.
 #'
-#' Supported clustering methods are:
-#' \itemize{
-#' \item "hierarchical" -
-#' \item "diana" -
-#' \item "kmeans" -
-#' \item "model" -
-#' }
-#'
-#' @param dat A data matrix with samples on columns.
-#' @param batch_label_names A character vector containing column names corresponding to batch labels.
-#' @param n_clusters A vector of integers, numbers of clusters to be generated.
-#' @param cluster_methods A vector of clustering method names, see details for options.
-#' @param subtype_label_names A character vector containing column names corresponding to batch labels.
-#' @param distance_metric Either "euclidean" or "correlation".
-#' @param correlation_method Method for \code{\link[stats]{cor}}.
-#' @param hierarchical_linkage See \code{\link[flashClust]{flashClust}}.
-#' @param kmeans_num_init See \code{\link[ClusterR]{KMeans_rcpp}}.
-#' @param kmeans_max_iters See \code{\link[ClusterR]{KMeans_rcpp}}.
-#' @param kmeans_tol See \code{\link[ClusterR]{KMeans_rcpp}}.
-#' @param gmm_modelNames Sepcifies model type for \code{\link[mclust]{Mclust}}
-#' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
-#' @param ... extra arguments are ignored currently
-#'
-#' @return Returns a \code{list} containing clusters, metrics, and
-#'         \code{\link[stats]{chisq.test}} p-values
-#'         if batch_label was supplied
+#' @return A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 
+#'         as well as analysis of variance and kruskal-wallis test p-values for 
+#'         continuous variables. 
 #' @export
-#' @importFrom stats chisq.test cutree cor dist as.dist
-#' @importFrom aricode NMI ARI
-#' @importFrom flashClust flashClust
-#' @importFrom ClusterR KMeans_rcpp
-#' @importFrom mclust Mclust
-#' @importFrom cluster silhouette
-clustering_evaluation <- function(dat,
-                                  batch_label_names = NULL,
-                                  subtype_label_names = NULL,
-                                  n_clusters = 2:5,
-                                  cluster_methods = c("hierarchical","diana","kmeans"),
-                                  distance_metric = "euclidean",
-                                  correlation_method = "spearman",
-                                  hierarchical_linkage = "complete",
-                                  kmeans_num_init = 100,
-                                  kmeans_max_iters = 100,
-                                  kmeans_tol = 0.0001,
-                                  gmm_modelNames = NULL, 
-                                  gmm_shrinkage = 0.01,
-                                  ...) {
-  temp <- dat[grepl("^dim[0-9]+$", colnames(dat))]
-  temp <- temp[sapply(temp, function(x) all(!is.na(x)))]
-  rownames(temp) <- dat$id
-  
-  # Handle case with multiple linkage methods
-  cluster_methods_expanded <- cluster_methods
-  multiple_linkages <- "hierarchical" %in% cluster_methods & length(hierarchical_linkage) > 1
-  if (multiple_linkages) {
-    cluster_methods_expanded <- c(cluster_methods[cluster_methods != "hierarchical"], 
-                                  paste0("hierarchical_", hierarchical_linkage))
-  }
-  
-  # Allocate array for clustering results
-  clusters <- array(dim = c(dim(temp)[1], length(n_clusters), length(cluster_methods_expanded)))
-  dimnames(clusters) <- list(id = rownames(temp), k = n_clusters, m = cluster_methods_expanded)
-  
-  # Metrics collected to data.frame
-  metrics <- data.frame()
-  
-  hierarchical_methods <- any(c("hierarchical", "diana", "agnes") %in% cluster_methods_expanded)
-  # Create dissimilarity matrix
-  if (distance_metric == "euclidean") {
-    diss <- dist(temp)
-  } else if(distance_metric == "correlation") {
-    diss <- as.dist(0.5 - cor(t(temp), method = correlation_method)/2)
-  } else {
-    stop(paste("Unsupported distance metric:", distance_metric))
-  }
-  
-  for (i in 1:length(cluster_methods_expanded)) {
-    if (grepl("^hierarchical", cluster_methods_expanded[i])) {
-      if (!multiple_linkages) {
-        if (hierarchical_linkage == "ward") {
-          clust_i <- flashClust::flashClust(diss**2, method = hierarchical_linkage)
-        } else {
-          clust_i <- flashClust::flashClust(diss, method = hierarchical_linkage)
-        }
+cluster_associations <- function(clust, association_data) {
+  association_data_matched <- association_data[match(clust$id, 
+                                               rownames(association_data)), 
+                                         , 
+                                         drop = FALSE]
+  out <- list()
+  for (i in 1:ncol(association_data)) {
+    association_var <- association_data_matched[,i]
+    nna_ind <- which(!is.na(association_var))
+    if (length(nna_ind) > 1) {
+      if (length(unique(association_var[nna_ind])) > 1 &
+          length(unique(clust$cluster[nna_ind])) > 1) {
+        valid <- TRUE
       } else {
-        linkage_i <- gsub("^hierarchical_", "", cluster_methods_expanded[i])
-        if (linkage_i == "ward") {
-          if (distance_metric != "euclidean") stop("Ward linkage should be used with euclidean distance")
-          clust_i <- flashClust::flashClust(diss**2, method = linkage_i)
-        } else {
-          clust_i <- flashClust::flashClust(diss, method = linkage_i)
-        }
-      }
-      #coph_score <- cor(cophenetic(clust_i), diss)
-      for (j in 1:length(n_clusters)) {
-        temp_k <- cutree(clust_i, n_clusters[j])
-        silh_k <- cluster::silhouette(x = temp_k, dist = diss)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        #metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-        #                                     metric = "CopheneticCorrelation", value = coph_score))
-        #irr::icc
-        clusters[,j,i] <- temp_k
-      }
-    } else if (cluster_methods_expanded[i] == "diana") {
-      clust_i <- cluster::diana(x = diss, diss = TRUE)
-      #coph_score <- cor(cophenetic(clust_i), diss)
-      for (j in 1:length(n_clusters)) {
-        temp_k <- cutree(clust_i, n_clusters[j])
-        silh_k <- cluster::silhouette(x = temp_k, dist = diss)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        #metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-        #                                     metric = "CopheneticCorrelation", value = coph_score))
-        #irr::icc
-        clusters[,j,i] <- temp_k
-      }
-    #} else if (cluster_methods_expanded[i] == "agnes") {
-    #  
-    #} else if (cluster_methods_expanded[i] == "pam") {
-    #  
-    } else if (cluster_methods_expanded[i] == "kmeans") {
-      if (distance_metric != "euclidean") stop("Only euclidean distance is supported by k-means")
-      for (j in 1:length(n_clusters)) {
-        clust_k <- ClusterR::KMeans_rcpp(data = temp, clusters = n_clusters[j], 
-                                         num_init = kmeans_num_init, max_iters = kmeans_max_iters,
-                                         tol = kmeans_tol)
-        silh_k <- cluster::silhouette(x = clust_k$clusters, dist = diss)
-        metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                             metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-        #irr::icc
-        clusters[,j,i] <- clust_k$clusters
-      }
-    #} else if (cluster_methods_expanded[i] == "sota") {
-    #  
-    } else if (cluster_methods_expanded[i] == "model") {
-      if (distance_metric != "euclidean") stop("Only euclidean distance is supported by GMM")
-      for (j in 1:length(n_clusters)) {
-        clust_k <- mclust::Mclust(data = temp, G = n_clusters[j], modelNames = gmm_modelNames, 
-                                  prior = priorControl(functionName="defaultPrior", shrinkage = gmm_shrinkage), 
-                                  verbose = FALSE)
-        if (is.null(clust_k)) {
-          # Fail
-          warning(paste0("GMM fitting failed (model: ", gmm_modelNames, ", samples: ", 
-                                          dim(temp)[1], ", dimensions = ", dim(temp)[2], ", clusters: ",
-                                          n_clusters[j], ")"))
-          clusters[,j,i] <- NA
-        } else {
-          # Success
-          silh_k <- cluster::silhouette(x = clust_k$classification, dist = diss)
-          metrics <- rbind(metrics, data.frame(m = cluster_methods_expanded[i], k = n_clusters[j], 
-                                               metric = "Silhouette", value = mean(silh_k[,"sil_width"])))
-          #irr::icc
-          clusters[,j,i] <- clust_k$classification
-        }
+        valid <- FALSE
       }
     } else {
-      stop(paste("Unsupported method:", cluster_methods_expanded[i]))
+      valid <- FALSE
+    }
+    if(valid) {
+      if (class(association_var) %in% c("character", "factor")) {
+        out[[i]] <- data.frame(nmi = aricode::NMI(clust$cluster[nna_ind], 
+                                                  association_var[nna_ind]), 
+                               ari = aricode::ARI(clust$cluster[nna_ind], 
+                                                  association_var[nna_ind]))
+        temp <- tryCatch(suppressWarnings(chisq.test(clust$cluster[nna_ind], 
+                                                     association_var[nna_ind])), 
+                         error = function(e) NULL)
+        if (is.null(temp)) {
+          out[[i]]$chisq.p <- NA
+        } else {
+          out[[i]]$chisq.p <- temp$p.value
+        }
+        colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
+      } else if (class(association_var) %in% c("numeric", "integer")) {
+        anova_res <- stats::aov(association_var[nna_ind] ~ clust$cluster[nna_ind])
+        kruskal_res <- stats::kruskal.test(association_var[nna_ind], 
+                                           clust$cluster[nna_ind])
+        out[[i]] <- data.frame(aov.p = summary(anova_res)[[1]][1,"Pr(>F)"],
+                               kruskal.p = kruskal_res$p.value)
+        colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
+      } else {
+        warning(paste0("Unknown data type in association data column ", 
+                       colnames(association_data)[i], "."))
+      }
     }
   }
+  return(Reduce("cbind", out[!sapply(out, is.null)]))
+}
+
+
+#' 
+#' 
+#' Runs \code{\link{cluster_associations}} in parallel. 
+#' 
+#' Assumes that a parallel backend has been registered for \code{foreach}.
+#'
+#' @param clusters A data.table or data.frame with clustering information. 
+#' @param association_data A data.frame with association variables (categoric or numeric).
+#' @param by Column names that identify a single clustering result.
+#' @param ... Extra arguments are ignored.
+#'
+#' @return \code{data.table} containing association variables
+#' @export
+association_analysis_cv <- function(clusters, 
+                                association_data, 
+                                by = c("run", "fold", "datname", "drname", "k", "m"), 
+                                parallel = 1, 
+                                ...) {
+  by <- by[by %in% colnames(clusters)]
+  clust_list <- split_by_safe(clusters, by)
   
-  out_list <- list()
+  parallel_clust <- setup_parallelization(parallel)
   
-  # Combine outputs with metadata
-  out_list$clusters <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
-                                  reshape2::melt(clusters, value.name = "cluster"), 
-                                  by = "id")
-  out_list$clusters <- out_list$clusters[!is.na(out_list$clusters$cluster),] # potential issue with reference fold missing later
-  
-  out_list$metrics <- metrics
-  
-  # Insert meta data (if present)
-  out_list$metrics$run <- dat$run[1]
-  out_list$metrics$fold <- dat$fold[1]
-  out_list$metrics$datname <- dat$datname[1]
-  out_list$metrics$drname <- dat$drname[1]
-  
-  # Pearson's chi-squared test
-  f1 <- function(x, c1, c2) {
-    temp <- suppressWarnings(chisq.test(x[[c1]], x[[c2]]))
-    temp <- data.frame(p = temp$p.value)
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    temp$label <- c2
-    return(temp)
-  }
-  # Other contingency table based metrics
-  f2 <- function(x, c1, c2) {
-    temp <- data.frame(nmi = aricode::NMI(x[[c1]], x[[c2]]),
-                       ari = aricode::ARI(x[[c1]], x[[c2]]))
-    temp$run <- x$run[1]
-    temp$fold <- x$fold[1]
-    temp$datname <- x$datname[1]
-    temp$drname <- x$drname[1]
-    temp$k <- x$k[1]
-    temp$m <- x$m[1]
-    temp$label <- c2
-    return(temp)
-  }
-  
-  if (!is.null(batch_label_names)) {
-    batch_label_chisq <- list()
-    batch_label_assoc <- list()
-    for (i in 1:length(batch_label_names)) {
-      batch_label_chisq[[i]] <- Reduce("rbind", 
-                                       lapply(split(out_list$clusters, 
-                                                    out_list$clusters[c("k", "m")]), 
-                                              f1, c1 = "cluster", c2 = batch_label_names[i]))
-      batch_label_assoc[[i]] <- Reduce("rbind", 
-                                       lapply(split(out_list$clusters, 
-                                                    out_list$clusters[c("k", "m")]), 
-                                              f2, c1 = "cluster", c2 = batch_label_names[i]))
-    }
-    out_list$chisq_pval <- Reduce("rbind", batch_label_chisq)
-    out_list$batch_association <- Reduce("rbind", batch_label_assoc)
-  }
-  
-  if (!is.null(subtype_label_names)) {
-    subtype_label_assoc <- list()
-    for (i in 1:length(subtype_label_names)) {
-      temp <- out_list$clusters[!is.na(out_list$clusters[[subtype_label_names[i]]]),]
-      subtype_label_assoc[[i]] <- Reduce("rbind", 
-                                         lapply(split(temp, 
-                                                      temp[c("k", "m")]), 
-                                                f2, c1 = "cluster", c2 = subtype_label_names[i]))
-    }
-    out_list$subtype_association <- Reduce("rbind", subtype_label_assoc)
-  }
-  return(out_list)
+  out <- tryCatch(foreach(clust = clust_list,
+                 .combine = function(...) data.table::rbindlist(list(...), fill = TRUE),
+                 .export = c("cluster_associations"),
+                 .packages = c(),
+                 .multicombine = TRUE,
+                 .maxcombine = max(length(clust_list), 2)) %dopar% {
+                   cluster_assoc <- cluster_associations(clust, association_data)
+                   if (!is.null(cluster_assoc)) {
+                     cluster_assoc <- data.frame(as.data.frame(clust)[1,by], cluster_assoc)
+                   }
+                   cluster_assoc
+                 }, finally = close_parallel_cluster(parallel_clust))
+  return(out)
 }
 
 #' Gene module score
@@ -574,76 +506,21 @@ module_evaluation <- function(clusters,
                               module_cor_threshold = 0.3, 
                               module_nan.substitute = 0, 
                               by = c("run", "fold", "datname", "drname", "k", "m"), 
+                              parallel = 1, 
                               ...) {
-  if (data.table::is.data.table(clusters)) {
-    clust_list <- split(clusters, by = by)
-  } else {
-    clust_list <- split(clusters, clusters[, by])
-  }
+  clust_list <- split_by_safe(clusters, by)
   
-  out <- foreach(clust = clust_list,
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
+                 .export = c("gene_module_score"),
                  .packages = c(),
                  .multicombine = TRUE,
-                 .maxcombine = length(clust_list)) %dopar% {
+                 .maxcombine = max(length(clust_list), 2)) %dopar% {
                    gm_score <- gene_module_score(clust, module_eigs, module_cor_threshold, module_nan.substitute)
                    gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
                    gm_score
-                 }
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
-
-#' Clustering analysis on cross-validated data sets
-#'
-#' Performs clustering analysis on each fold of an external cross validation.
-#'
-#' Produces clusterings using multiple methods and settings while computing internal validation metrics 
-#' such as Connectivity, Dunn and Silhouette scores. Also computes chi-squared tests with respect to 
-#' a batch label if one is provided. 
-#'
-#' @param dat_embedded list of \code{data.frame}s
-#' @param ... extra arguments are passed through to clustering_evaluation
-#'
-#' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_evaluation}} outputs for every
-#'         combination of CV run, CV fold, clustering method, number of clusters as well as all combinations of
-#'         data sets and dimensionality reduction techniques found in the input \code{data.frame}.
-#' @export
-#' @importFrom foreach foreach %dopar%
-#' @importFrom data.table rbindlist
-cv_clusteval <- function(dat_embedded, ...) {
-  temp_list <- list()
-  for (i in 1:length(dat_embedded)) {
-    temp <- dat_embedded[[i]]
-    drname <- names(dat_embedded)[i]
-    if (is.null(drname)) drname <- i
-    temp$drname <- drname
-    temp <- split(temp, temp[,c("run", "fold")])
-    temp_list <- c(temp_list, temp)
-  }
-  # Binding function that concatenates relevant list components
-  cfun <- function(...){
-    bound_list <- list()
-    bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
-    bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
-    bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
-    bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
-    bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
-    return(bound_list)
-  }
-  
-  out <- foreach(temp = temp_list,
-                 .combine = cfun,
-                 .export = c("clustering_evaluation"),
-                 .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
-                 .multicombine = TRUE,
-                 .maxcombine = length(temp_list)) %dopar% {
-    temp <- clustering_evaluation(temp, ...)
-    temp
-  }
-  return(out)
-}
-
-
-
-
-

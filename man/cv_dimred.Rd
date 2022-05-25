@@ -4,10 +4,10 @@
 \alias{cv_dimred}
 \title{Dimensionality reduction on cross-validated data sets}
 \usage{
-cv_dimred(dat_list, cv_index, cv_split_data = TRUE, ...)
+cv_dimred(dat_list, cv_index, cv_split_data = TRUE, parallel = 1, ...)
 }
 \arguments{
-\item{dat_list}{A list of data sets.}
+\item{dat_list}{A list of data.tables.}
 
 \item{cv_index}{A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.}
 

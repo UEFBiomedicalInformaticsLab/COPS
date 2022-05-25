@@ -72,7 +72,7 @@ genes_to_pathways <- function(expr,
                               parallel = 1,
                               verbose = FALSE,
                               gene_key_expr = "SYMBOL",
-                              gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"),
+                              gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
                               gsva_kcdf = "Gaussian",
                               ...
 ) {
@@ -80,7 +80,7 @@ genes_to_pathways <- function(expr,
   if (is.null(gene_set_list)) {
     # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
     db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
-    db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
+    db_annots <- dplyr::filter(db_annots, grepl(paste0("^", paste(gs_subcats, collapse = "$|^"), "$"), gs_subcat))
     
     if (gene_key_expr != "SYMBOL") {
       db_annots$gene_id <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
@@ -135,25 +135,18 @@ genes_to_pathways <- function(expr,
     }
   }
   
+  gs_category <- sapply(strsplit(rownames(enriched_dat), "_"), function(x) x[[1]])
+  
+  out <- lapply(unique(gs_category), function(x) enriched_dat[gs_category == x,])
+  names(out) <- unique(gs_category)
+  
   # Format output
   if (enrichment_method ==  "GSVA") {
-    out <- list()
-    out$KEGG_GSVA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_GSVA <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
-    out$REACTOME_GSVA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
+    names(out) <- paste0(names(out), "_GSVA")
   } else if (enrichment_method ==  "DiffRank") {
-    out <- list()
-    out$KEGG_DiffRank <- enriched_dat[grep("^KEGG", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_DiffRank <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
-    out$REACTOME_DiffRank <- enriched_dat[grep("^REACTOME", rownames(enriched_dat)),, drop = FALSE]
+    names(out) <- paste0(names(out), "_DiffRank")
   } else if (enrichment_method ==  "RWRFGSEA") {
-    out <- list()
-    out$KEGG_RWRFGSEA <- enriched_dat[grep("^KEGG_", rownames(enriched_dat)),, drop = FALSE]
-    out$GO_RWRFGSEA <- enriched_dat[grep("^GO_|^GOBP_", rownames(enriched_dat)),, drop = FALSE]
-    out$REACTOME_RWRFGSEA <- enriched_dat[grep("^REACTOME_", rownames(enriched_dat)),, drop = FALSE]
-  } else {
-    # This is never run
-    out <- enriched_dat
+    names(out) <- paste0(names(out), "_RWRFGSEA")
   }
   
   out <- out[sapply(out, nrow) > 0]
@@ -167,7 +160,7 @@ genes_to_pathways <- function(expr,
 #' Assumes a parallel backend has been registered for \code{\link[foreach]{foreach}} with \code{\link[doParallel]{registerDoParallel}}. 
 #' Setting \code{parallel} does nothing. 
 #'
-#' @param dat_list list of data sets corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).
+#' @param dat_list list of data.tables corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).
 #' @param cv_index list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}
 #' @param gene_id_list list of gene name vectors of the corresponding columns in dat_list
 #' @param parallel ignored and set to 1 for spawned subprocesses
@@ -175,20 +168,27 @@ genes_to_pathways <- function(expr,
 #'
 #' @return
 #' @export
-cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1, ...) {
+cv_pathway_enrichment <- function(dat_list, 
+                                  cv_index, 
+                                  gene_id_list, 
+                                  parallel = 1, 
+                                  ...) {
   temp_list <- list()
   for (i in 1:length(cv_index)) {
     temp <- cv_index[[i]]
     datname <- names(cv_index)[i]
     if (is.null(datname)) datname <- i
     temp$datname <- datname
+    temp <- merge(dat_list[[datname]], temp, by = "id")
     temp <- split(temp, by = c("run", "fold"))
-    temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
+    temp <- lapply(temp, as.data.frame)
     temp <- lapply(temp, function(x) list(expr = x, gene_ids = gene_id_list[[i]]))
     temp_list <- c(temp_list, temp)
   }
   
-  out <- foreach(i = temp_list, 
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(i = temp_list, 
                  .combine = c,
                  .export = c("genes_to_pathways"), #"dat_list"),
                  .packages = c("GSVA", "fgsea", "dnet", "msigdbr", "AnnotationDbi", "org.Hs.eg.db")) %dopar% {
@@ -216,7 +216,7 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1
                      pw_temp[[j]]$datname <- names(pw_temp)[j]
                    }
                    pw_temp
-                 }
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
 
@@ -228,27 +228,26 @@ cv_pathway_enrichment <- function(dat_list, cv_index, gene_id_list, parallel = 1
 #' 
 #' @return 
 #' @export
-DiffRank <- function(expr, gene_set_list, parallel = 1) {
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    foreach::registerDoSEQ()
-  }
+DiffRank <- function(expr, 
+                     gene_set_list, 
+                     parallel = 1) {
   ranks <- apply(expr, 2, function(x) order(order(x)))
   out <- matrix(NA, length(gene_set_list), ncol(expr))
   rownames(out) <- names(gene_set_list)
   colnames(out) <- colnames(expr)
-  out <- foreach(i = gene_set_list, 
+  
+  parallel_clust <- setup_parallelization(parallel)
+  
+  out <- tryCatch(foreach(i = gene_set_list, 
                 .combine = rbind,
                 .export = c(),
                 .multicombine = TRUE,
-                .maxcombine = length(gene_set_list)) %dopar% {
+                .maxcombine = max(length(gene_set_list), 2)) %dopar% {
     ind <- which(rownames(expr) %in% i)
     # Compare mean ranks of pw genes vs non-pw genes
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
-  }
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
+  }, finally = close_parallel_cluster(parallel_clust))
+  
   rownames(out) <- names(gene_set_list)
   out <- out[!apply(out, 1, function(x) all(is.na(x))),]
   

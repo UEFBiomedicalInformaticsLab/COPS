@@ -19,23 +19,24 @@ cv_fold <- function(dat_list,
                     nruns = 2, 
                     stratified_cv = FALSE, 
                     mixed_cv = FALSE,
+                    cv_stratification_var = NULL,
                     ...) {
   out <- list()
   for (i in 1:length(dat_list)) {
     folded <- list()
     for (j in 1:nruns) {
-      if (!is.null(dat_list[[i]]$batch_label) & (stratified_cv | mixed_cv)) {
-        a_ind <- lapply(table(dat_list[[i]]$batch_label), function(x) sample(1:x, x))
-        b_ind <- sample(1:length(unique(dat_list[[i]]$batch_label)), length(unique(dat_list[[i]]$batch_label)))
-        c_ind <- cumsum(table(dat_list[[i]]$batch_label)[unique(dat_list[[i]]$batch_label)[b_ind]])
+      if (!is.null(cv_stratification_var) & (stratified_cv | mixed_cv)) {
+        a_ind <- lapply(table(cv_stratification_var), function(x) sample(1:x, x))
+        b_ind <- sample(1:length(unique(cv_stratification_var)), length(unique(cv_stratification_var)))
+        c_ind <- cumsum(table(cv_stratification_var)[unique(cv_stratification_var)[b_ind]])
         cv_index <- c()
         for (u in 1:length(b_ind)) {
-          un <- unique(dat_list[[i]]$batch_label)[b_ind[u]]
-          cv_index[dat_list[[i]]$batch_label == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
+          un <- unique(cv_stratification_var)[b_ind[u]]
+          cv_index[cv_stratification_var == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
         }
         if (stratified_cv) {
           # Stratified cv folds such that holdout set labels mostly do not match to rest of data
-          cv_index <- cv_index %/% -(length(dat_list[[i]]$batch_label) %/% -nfolds) + 1
+          cv_index <- cv_index %/% -(length(cv_stratification_var) %/% -nfolds) + 1
         } else {
           # Mixed cv folds such that labels are evenly distributed within folds
           cv_index <- cv_index %% nfolds + 1
@@ -77,20 +78,15 @@ cv_fold <- function(dat_list,
 #'
 #' @return matrix of row-wise ecdf values with dimensions matching input
 #' @export
-ecdf_transform <- function(x, parallel = 1) {
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
+ecdf_transform <- function(x, 
+                           parallel = 1) {
   x_sd <- apply(x, 1, sd)
-  score <- foreach(i = 1:ncol(x), 
+  parallel_clust <- setup_parallelization(parallel)
+  score <- tryCatch(foreach(i = 1:ncol(x), 
                    .combine = cbind,
                    .export = c(),
                    .multicombine = TRUE,
-                   .maxcombine = ncol(x)) %dopar% {
+                   .maxcombine = max(ncol(x), 2)) %dopar% {
                      score_i <- x * 0
                      for (j in (1:ncol(x))[-i]) {
                        # z-score with respect to each kernel
@@ -98,10 +94,9 @@ ecdf_transform <- function(x, parallel = 1) {
                      }
                      # sum over kernels
                      apply(score_i, 1, sum) / (ncol(x) - 1) 
-                   }
+                   }, finally = close_parallel_cluster(parallel_clust))
   out <- score - 0.5
   colnames(out) <- colnames(x)
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
   return(out)
 }
 
@@ -114,7 +109,11 @@ ecdf_transform <- function(x, parallel = 1) {
 jaccard_matrix <- function(x) {
   A <- t(x) %*% x
   B <- t(x) %*% (1-x)
-  return(A / (A + B + t(B)))
+  out <- A / (A + B + t(B))
+  if (is.null(colnames(A)) | any(duplicated(colnames(A)))) {
+    colnames(out) <- rownames(out) <- 1:ncol(out)
+  }
+  return(out)
 }
 
 
@@ -150,6 +149,7 @@ coexpression_network_unweighted <- function(dat,
 #'
 #' @return
 #' @export
+#' @importFrom ggplot2 ggplot aes geom_tile theme_bw coord_fixed ggtitle scale_fill_distiller theme element_blank
 plot_similarity_matrix <- function(sim_mat, 
                                    method = "average", 
                                    palette = "RdBu", 
@@ -370,10 +370,230 @@ expressionToRWFeatures <- function(dat,
   list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) <= pw_max.size & 
                                            sapply(list_db_annots, length) >= pw_min.size)]
   
-  #out <- fromGeneToNetworksToPathwayFeatures(dat, disease.genes, gene.network, list_db_annots, ...) # TODO: change to RWRFGSEA
   out <- RWRFGSEA(dat, gene.network, list_db_annots, disease.genes, ...)
   return(out)
 }
 
+#' Data visualization using PCA, t-SNE and UMAP
+#'
+#' @param data 
+#' @param category 
+#' @param category_label 
+#' @param tsne_perplexity 
+#' @param umap_neighbors 
+#'
+#' @return
+#' @export
+#' 
+#' @importFrom FactoMineR PCA
+#' @importFrom Rtsne Rtsne
+#' @importFrom uwot umap
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs ggtitle
+triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20, tsne = TRUE) {
+  res_pca <- FactoMineR::PCA(data, scale.unit = FALSE, ncp = 2, graph = FALSE)
+  res_pca_dat <- as.data.frame(res_pca$ind$coord)
+  res_pca_dat <- cbind(res_pca_dat, category)
+  colnames(res_pca_dat)[3] <- "category"
+  eig_percentages <- res_pca$eig[,"percentage of variance"]
+  eig_percentages <- as.character(signif(eig_percentages, 3))
+  p1 <- ggplot(res_pca_dat, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
+    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    labs(x = paste0("PC1 (", eig_percentages[1], "%)"), y = paste0("PC2 (", eig_percentages[2], "%)"), color = category_label) +
+    ggtitle("PCA")
+  
+  if (tsne) {
+    res_tsne <- Rtsne::Rtsne(data,
+                             dims = 2,
+                             perplexity = tsne_perplexity,
+                             initial_dims = min(50, dim(data)),
+                             check_duplicates = FALSE,
+                             pca = TRUE,
+                             partial_pca = TRUE,
+                             verbose = FALSE)$Y
+    res_tsne <- as.data.frame(res_tsne)
+    res_tsne <- cbind(res_tsne, category)
+    colnames(res_tsne)[3] <- "category"
+    p2 <- ggplot(res_tsne, aes(V1, V2, color = category)) + geom_point(shape = "+", size = 3) + 
+      theme_bw() + scale_color_brewer(palette = "Dark2") + 
+      labs(x = "Z1", y = "Z2", color = category_label) +
+      ggtitle("t-SNE")
+  } else {
+    p2 <- NULL
+  }
+  
+  res_umap <- uwot::umap(data, n_neighbors = umap_neighbors, n_components = 2, pca = min(50, dim(data)), verbose = FALSE, init = "normlaplacian")
+  res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
+  res_umap <- cbind(res_umap, category)
+  colnames(res_umap)[3] <- "category"
+  p3 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
+    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    labs(x = "Z1", y = "Z2", color = category_label) + 
+    ggtitle("UMAP")
+  
+  return(list(PCA = p1, tSNE = p2, UMAP = p3))
+}
+
+#' Rbind modification which fills missing columns with NA using base R functions
+#'
+#' @param a 
+#' @param b 
+#'
+#' @return
+#' @export
+rbind_fill <- function(a,b) {
+  all_cols <- union(colnames(a), colnames(b))
+  a_fill <- all_cols[!(all_cols %in% colnames(a))]
+  a_fill_mat <- matrix(NA, nrow = nrow(a), ncol = length(a_fill))
+  colnames(a_fill_mat) <- a_fill
+  a <- cbind(a, a_fill_mat)
+  
+  b_fill <- all_cols[!(all_cols %in% colnames(b))]
+  b_fill_mat <- matrix(NA, nrow = nrow(b), ncol = length(b_fill))
+  colnames(b_fill_mat) <- b_fill
+  b <- cbind(b, b_fill_mat)
+  
+  return(rbind(a, b))
+}
+
+#' Cbind modification which fills missing rows with NA using base R functions
+#'
+#' @param a 
+#' @param b 
+#'
+#' @return
+#' @export
+cbind_fill <- function(a,b) {
+  all_rows <- union(rownames(a), rownames(b))
+  a_fill <- all_rows[!(all_rows %in% rownames(a))]
+  a_fill_mat <- matrix(NA, nrow = length(a_fill), ncol = ncol(a))
+  rownames(a_fill_mat) <- a_fill
+  colnames(a_fill_mat) <- colnames(a)
+  a <- rbind(a, a_fill_mat)
+  
+  b_fill <- all_rows[!(all_rows %in% rownames(b))]
+  b_fill_mat <- matrix(NA, nrow = length(b_fill), ncol = ncol(b))
+  rownames(b_fill_mat) <- b_fill
+  colnames(b_fill_mat) <- colnames(b)
+  b <- rbind(b, b_fill_mat)
+  
+  return(cbind(a, b))
+}
+
+#' Plot p-values in -log10 scale with original labels
+#'
+#' @param x 
+#' @param target 
+#' @param x_axis_var 
+#' @param color_var 
+#' @param palette 
+#' @param by 
+#' @param facetx 
+#' @param facety 
+#' @param limits 
+#'
+#' @return
+#' @export
+#'
+#' @importFrom plyr ddply
+#' @importFrom ggplot2 ggplot theme_bw scale_fill_brewer theme scale_y_continuous facet_grid
+#' @importFrom scales trans_new log_breaks
+plot_pvalues <- function(x, 
+                         target, 
+                         x_axis_var = NULL, 
+                         color_var = NULL, 
+                         group_var = NULL,
+                         palette = "Dark2",
+                         by = c("Approach", "Embedding", "Clustering", "k"), 
+                         facetx = NULL, 
+                         facety = NULL, 
+                         limits = NULL) {
+  bp_quantiles <- plyr::ddply(x, by, function(a) quantile(a[[target]], probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1), na.rm = TRUE))
+  colnames(bp_quantiles)[length(by) + 1:7] <- c("Q0", "Q0025", "Q025", "Q05", "Q075", "Q0975", "Q1")
+  bp_quantiles$IQR <- log(bp_quantiles$Q075) - log(bp_quantiles$Q025) 
+  bp_quantiles$ymax <- apply(cbind(exp(log(bp_quantiles$Q075) + bp_quantiles$IQR * 1.5), bp_quantiles$Q1), 1, min)
+  bp_quantiles$ymin <- apply(cbind(exp(log(bp_quantiles$Q025) - bp_quantiles$IQR * 1.5), bp_quantiles$Q0), 1, max)
+  if (is.null(limits)) limits <- c(1, 10^floor(min(log10(bp_quantiles$ymin))))
+  
+  if(!is.null(facetx)) {
+    # TODO: check if this works with all configurations
+    if (!is.null(facety)) {
+      temp_facets <- facet_grid(bp_quantiles[[facetx]] ~ bp_quantiles[[facety]], scales = "fixed")
+    } else {
+      temp_facets <- facet_grid( ~ bp_quantiles[[facetx]], scales = "fixed")
+    }
+  } else {
+    temp_facets <- NULL
+  }
+  
+  #temp_aes <- aes_string()
+  #if (!is.null(x_axis_var)) temp_aes$x <- x_axis_var
+  #if (!is.null(color_var)) temp_aes$fill <- color_var
+  #if (!is.null(group_var)) temp_aes$group <- group_var
+  
+  # Assume that use of fill and group are mutually exclusive
+  if (!is.null(x_axis_var)) {
+    if (!is.null(color_var)) {
+      temp_aes <- aes_string(x = x_axis_var, fill = color_var)
+    } else {
+      if (!is.null(group_var)) {
+        temp_aes <- aes_string(x = x_axis_var, group = group_var)
+      }
+    }
+  } else {
+    if (!is.null(color_var)) {
+      temp_aes <- aes_string(fill = color_var)
+    } else {
+      if (!is.null(group_var)) {
+        temp_aes <- aes_string(group = group_var)
+      }
+    }
+  }
+  
+  temp <- ggplot(bp_quantiles, temp_aes) + 
+    geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
+                 outlier.shape = NA, stat = "identity", lwd = 0.25) + 
+    theme_bw() + scale_fill_brewer(palette = "Dark2") + 
+    theme(legend.position = "bottom") + 
+    scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), 
+                                                 function(y) exp(-y), breaks = scales::log_breaks()), 
+                       limits = limits)
+  if (!is.null(temp_facets)) temp <- temp + temp_facets
+  return(temp)
+}
+
+setup_parallelization <- function(parallel) {
+  if (is.null(parallel)) return(NULL)
+  if (parallel > 1) {
+    parallel_clust <- parallel::makeCluster(parallel)
+    doParallel::registerDoParallel(parallel_clust)
+    return(parallel_clust)
+  }
+  foreach::registerDoSEQ()
+  return(NULL)
+}
+
+close_parallel_cluster <- function(cluster) {
+  if(!is.null(cluster)) parallel::stopCluster(cluster)
+}
+
+split_by_safe <- function(x, by) {
+  if (!is.null(x) & nrow(x) > 0) {
+    if (length(by) > 0) {
+      if (data.table::is.data.table(x)) {
+        x_list <- split(x, by = by)
+      } else {
+        # probably data.frame
+        x_list <- split(x, x[, by, drop = FALSE])
+      }
+      x_list <- x_list[sapply(x_list, nrow) > 0]
+    } else {
+      # Nothing to split by
+      x_list <- list(x)
+    }
+  } else {
+    x_list <- NULL
+  }
+  return(x_list)
+}
 
 

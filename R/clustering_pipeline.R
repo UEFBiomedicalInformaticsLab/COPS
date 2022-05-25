@@ -62,13 +62,12 @@ dimred_clusteval_pipeline <- function(dat,
                                       nruns, 
                                       batch_label = NULL,
                                       subtype_label = NULL,
+                                      association_data = NULL,
                                       survival_data = NULL,
                                       module_eigs = NULL,
                                       verbose = TRUE,
                                       parallel = 1,
                                       pathway_enrichment_method = "none",
-                                      #dim_reduction = TRUE,
-                                      #pre_clust_cv = FALSE,
                                       ...) {
   if ("list" %in% class(dat)) {
     dat_list <- dat
@@ -76,171 +75,116 @@ dimred_clusteval_pipeline <- function(dat,
     dat_list <- list(dat)
   }
   
-  pipeline_start <- Sys.time()
-  if (parallel > 1) {
-    parallel_clust <- parallel::makeCluster(parallel)
-    doParallel::registerDoParallel(parallel_clust)
-  } else {
-    # Avoid warnings related to %dopar%
-    foreach::registerDoSEQ()
-  }
-  if(verbose) print("Processing data sets ..."); flush.console()
+  id <- colnames(dat_list[[1]])
   
-  #if (is.null(names(batch_label))) names(batch_label) <- colnames(dat_list[[1]])
-  # Manage batch label column names if batch labels given
-  batch_label_names <- NULL
+  # Add batch label(s) as separate column(s)
   if (!is.null(batch_label)) {
-    batch_label_names <- colnames(batch_label)
-    if (is.null(batch_label_names)) batch_label_names <- "batch_label"
-  }
-  
-  subtype_label_names <- NULL
-  if (!is.null(subtype_label)) {
-    subtype_label_names <- colnames(subtype_label)
-    if (is.null(subtype_label_names)) subtype_label_names <- "subtype_label"
-  }
-  
-  if (pathway_enrichment_method != "none") {
-    # Collect gene names for later
-    gene_id_list <- lapply(dat_list, rownames)
-  }
-  
-  # Convert data to data.table to optimize memory usage
-  for (i in 1:length(dat_list)) {
-    
-    id <- colnames(dat_list[[i]])
-    
-    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
-    #data.table::setDT(dat_list[[i]])
-    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
-    dat_list[[i]]$id <- id
-    data.table::setkey(dat_list[[i]], id)
-    
-    # Add batch label(s) as separate column(s)
-    if (!is.null(batch_label)) {
-      if (is.null(dim(batch_label))) {
-        if (!is.null(names(batch_label))) {
-          batch_id <- names(batch_label)
-        } else {
-          # Assume data and batch labels are in the same order
-          batch_id <- id
+    if (is.null(dim(batch_label))) {
+      # 1d array given as batch label
+      if (!is.null(names(batch_label))) {
+        batch_id <- names(batch_label)
+      } else {
+        # Assume data and batch labels are in the same order
+        batch_id <- id
+        if (length(dat_list) > 1) {
+          if (!Reduce("&", lapply(dat_list, function(x) colnames == id))) {
+            stop("Ambiguous batch label, no names given.")
+          }
         }
-        batch_table <- cbind(batch_label = as.character(batch_label), c())
-      } else { # matrix batch_label
+        if (length(id) != length(batch_label)) {
+          stop("Batch label dimensions do not match with data and no names were given.")
+        }
+      }
+      batch_table <- cbind(batch_label = as.character(batch_label), c())
+    } else { 
+      # 2d batch_label
+      if (!is.null(rownames(batch_label))) {
         batch_id <- rownames(batch_label)
         batch_table <- batch_label
-      }
-      #data.table::setDT(batch_table)
-      batch_table <- data.table::as.data.table(batch_table)
-      if (!all(id %in% batch_id)) {
-        stop("All sample IDs in data do not match with batch label sample IDs.")
-      }
-      batch_table$id <- batch_id
-      dat_list[[i]] <- plyr::join(dat_list[[i]], batch_table, by = "id")
-    }
-    
-    if (!is.null(subtype_label)) {
-      if (is.null(dim(subtype_label))) {
-        if (!is.null(names(subtype_label))) {
-          subtype_id <- names(subtype_label)
-        } else {
-          # Assume data and labels are in the same order
-          subtype_id <- id
+      } else {
+        batch_id <- id
+        if (length(dat_list) > 1) {
+          if (!Reduce("&", lapply(dat_list, function(x) colnames == id))) {
+            stop("Ambiguous batch label, rownames missing.")
+          }
         }
-        subtype_table <- cbind(subtype_label = as.character(subtype_label), c())
-      } else { # matrix batch_label
+        if (length(id) != nrow(batch_label)) {
+          stop("Batch label dimensions do not match with data and no rownames were given.")
+        }
+      }
+    }
+    batch_table <- data.table::as.data.table(batch_table)
+    batch_table$id <- batch_id
+  }
+  
+  if (!is.null(subtype_label)) {
+    if (is.null(dim(subtype_label))) {
+      if (!is.null(names(subtype_label))) {
+        subtype_id <- names(subtype_label)
+      } else {
+        # Assume data and labels are in the same order
+        subtype_id <- id
+        if (length(dat_list) > 1) {
+          if (!Reduce("&", lapply(dat_list, function(x) colnames == id))) {
+            stop("Ambiguous subtype label, no names given.")
+          }
+        }
+        if (length(id) != length(subtype_label)) {
+          stop("Subtype label dimensions do not match with data and no names were given.")
+        }
+      }
+      subtype_table <- cbind(subtype_label = as.character(subtype_label), c())
+    } else { 
+      if (!is.null(rownames(subtype_label))) {
         subtype_id <- rownames(subtype_label)
         subtype_table <- subtype_label
+      } else {
+        subtype_id <- id
+        if (length(dat_list) > 1) {
+          if (!Reduce("&", lapply(dat_list, function(x) colnames == id))) {
+            stop("Ambiguous subtype label, rownames missing.")
+          }
+        }
+        if (length(id) != nrow(subtype_label)) {
+          stop("Subtype label dimensions do not match with data and no rownames were given.")
+        }
       }
-      #data.table::setDT(subtype_table)
-      subtype_table <- data.table::as.data.table(subtype_table)
-      if (!all(id %in% subtype_id)) {
-        warning("All subtype label sample IDs do not match with data.")
+      
+    }
+    subtype_table <- data.table::as.data.table(subtype_table)
+    subtype_table$id <- subtype_id
+  }
+  
+  
+  if (is.null(association_data)) {
+    if(!is.null(batch_label)) {
+      association_data <- batch_table
+    }
+    if(!is.null(subtype_label)) {
+      if (is.null(association_data)) {
+        association_data <- subtype_table
+      } else {
+        association_data <- merge(association_data, subtype_table, by = "id", all = TRUE)
       }
-      subtype_table$id <- subtype_id
-      dat_list[[i]] <- plyr::join(dat_list[[i]], subtype_table, by = "id")
+    }
+    if (!is.null(association_data)) {
+      association_data <- as.data.frame(association_data)
+      rownames(association_data) <- association_data$id
+      association_data$id <- NULL
     }
   }
   
-  # Create cross validation folds
-  cv_index <- cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
+  out <- COPS(dat, 
+              nfolds, 
+              nruns, 
+              association_data = association_data,
+              survival_data = survival_data,
+              module_eigs = module_eigs,
+              verbose = verbose,
+              parallel = parallel,
+              pathway_enrichment_method = pathway_enrichment_method,
+              ...)
   
-  # Pathway enrichment
-  if (pathway_enrichment_method != "none") {
-    if (length(dat_list) > 1) {
-      stop("Multiple data sets with pathway enrichment enabled is not implemented.")
-      # TODO: make it compatible. Currently datname is being used as pwname. 
-    }
-    pw_start <- Sys.time()
-    if(verbose) print("Starting pathway enrichment ..."); flush.console()
-    dat_pw <- cv_pathway_enrichment(dat_list, cv_index, gene_id_list, enrichment_method = pathway_enrichment_method, ...)
-    if(verbose) print(paste("Finished pathway enrichment in",
-                            time_taken_string(pw_start))); flush.console()
-    
-    # Dimensionality reduction for pathway enriched features
-    dimred_start <- Sys.time()
-    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-    dat_embedded <- cv_dimred(dat_pw, cv_index, cv_split_data = FALSE, ...)
-    if(verbose) print(paste("Finished dimensionality reduction in",
-                            time_taken_string(dimred_start))); flush.console()
-  } else{
-    # Dimensionality reduction
-    dimred_start <- Sys.time()
-    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
-    dat_embedded <- cv_dimred(dat_list, cv_index, ...)
-    if(verbose) print(paste("Finished dimensionality reduction in",
-                            time_taken_string(dimred_start))); flush.console()
-  }
-  
-  # Clustering evaluation
-  clusteval_start <- Sys.time()
-  if(verbose) print("Starting clustering analysis ..."); flush.console()
-  dat_clustered <- cv_clusteval(dat_embedded, 
-                                ..., 
-                                batch_label_names = batch_label_names, 
-                                subtype_label_names = subtype_label_names)
-  if(verbose) print(paste("Finished clustering analysis in",
-                          time_taken_string(clusteval_start))); flush.console()
-  
-  # Clustering stability evaluation
-  stability_test_start <- Sys.time()
-  if(verbose) print("Starting clustering stability analysis ..."); flush.console()
-  dat_stability <- stability_eval(dat_clustered$clusters, ...)
-  if(verbose) print(paste("Finished clustering stability analysis in",
-                          time_taken_string(stability_test_start))); flush.console()
-  
-  # Survival evaluation
-  if (!is.null(survival_data)) {
-    survival_analysis_start <- Sys.time()
-    if(verbose) print("Starting survival analysis ..."); flush.console()
-    dat_survival <- survival_evaluation(survival_data, dat_clustered$clusters, ...)
-    if(verbose) print(paste("Finished survival analysis in",
-                            time_taken_string(survival_analysis_start))); flush.console()
-  }
-  
-  # Gene module correlation evaluation
-  if (!is.null(module_eigs)) {
-    module_analysis_start <- Sys.time()
-    if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
-    dat_gm_score <- module_evaluation(dat_clustered$clusters, module_eigs, ...)
-    if(verbose) print(paste("Finished module correlation analysis in",
-                            time_taken_string(module_analysis_start))); flush.console()
-  }
-  
-  # Return
-  out <- list(embedding = dat_embedded, 
-              clusters = dat_clustered$clusters, 
-              internal_metrics = dat_clustered$metrics,
-              chisq_pval = dat_clustered$chisq_pval,
-              batch_association = dat_clustered$batch_association,
-              subtype_association = dat_clustered$subtype_association,
-              stability = dat_stability)
-  if (!is.null(survival_data)) out$survival <- dat_survival
-  if (!is.null(module_eigs)) out$modules <- dat_gm_score
-  
-  if (parallel > 1) parallel::stopCluster(parallel_clust)
-  if(verbose) print(paste("Finished pipeline in",
-                          time_taken_string(pipeline_start)));flush.console()
   return(out)
 }
 
@@ -274,6 +218,498 @@ get_best_result <- function(res,
     }
   }
   return(out)
+}
+
+data_preprocess <- function(dat, verbose = TRUE) {
+  if ("list" %in% class(dat)) {
+    dat_list <- dat
+  } else {
+    dat_list <- list(dat)
+  }
+  if(verbose) print("Processing data sets ..."); flush.console()
+  
+  # Collect gene names for later. 
+  # They are required for pathway-based approaches
+  gene_id_list <- lapply(dat_list, rownames)
+  
+  # Convert data to data.table to optimize memory usage
+  for (i in 1:length(dat_list)) {
+    id <- colnames(dat_list[[i]])
+    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
+    #data.table::setDT(dat_list[[i]])
+    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
+    dat_list[[i]]$id <- id
+    data.table::setkey(dat_list[[i]], id)
+  }
+  return(list(dat_list = dat_list, gene_id_list = gene_id_list))
+}
+
+#' Clustering algorithms for Omics based Patient Stratification
+#'
+#' @param dat 
+#' @param nfolds 
+#' @param nruns 
+#' @param association_data 
+#' @param survival_data 
+#' @param module_eigs 
+#' @param verbose 
+#' @param parallel 
+#' @param pathway_enrichment_method 
+#' @param vertical_parallelization 
+#' @param ... 
+#'
+#' @return
+#' @export
+COPS <- function(dat, 
+                 nfolds, 
+                 nruns, 
+                 association_data = NULL,
+                 survival_data = NULL,
+                 module_eigs = NULL,
+                 verbose = TRUE,
+                 parallel = 1,
+                 pathway_enrichment_method = "none",
+                 vertical_parallelization = FALSE, 
+                 ...) {
+  pipeline_start <- Sys.time()
+  
+  dat <- data_preprocess(dat, verbose)
+  
+  if (vertical_parallelization) {
+    out <- vertical_pipeline(dat$dat_list, 
+                             nruns = nruns,
+                             nfolds = nfolds,
+                             survival_data = survival_data, 
+                             association_data = association_data,
+                             parallel = parallel,
+                             gene_id_list = dat$gene_id_list,
+                             ...)
+    return(out)
+  }
+  
+  # Create cross validation folds
+  cv_index <- cv_fold(dat_list = dat$dat_list, 
+                      nfolds = nfolds, 
+                      nruns = nruns, 
+                      ...)
+  
+  # Pathway enrichment
+  if (pathway_enrichment_method != "none") {
+    if (length(dat$dat_list) > 1) {
+      stop("Multiple data sets with pathway enrichment enabled is not implemented.")
+      # TODO: make it compatible. Currently datname is being used as pwname. 
+    }
+    pw_start <- Sys.time()
+    if(verbose) print("Starting pathway enrichment ..."); flush.console()
+    dat_pw <- cv_pathway_enrichment(dat$dat_list, 
+                                    cv_index, 
+                                    dat$gene_id_list, 
+                                    enrichment_method = pathway_enrichment_method, 
+                                    parallel = parallel, 
+                                    ...)
+    if(verbose) print(paste("Finished pathway enrichment in",
+                            time_taken_string(pw_start))); flush.console()
+    
+    # Dimensionality reduction for pathway enriched features
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
+    dat_embedded <- cv_dimred(dat_pw, 
+                              cv_index, 
+                              cv_split_data = FALSE, 
+                              parallel = parallel, 
+                              ...)
+    if(verbose) print(paste("Finished dimensionality reduction in",
+                            time_taken_string(dimred_start))); flush.console()
+  } else {
+    # Dimensionality reduction
+    dimred_start <- Sys.time()
+    if(verbose) print("Starting dimensionality reduction ..."); flush.console()
+    dat_embedded <- cv_dimred(dat$dat_list, 
+                              cv_index, 
+                              parallel = parallel, 
+                              ...)
+    if(verbose) print(paste("Finished dimensionality reduction in",
+                            time_taken_string(dimred_start))); flush.console()
+  }
+  
+  # Clustering evaluation
+  clusteval_start <- Sys.time()
+  if(verbose) print("Starting clustering analysis ..."); flush.console()
+  dat_clustered <- cv_clusteval(dat_embedded, 
+                                parallel = parallel, 
+                                ...)
+  if(verbose) print(paste("Finished clustering analysis in",
+                          time_taken_string(clusteval_start))); flush.console()
+  
+  # Clustering stability evaluation
+  stability_test_start <- Sys.time()
+  if(verbose) print("Starting clustering stability analysis ..."); flush.console()
+  dat_stability <- stability_eval(dat_clustered$clusters, 
+                                  parallel = parallel, 
+                                  ...)
+  if(verbose) print(paste("Finished clustering stability analysis in",
+                          time_taken_string(stability_test_start))); flush.console()
+  
+  # Survival evaluation
+  if (!is.null(survival_data)) {
+    survival_analysis_start <- Sys.time()
+    if(verbose) print("Starting survival analysis ..."); flush.console()
+    dat_survival <- survival_evaluation(survival_data, 
+                                        dat_clustered$clusters, 
+                                        parallel = parallel, 
+                                        ...)
+    if(verbose) print(paste("Finished survival analysis in",
+                            time_taken_string(survival_analysis_start))); flush.console()
+  }
+  
+  # Gene module correlation evaluation
+  if (!is.null(module_eigs)) {
+    module_analysis_start <- Sys.time()
+    if(verbose) print("Starting gene module correlation analysis ..."); flush.console()
+    dat_gm_score <- module_evaluation(dat_clustered$clusters, 
+                                      module_eigs, 
+                                      parallel = parallel, 
+                                      ...)
+    if(verbose) print(paste("Finished gene module correlation analysis in",
+                            time_taken_string(module_analysis_start))); flush.console()
+  }
+  
+  if (!is.null(association_data)) {
+    association_analysis_start <- Sys.time()
+    if(verbose) print("Starting variable association analysis ..."); flush.console()
+    dat_association_score <- association_analysis_cv(dat_clustered$clusters, 
+                                              association_data, 
+                                              parallel = parallel, 
+                                              ...)
+    if(verbose) print(paste("Finished variable association analysis in",
+                            time_taken_string(association_analysis_start))); flush.console()
+  }
+  
+  # Return
+  out <- list(embedding = dat_embedded, 
+              clusters = dat_clustered$clusters, 
+              internal_metrics = dat_clustered$metrics,
+              stability = dat_stability)
+  if (!is.null(survival_data)) out$survival <- dat_survival
+  if (!is.null(module_eigs)) out$modules <- dat_gm_score
+  if (!is.null(association_data)) out$association <- dat_association_score
+  out$cluster_sizes <- dat_clustered$cluster_sizes
+  
+  if(verbose) print(paste("Finished pipeline in",
+                          time_taken_string(pipeline_start)));flush.console()
+  return(out)
+}
+
+#' COPS pipeline vertical parallelization
+#'
+#' @param dat_list 
+#' @param nfolds 
+#' @param nruns 
+#' @param survival_data 
+#' @param association_data 
+#' @param multi_omic_methods 
+#' @param parallel 
+#' @param ... 
+#'
+#' @return
+#' @importFrom foreach foreach %dopar% %:%
+vertical_pipeline <- function(dat_list, 
+                              nfolds = 5, 
+                              nruns = 1,
+                              survival_data = NULL,
+                              association_data = NULL, 
+                              multi_omic_methods = NULL, 
+                              parallel = 1, 
+                              data_is_kernels = FALSE, 
+                              silhouette_dissimilarities = NULL,
+                              ...) {
+  if (length(multi_omic_methods) > 0) {
+    cv_index <- multi_view_cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
+    cv_index_split <- split(cv_index[[1]], by = c("run", "fold"))
+    
+    cfun <- function(x, y) {
+      for (i in 1:length(x)) {
+        x[[i]] <- plyr::rbind.fill(x[[i]], y[[i]])
+      }
+      return(x)
+    }
+    
+    f_args <- list(...)
+    
+    parallel_clust <- setup_parallelization(parallel)
+    out <- tryCatch(foreach(i = 1:length(cv_index_split), 
+                    .combine = cfun, 
+                    .inorder = FALSE) %:%
+    foreach(mvc = multi_omic_methods, 
+            .combine = cfun, 
+            .export = c("dat_list", "cv_index_split", "f_args", "silhouette_dissimilarities"), 
+            .packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
+            .inorder = FALSE) %dopar% {
+      dat_i <- list()
+      non_data_cols <- list()
+      by <- c("run", "fold", "m", "k", "lambda")
+      
+      if(data_is_kernels) {
+        for (j in 1:length(dat_list)) {
+          if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
+            stop("Input kernels are not square!")
+          }
+          ij_ind <- match(cv_index_split[[i]]$id, dat_list[[j]]$id)
+          dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
+          
+          temp <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
+          sel <- grep("^dim[0-9]+$", colnames(temp))
+          if ("data.table" %in% class(temp)) {
+            non_data_cols[[j]] <- temp[,-..sel]
+          } else {
+            non_data_cols[[j]] <- temp[,-sel]
+          }
+        }
+      } else {
+        for (j in 1:length(dat_list)) {
+          dat_i[[j]] <- merge(cv_index_split[[i]], dat_list[[j]], by = "id")
+          sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+          if ("data.table" %in% class(dat_i[[j]])) {
+            non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+            dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+          } else {
+            non_data_cols[[j]] <- dat_i[[j]][,-sel]
+            dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+          }
+        }
+      }
+      
+      # multi-omic clustering
+      # 1) multi-view clustering
+      # 2) multi-view integration/embedding + clustering
+      # Since we are running different methods in parallel we take the first result only
+      temp_args <- c(list(dat_list_clust = dat_i, 
+                          non_data_cols = non_data_cols, 
+                          multi_view_methods = mvc,
+                          data_is_kernels = data_is_kernels),
+                     f_args)
+      clust_i <- do.call(multi_omic_clustering, temp_args)
+      
+      # Clustering metrics 
+      silh_i <- list()
+      if (data_is_kernels) {
+        # While the unnormalized linear kernel could be used to compute 
+        # silhouette in the original space, other kernels cannot. 
+        silh_i <- NULL
+      } else if (!is.null(silhouette_dissimilarities)) {
+        for (j in 1:length(silhouette_dissimilarities)) {
+          silh_i[[j]] <- clustering_metrics(clust_i, 
+                                            dat = NULL, 
+                                            by = by,
+                                            clustering_dissimilarity = silhouette_dissimilarities[[j]], 
+                                            cluster_size_table = FALSE, 
+                                            silhouette_min_cluster_size = 0.0,
+                                            distance_metric = "euclidean")$metrics
+          silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(silhouette_dissimilarities)[j], "_Silhouette")
+        }
+        silh_i <- Reduce(rbind, silh_i)
+      } else {
+        for (j in 1:length(dat_i)) {
+          silh_i[[j]] <- clustering_metrics(clust_i, 
+                                            dat = as.data.frame(dat_i[[j]]), 
+                                            by = by,
+                                            clustering_dissimilarity = NULL, 
+                                            cluster_size_table = FALSE, 
+                                            silhouette_min_cluster_size = 0.0,
+                                            distance_metric = "euclidean")$metrics
+          silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+          #colnames(silh_i[[j]])[colnames(silh_i[[j]]) == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+        }
+        silh_i <- Reduce(rbind, silh_i)
+      }
+      
+      # Survival evaluation
+      if (!is.null(survival_data)) {
+        temp_args <- c(list(event_data = survival_data, 
+                            clusters = clust_i, 
+                            parallel = 1,
+                            by = by),
+                       f_args)
+        survival_i <- do.call(survival_evaluation, temp_args)
+      } else {
+        survival_i <- NULL
+      }
+      
+      # Clustering association analysis
+      if (!is.null(association_data)) {
+        temp_args <- c(list(clusters = clust_i, 
+                            association_data = association_data, 
+                            by = by,
+                            parallel = 1),
+                       f_args)
+        association_i <- do.call(association_analysis_cv, temp_args)
+      } else {
+        association_i <- NULL
+      }
+      # Return
+      out_i <- list()
+      out_i$clusters <- clust_i
+      out_i$internal_metrics <- silh_i
+      out_i$survival <- survival_i
+      out_i$association <- association_i
+      if (!is.null(attributes(clust_i)$extra_output)) {
+        if (!is.null(attributes(clust_i)$extra_output$mkkm_mr_weights)) {
+          out_i$mkkm_mr_weights <- attributes(clust_i)$extra_output$mkkm_mr_weights
+        }
+      }
+      out_i
+    }, finally = close_parallel_cluster(parallel_clust))
+    out$clusters <- data.table::setDT(out$clusters)
+    
+    # Clustering stability evaluation
+    out$stability <- stability_eval(out$clusters, 
+                                    by = by[!by %in% "fold"], 
+                                    parallel = parallel)
+    return(out)
+  } else {
+    stop("Not implemented.")
+  }
+}
+
+multi_view_cv_fold <- function(dat_list, nfolds = 5, nruns = 2, ...) {
+  if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
+    warning("Colnames in all views do not match.")
+    stop("Cross-validation for missing sample views not implemented.")
+  }
+  return(cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...))
+}
+
+subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
+  dat_i <- list()
+  non_data_cols <- list()
+  if(data_is_kernels) {
+    for (j in 1:length(dat_list)) {
+      if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
+        stop("Input kernels are not square!")
+      }
+      ij_ind <- match(cv_index$id, dat_list[[j]]$id)
+      dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
+      
+      temp <- merge(cv_index, dat_list[[j]], by = "id")
+      sel <- grep("^dim[0-9]+$", colnames(temp))
+      if ("data.table" %in% class(temp)) {
+        non_data_cols[[j]] <- temp[,-..sel]
+      } else {
+        non_data_cols[[j]] <- temp[,-sel]
+      }
+    }
+  } else {
+    for (j in 1:length(dat_list)) {
+      dat_i[[j]] <- merge(cv_index, dat_list[[j]], by = "id")
+      sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+      if ("data.table" %in% class(dat_i[[j]])) {
+        non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+        dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+      } else {
+        non_data_cols[[j]] <- dat_i[[j]][,-sel]
+        dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+      }
+    }
+  }
+  names(dat_i) <- names(dat_list)
+  names(non_data_cols) <- names(dat_list)
+  return(list(dat_i = dat_i, non_data_cols = non_data_cols))
+}
+
+embarrassingly_parallel_pipeline <- function(dat_list, 
+                                             cv_index,
+                                             fold = 6, 
+                                             run = 1,
+                                             survival_data = NULL,
+                                             association_data = NULL, 
+                                             multi_omic_methods = NULL, 
+                                             parallel = 1, 
+                                             data_is_kernels = FALSE, 
+                                             silhouette_dissimilarities = NULL,
+                                             ...) {
+  cvi <- cv_index[cv_index$fold == fold & cv_index$run == run,]
+  if (length(multi_omic_methods) == 1) {
+    dat_i <- subset_cv_data(dat_list, cvi, data_is_kernels)
+    by <- c("run", "fold", "m", "k", "lambda")
+    
+    # multi-omic clustering
+    # 1) multi-view clustering
+    # 2) multi-view integration/embedding + clustering
+    clust_i <- multi_omic_clustering(dat_list_clust = dat_i$dat_i,
+                                     non_data_cols = dat_i$non_data_cols, 
+                                     multi_view_methods = multi_omic_methods,
+                                     data_is_kernels = data_is_kernels,
+                                     ...)
+    
+    # Clustering metrics 
+    silh_i <- list()
+    if (data_is_kernels) {
+      # While the unnormalized linear kernel could be used to compute 
+      # silhouette in the original space, other kernels cannot. 
+      silh_i <- NULL
+    } else if (!is.null(silhouette_dissimilarities)) {
+      for (j in 1:length(silhouette_dissimilarities)) {
+        silh_i[[j]] <- clustering_metrics(clust_i, 
+                                          dat = NULL, 
+                                          by = by,
+                                          clustering_dissimilarity = silhouette_dissimilarities[[j]], 
+                                          cluster_size_table = FALSE, 
+                                          silhouette_min_cluster_size = 0.0,
+                                          distance_metric = "euclidean")$metrics
+        silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(silhouette_dissimilarities)[j], "_Silhouette")
+      }
+      silh_i <- Reduce(rbind, silh_i)
+    } else {
+      for (j in 1:length(dat_i$dat_i)) {
+        silh_i[[j]] <- clustering_metrics(clust_i, 
+                                          dat = as.data.frame(dat_i$dat_i[[j]]), 
+                                          by = by,
+                                          clustering_dissimilarity = NULL, 
+                                          cluster_size_table = FALSE, 
+                                          silhouette_min_cluster_size = 0.0,
+                                          distance_metric = "euclidean")$metrics
+        silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(dat_list)[j], "_Silhouette")
+      }
+      silh_i <- Reduce(rbind, silh_i)
+    }
+    
+    # Survival evaluation
+    if (!is.null(survival_data)) {
+      survival_i <- survival_evaluation(event_data = survival_data, 
+                                        clusters = clust_i, 
+                                        parallel = 1,
+                                        by = by,
+                                        ...)
+    } else {
+      survival_i <- NULL
+    }
+    
+    # Clustering association analysis
+    if (!is.null(association_data)) {
+      association_i <- association_analysis_cv(clusters = clust_i, 
+                                               association_data = association_data, 
+                                               by = by,
+                                               parallel = 1,
+                                               ...)
+    } else {
+      association_i <- NULL
+    }
+    # Return
+    out <- list()
+    out$clusters <- clust_i
+    out$internal_metrics <- silh_i
+    out$survival <- survival_i
+    out$association <- association_i
+    if (!is.null(attributes(clust_i)$extra_output)) {
+      if (!is.null(attributes(clust_i)$extra_output$mkkm_mr_weights)) {
+        out$mkkm_mr_weights <- attributes(clust_i)$extra_output$mkkm_mr_weights
+      }
+    }
+    out$clusters <- data.table::setDT(out$clusters)
+    return(out)
+  } else {
+    stop("Not implemented.")
+  }
 }
 
 #' Scoring of dimensionality reduction and clustering pipeline output
@@ -311,7 +747,7 @@ get_best_result <- function(res,
 #' metric = "euclidean",
 #' n_clusters = 2:4)
 #' 
-#' scores <- clusteval_scoring(res, wsum = Silhouette - NMI.batch_label, summarise = TRUE)
+#' scores <- clusteval_scoring(res, wsum = Silhouette - batch_label.nmi, summarise = TRUE)
 #' 
 #' best <- get_best_result(res, scores)
 #' head(best$embedding)
@@ -321,7 +757,7 @@ get_best_result <- function(res,
 #' @importFrom reshape2 melt dcast
 #' @importFrom stats sd as.formula
 clusteval_scoring <- function(res,
-                              by = c("datname", "drname", "k", "m"),
+                              by = c("datname", "drname", "k", "m", "lambda"),
                               wsum = TrainStabilityJaccard + Silhouette,
                               chisq_significance_level = 0.05,
                               summarise = TRUE) {
@@ -329,34 +765,42 @@ clusteval_scoring <- function(res,
     by <- c(by, "run", "fold")
   }
   # Internal metrics
-  by_internal <- by[by %in% colnames(res$internal_metrics)]
-  mean_internals <- plyr::ddply(res$internal_metrics, 
-                                c(by_internal, "metric"), 
-                                function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
-                                                       sd = sd(x$value, na.rm = TRUE)))
-  mean_internals <- reshape2::dcast(mean_internals, 
-                                    as.formula(paste(paste(by_internal, collapse = "+"), "~ metric")), 
-                                    value.var = "mean")
-  
-  # Average number of chi-squared test pvalues under threshold in all given labels
-  by_chisq <- by[by %in% colnames(res$chisq_pval)]
-  if (summarise) {
-    chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
-    chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
-    chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
-    chisq_rr <- reshape2::dcast(chisq_rr, 
-                                as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
-                                value.var = "chisqRR")
+  if (!is.null(res$internal_metrics)) {
+    by_internal <- by[by %in% colnames(res$internal_metrics)]
+    mean_internals <- plyr::ddply(res$internal_metrics, 
+                                  c(by_internal, "metric"), 
+                                  function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
+                                                         sd = sd(x$value, na.rm = TRUE)))
+    mean_internals <- reshape2::dcast(mean_internals, 
+                                      as.formula(paste(paste(by_internal, collapse = "+"), "~ metric")), 
+                                      value.var = "mean")
   } else {
-    chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
-    chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
-    chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
-    chisq_rr <- reshape2::dcast(chisq_rr, 
-                                as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
-                                value.var = "chisq.p")
+    mean_internals <- NULL
   }
   
-  # Batch label associations
+  if (!is.null(res$chisq_pval)) {
+    # Average number of chi-squared test pvalues under threshold in all given labels
+    by_chisq <- by[by %in% colnames(res$chisq_pval)]
+    if (summarise) {
+      chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
+      chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
+      chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
+      chisq_rr <- reshape2::dcast(chisq_rr, 
+                                  as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                                  value.var = "chisqRR")
+    } else {
+      chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
+      chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
+      chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
+      chisq_rr <- reshape2::dcast(chisq_rr, 
+                                  as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
+                                  value.var = "chisq.p")
+    }
+  } else {
+    chisq_rr <- NULL
+  }
+  
+  # Batch label associations (to be deprecated)
   if (!is.null(res$batch_association)) {
     if (nrow(res$batch_association) > 0) {
       by_bassoc <- by[by %in% colnames(res$batch_association)]
@@ -380,7 +824,7 @@ clusteval_scoring <- function(res,
     bassoc_ari <- NULL
   }
   
-  # Subtype label associations
+  # Subtype label associations (to be deprecated)
   if (!is.null(res$subtype_association)) {
     if (nrow(res$subtype_association) > 0) {
       by_sassoc <- by[by %in% colnames(res$subtype_association)]
@@ -404,25 +848,17 @@ clusteval_scoring <- function(res,
     sassoc_ari <- NULL
   }
   
-  # Stability
-  #by_stability <- by[by %in% colnames(res$stability)]
-  stability <- res$stability
-  stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
-  colnames(stability)[stab_col_ind] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
-                                               "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")
-  
   # Survival likelihood ratio test
   if (!is.null(res$survival)) {
     if (summarise) {
       warning("Currently summary of survival p-values is not implemented.")
-    } else {
-      #by_survival <- by[by %in% colnames(res$survival)]
-      #survival <- plyr::ddply(res$survival, 
-      #                        by_survival, 
-      #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
-      survival <- res$survival
-      colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
     }
+    #by_survival <- by[by %in% colnames(res$survival)]
+    #survival <- plyr::ddply(res$survival, 
+    #                        by_survival, 
+    #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
+    survival <- res$survival
+    colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
   } else {
     survival <- NULL
   }
@@ -437,6 +873,50 @@ clusteval_scoring <- function(res,
     modules <- NULL
   }
   
+  # Variable association tests
+  if (!is.null(res$association)) {
+    if (summarise) {
+      warning("Currently summary of association p-values is not implemented.")
+      assoc_string <- "\\.nmi$|\\.ari$"
+    } else {
+      assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
+    }
+    by_association <- by[by %in% colnames(res$association)]
+    association <- plyr::ddply(res$association, 
+                               by_association, 
+                               function(x) as.data.frame(lapply(x[grepl(assoc_string, colnames(x))], mean, na.rm = TRUE)))
+  } else {
+    association <- NULL
+  }
+  
+  if (!is.null(res$cluster_sizes)) {
+    # TODO: fix clustering analysis so that drname, run and fold are present in res$cluster_sizes
+    by_cluster_sizes <- by[by %in% colnames(res$cluster_sizes)]
+    cluster_sizes <- res$cluster_sizes
+    cluster_cols <- grep("X[0-9]+", colnames(cluster_sizes))
+    csize_names <- paste0("Cluster_", gsub("^X", "", colnames(cluster_sizes))[cluster_cols], "_size")
+    colnames(cluster_sizes)[cluster_cols] <- csize_names
+    cluster_sizes <- plyr::ddply(cluster_sizes, 
+                                 by_cluster_sizes, 
+                                 function(x) as.data.frame(lapply(x[grepl("^Cluster_[0-9]+_size", colnames(x))], mean, na.rm = TRUE)))
+  } else {
+    cluster_sizes <- NULL
+  }
+  
+  if (!is.null(res$stability)) {
+    # Stability
+    by_stability <- by[by %in% colnames(res$stability)]
+    stability <- res$stability
+    stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
+    colnames(stability)[stab_col_ind[!is.na(stab_col_ind)]] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
+                                           "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")[!is.na(stab_col_ind)]
+    stability <- plyr::ddply(stability, 
+                             by_stability, 
+                             function(x) as.data.frame(lapply(x[grepl("Stability", colnames(x))], mean, na.rm = TRUE)))
+  } else {
+    stability <- NULL
+  }
+  
   # Combine all metrics
   out <- list(mean_internals, 
               chisq_rr, 
@@ -444,11 +924,20 @@ clusteval_scoring <- function(res,
               bassoc_ari, 
               sassoc_nmi, 
               sassoc_ari, 
-              stability, 
               survival, 
-              modules)
+              modules,
+              association,
+              cluster_sizes,
+              stability)
+  if (!is.null(res$mkkm_mr_weights) & !summarise) {
+    out$mkkm_mr_weights <- res$mkkm_mr_weights
+  }
   #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
-  out <- Reduce(function(x,y) plyr::join(x, y, by = intersect(by, intersect(colnames(x), colnames(y)))), 
+  out <- Reduce(function(x,y) plyr::join(x, y, 
+                                         by = intersect(by, 
+                                                        intersect(colnames(x), 
+                                                                  colnames(y))), 
+                                         type = "full"), 
                 out[!sapply(out, is.null)])
   
   # Scoring

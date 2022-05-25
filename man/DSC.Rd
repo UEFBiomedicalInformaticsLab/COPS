@@ -17,5 +17,5 @@ Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a sc
 \description{
 Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 Based on \url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.95.1128}.
-Can be used to measure batch effect. TODO: fix implementation
+Can be used to measure batch effect.
 }

@@ -1,4 +1,6 @@
 #' Pre-process event data for survival analysis
+#' 
+#' Use when survival data is not in time and event format e.g., TCGA clinical data.
 #'
 #' @param event_data A data.frame that contains survival times, event data and covariates.
 #' @param event_time_name Name of the column that contains time to event. 
@@ -54,26 +56,29 @@ survival_evaluation <- function(event_data,
                                 survival_covariate_names = c("age", "stage"),
                                 row_id = "ID", 
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
+                                parallel = 1, 
                                 ...) {
-  if (data.table::is.data.table(clusters)) {
-    clust_list <- split(clusters, by = by)
-  } else {
-    clust_list <- split(clusters, clusters[, by])
-  }
-  
-  out <- foreach(clust = clust_list,
+  by <- by[by %in% colnames(clusters)]
+  clust_list <- split_by_safe(clusters, by)
+  parallel_clust <- setup_parallelization(parallel)
+  out <- tryCatch(foreach(clust = clust_list,
                  .combine = function(...) data.table::rbindlist(list(...)),
                  .export = c("by"),
                  .packages = c("survival"),
                  .multicombine = TRUE,
-                 .maxcombine = length(clust_list)) %dopar% {
+                 .maxcombine = max(length(clust_list), 2)) %dopar% {
                    survival_ind <- match(event_data[[row_id]], clust$id)
                    temp <- event_data[!is.na(survival_ind),]
                    temp$cluster <- NA
                    temp$cluster <- clust$cluster[survival_ind[!is.na(survival_ind)]]
                    temp$cluster <- factor(temp$cluster)
+                   if ("data.table" %in% class(clust)) {
+                     out_i <- data.frame(clust[1,..by], cluster_significance = NA)
+                   } else {
+                     out_i <- data.frame(clust[1,by], cluster_significance = NA)
+                   }
                    
-                   out_i <- data.frame(clust[1,..by], cluster_significance = NA)
+                   colnames(out_i)[-ncol(out_i)] <- by
                    out_i$id <- NULL
                    out_i$cluster <- NULL
                    if (length(table(temp$cluster)) > 1) {
@@ -85,12 +90,15 @@ survival_evaluation <- function(event_data,
                      #coef(summary(model))[,"Pr(>|z|)"]
                      model_formula0 <- paste0("survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
                                               paste(survival_covariate_names[covariates_in_temp], collapse = " + "))
+                     if (all(!covariates_in_temp)) {
+                       model_formula0 <- paste(model_formula0, "+ 1")
+                     }
                      model0 <- survival::coxph(as.formula(model_formula0), data = temp)
                      res <- anova(model, model0, test="LRT")
                      out_i$cluster_significance <- res[["P(>|Chi|)"]][2]
                    }
                    
                    out_i
-                 }
+                 }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
