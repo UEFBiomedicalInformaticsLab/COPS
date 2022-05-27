@@ -73,7 +73,7 @@ ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA",
                              gs_subcats = "CP:KEGG")
 # batch-wise
 ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-                             batch_label_pw = ad_studies, parallel = 2, 
+                             batch_label_pw = ad_studies$GSE, parallel = 2, 
                              gene_key_expr = "ENSEMBL", gs_subcats = "CP:KEGG")
 
 ## DiffRank example with batch-wise enrichment
@@ -82,7 +82,7 @@ ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank",
                                  gs_subcats = "CP:KEGG")
 # batch-wise
 ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-                                 batch_label_pw = ad_studies, 
+                                 batch_label_pw = ad_studies$GSE, 
                                  parallel = 2, gene_key_expr = "ENSEMBL", 
                                  gs_subcats = "CP:KEGG")
 

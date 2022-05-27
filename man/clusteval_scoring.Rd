@@ -9,7 +9,7 @@ get_best_result(res, scores)
 
 clusteval_scoring(
   res,
-  by = c("datname", "drname", "k", "m"),
+  by = c("datname", "drname", "k", "m", "mkkm_mr_lambda"),
   wsum = TrainStabilityJaccard + Silhouette,
   chisq_significance_level = 0.05,
   summarise = TRUE
@@ -64,7 +64,7 @@ cluster_methods = c("hierarchical", "kmeans"),
 metric = "euclidean",
 n_clusters = 2:4)
 
-scores <- clusteval_scoring(res, wsum = Silhouette - batch_label.nmi, summarise = TRUE)
+scores <- clusteval_scoring(res, wsum = Silhouette - GSE.nmi, summarise = TRUE)
 
 best <- get_best_result(res, scores)
 head(best$embedding)

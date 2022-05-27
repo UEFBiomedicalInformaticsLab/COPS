@@ -747,7 +747,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #' metric = "euclidean",
 #' n_clusters = 2:4)
 #' 
-#' scores <- clusteval_scoring(res, wsum = Silhouette - batch_label.nmi, summarise = TRUE)
+#' scores <- clusteval_scoring(res, wsum = Silhouette - GSE.nmi, summarise = TRUE)
 #' 
 #' best <- get_best_result(res, scores)
 #' head(best$embedding)

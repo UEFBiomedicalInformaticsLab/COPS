@@ -8,6 +8,7 @@ clustering_dissimilarity_from_data(
   x,
   distance_metric = "euclidean",
   correlation_method = "spearman",
+  preprocess = FALSE,
   ...
 )
 }
