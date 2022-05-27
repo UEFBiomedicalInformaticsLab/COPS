@@ -235,6 +235,7 @@ clustering_metrics <- function(x,
                                silhouette_min_cluster_size = 0.0,
                                ...) {
   x <- as.data.frame(x)
+  by <- by[by %in% colnames(x)]
   # Create dissimilarity matrix for Silhouette computation and HC
   if (!is.null(clustering_dissimilarity)) {
     diss <- clustering_dissimilarity
