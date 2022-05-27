@@ -127,6 +127,7 @@ cv_dimred <- function(dat_list,
                       cv_index, 
                       cv_split_data = TRUE, 
                       parallel = 1, 
+                      by = c("run", "fold"), 
                       ...) {
   temp_list <- list()
   if (cv_split_data) {
@@ -135,13 +136,13 @@ cv_dimred <- function(dat_list,
       datname <- names(cv_index)[i]
       if (is.null(datname)) datname <- i
       temp$datname <- datname
-      temp <- split(temp, by = c("run", "fold"))
+      temp <- split_by_safe(temp, by)
       temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
       temp_list <- c(temp_list, temp)
     }
   } else {
     for (i in 1:length(dat_list)) {
-      temp <- split(dat_list[[i]], dat_list[[i]][,c("run", "fold")])
+      temp <- split_by_safe(dat_list[[i]], by)
       temp_list <- c(temp_list, temp)
     }
   }

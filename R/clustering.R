@@ -250,7 +250,7 @@ clustering_metrics <- function(x,
   
   metrics <- data.frame()
   csize <- list()
-  clusters <- split(x, f = x[,by, drop = FALSE])
+  clusters <- split_by_safe(x, by)
   for (i in 1:length(clusters)) {
     # Silhouette
     matched_ind <- match(clusters[[i]]$id, labels(diss))
@@ -299,7 +299,7 @@ cv_clusteval <- function(dat_embedded,
     drname <- names(dat_embedded)[i]
     if (is.null(drname)) drname <- i
     temp$drname <- drname
-    temp <- split(temp, temp[, by, drop = FALSE])
+    temp <- split_by_safe(temp, by)
     temp_list <- c(temp_list, temp)
   }
   # Binding function that concatenates relevant list components

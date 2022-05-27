@@ -447,7 +447,7 @@ vertical_pipeline <- function(dat_list,
             .inorder = FALSE) %dopar% {
       dat_i <- list()
       non_data_cols <- list()
-      by <- c("run", "fold", "m", "k", "lambda")
+      by <- c("run", "fold", "m", "k", "mkkm_mr_lambda")
       
       if(data_is_kernels) {
         for (j in 1:length(dat_list)) {
@@ -630,7 +630,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
   cvi <- cv_index[cv_index$fold == fold & cv_index$run == run,]
   if (length(multi_omic_methods) == 1) {
     dat_i <- subset_cv_data(dat_list, cvi, data_is_kernels)
-    by <- c("run", "fold", "m", "k", "lambda")
+    by <- c("run", "fold", "m", "k", "mkkm_mr_lambda")
     
     # multi-omic clustering
     # 1) multi-view clustering
@@ -757,7 +757,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #' @importFrom reshape2 melt dcast
 #' @importFrom stats sd as.formula
 clusteval_scoring <- function(res,
-                              by = c("datname", "drname", "k", "m", "lambda"),
+                              by = c("datname", "drname", "k", "m", "mkkm_mr_lambda"),
                               wsum = TrainStabilityJaccard + Silhouette,
                               chisq_significance_level = 0.05,
                               summarise = TRUE) {

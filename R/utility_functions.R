@@ -578,6 +578,7 @@ close_parallel_cluster <- function(cluster) {
 
 split_by_safe <- function(x, by) {
   if (!is.null(x) & nrow(x) > 0) {
+    by <- by[by %in% colnames(x)]
     if (length(by) > 0) {
       if (data.table::is.data.table(x)) {
         x_list <- split(x, by = by)
