@@ -130,12 +130,12 @@ ECMC <- function(x,
   
   H <- diag(rep(1, times = N_col[1])) - 1 / N_col[1]
   
-  C <- lapply(x, function(xi) xi - Matrix::Diagonal(N_col[1]) * 2)
-  D <- lapply(x, function(xi) Matrix::Diagonal(N_col[1]) * 2)
+  C <- lapply(x, function(xi) xi)
+  D <- lapply(x, function(xi) Matrix::Diagonal(N_col[1]))
   
   # Scale initial matrices based on Frobenius norm so that they are in the feasible set
-  C <- lapply(x, function(xi) xi / Matrix::norm(xi, "F"))
-  D <- lapply(x, function(xi) xi / Matrix::norm(xi, "F"))
+  C <- lapply(C, function(xi) xi / Matrix::norm(xi, "F"))
+  D <- lapply(D, function(xi) xi / Matrix::norm(xi, "F"))
   
   delta_m <- Inf
   solution_vals_c <- numeric()
@@ -153,12 +153,15 @@ ECMC <- function(x,
     
     D_sum <- Reduce("+", D)
     M <- list() 
+    Ct <- list()
+    solution_vals_ci <- c()
     for (i in 1:length(x)) {
       M[[i]] <- H %*% (x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum) %*% H
+      mosek_sol <- ecmc_opt(M[i], ret_sol = TRUE, ret_optime = TRUE, parallel = parallel)
+      Ct[[i]] <- as.matrix(mosek_sol$solution[[1]])
+      solution_vals_ci <- mosek_sol$val
     }
-    mosek_sol <- ecmc_opt(M, ret_sol = TRUE, ret_optime = TRUE, parallel = parallel)
-    Ct <- lapply(mosek_sol$solution, as.matrix)
-    solution_vals_c <- c(solution_vals_c, mosek_sol$val)
+    solution_vals_c <- c(solution_vals_c, sum(solution_vals_ci))
     for (i in 1:length(x)) {
       delta_m <- delta_m + mean(abs(C[[i]] - Ct[[i]]))
     }
@@ -166,12 +169,15 @@ ECMC <- function(x,
     
     C_sum <- Reduce("+", C)
     N <- list()
+    Dt <- list()
+    solution_vals_di <- c()
     for (i in 1:length(x)) {
       N[[i]] <- H %*% (x[[i]] - b * C_sum) %*% H
+      mosek_sol <- ecmc_opt(N[i], ret_sol = TRUE, ret_optime = TRUE)
+      Dt[[i]] <- as.matrix(mosek_sol$solution[[1]])
+      solution_vals_di <- mosek_sol$val
     }
-    mosek_sol <- ecmc_opt(N, ret_sol = TRUE, ret_optime = TRUE)
-    Dt <- lapply(mosek_sol$solution, as.matrix)
-    solution_vals_d <- c(solution_vals_d, mosek_sol$val)
+    solution_vals_d <- c(solution_vals_d, sum(solution_vals_di))
     
     for (i in 1:length(x)) {
       delta_m <- delta_m + mean(abs(C[[i]] - Ct[[i]]))
