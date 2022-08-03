@@ -56,9 +56,12 @@ The R package COPS provides a suite of feature reduction techniques and clusteri
 This notebook covers single-view clustering. 
 
 **Single-omics tools provided by COPS**
-* Knowledge-driven feature extraction: GSVA, DiffRank, RWR-FGSEA
-* Dimensional reduction: PCA, t-SNE, UMAP
-* Single-omics clustering algorithms: k-means++, agglomerative hierarchical clustering, DIANA, Gaussian Mixture Models (GMMs), kernel k-means, knn graph community detection
+\itemize{
+  \item Knowledge-driven feature extraction: GSVA, DiffRank, RWR-FGSEA
+  \item Dimensional reduction: PCA, t-SNE, UMAP
+  \item Single-omics clustering algorithms: k-means++, agglomerative hierarchical clustering, DIANA, Gaussian Mixture Models (GMMs), kernel k-means, knn graph community detection
+}
+
 
 **Multi-omics tools provided by COPS**
 * Joint dimensionality reduction: MOFA2, IntNMF

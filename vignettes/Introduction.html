@@ -12,7 +12,7 @@
 
 <meta name="author" content="Teemu Rintala and Vittorio Fortino" />
 
-<meta name="date" content="2022-08-02" />
+<meta name="date" content="2022-08-03" />
 
 <title>Introduction to COPS</title>
 
@@ -142,7 +142,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <h1 class="title toc-ignore">Introduction to COPS</h1>
 <h4 class="author">Teemu Rintala and Vittorio Fortino</h4>
-<h4 class="date">2022-08-02</h4>
+<h4 class="date">2022-08-03</h4>
 
 
 
@@ -182,7 +182,7 @@ pre { /* Code block - determines code spacing between lines */
 <h2>Patient stratification and disease subtype discovery</h2>
 <p>The R package COPS provides a suite of feature reduction techniques and clustering algorithms for disease subtype discovery from single or multiple omics data.</p>
 <p>This notebook covers single-view clustering.</p>
-<p><strong>Single-omics tools provided by COPS</strong> * Knowledge-driven feature extraction: GSVA, DiffRank, RWR-FGSEA * Dimensional reduction: PCA, t-SNE, UMAP * Single-omics clustering algorithms: k-means++, agglomerative hierarchical clustering, DIANA, Gaussian Mixture Models (GMMs), kernel k-means, knn graph community detection</p>
+<p><strong>Single-omics tools provided by COPS</strong> </p>
 <p><strong>Multi-omics tools provided by COPS</strong> * Joint dimensionality reduction: MOFA2, IntNMF * Multi-omics clustering algorithms: ANF, iCluster(+/Bayes), IntNMF, Multiple Kernel K-Means with Matrix induced Regularization (MKKM-MR)</p>
 <p><strong>Performance metrics provided by COPS</strong> * External metrics: clinical variable associations (ANOVA, NMI, ARI, Jaccard), Survival analysis * Internal metrics: clustering stability, silhouette, gene module correlation * batch effect analysis: chi-squared test rejection rate, batch associations (ARI, NMI), kBET</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(COPS)</span>
@@ -205,14 +205,14 @@ pre { /* Code block - determines code spacing between lines */
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>                <span class="at">n_clusters =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>)</span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Processing data sets ...&quot;</span></span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting dimensionality reduction ...&quot;</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 41.98 secs&quot;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 44.21 secs&quot;</span></span>
 <span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting clustering analysis ...&quot;</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished clustering analysis in 14.15 secs&quot;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished clustering analysis in 13.73 secs&quot;</span></span>
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting clustering stability analysis ...&quot;</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished clustering stability analysis in 12.47 secs&quot;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished clustering stability analysis in 12.61 secs&quot;</span></span>
 <span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting variable association analysis ...&quot;</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished variable association analysis in 12.48 secs&quot;</span></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished pipeline in 1.36 mins&quot;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished variable association analysis in 11.93 secs&quot;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished pipeline in 1.39 mins&quot;</span></span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>scores <span class="ot">&lt;-</span> <span class="fu">clusteval_scoring</span>(results)</span>
 <span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning in clusteval_scoring(results): Currently summary of association p-values</span></span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; is not implemented.</span></span>
@@ -220,38 +220,38 @@ pre { /* Code block - determines code spacing between lines */
 <span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co"># List 10 best scores</span></span>
 <span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>scores<span class="sc">$</span>all[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,]</span>
 <span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    k            m Silhouette datname drname     GSE.nmi       GSE.ari</span></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  2       kmeans  0.3807487      ad   pca2 0.006388778 -0.0045050643</span></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16 4       kmeans  0.3797920      ad   pca2 0.040717554 -0.0079548262</span></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10 3       kmeans  0.3866642      ad   pca2 0.020956787 -0.0059026993</span></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  2       kmeans  0.3807487      ad  umap2 0.013539651 -0.0016906885</span></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  2       kmeans  0.3807487      ad tsne45 0.010595603 -0.0004691016</span></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  2 hierarchical  0.3423229      ad  umap2 0.014708151 -0.0032192085</span></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12 3       kmeans  0.3866642      ad  umap2 0.036334063  0.0059371856</span></span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18 4       kmeans  0.3797920      ad  umap2 0.046330358  0.0053969318</span></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9  3 hierarchical  0.3240048      ad  umap2 0.035284843  0.0007936717</span></span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  2 hierarchical  0.3423229      ad   pca2 0.010756349 -0.0018088465</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  2       kmeans  0.3781956      ad   pca2 0.006416923 -0.0040325999</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10 3       kmeans  0.3874730      ad   pca2 0.022089797 -0.0049358210</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16 4       kmeans  0.3808312      ad   pca2 0.039305084 -0.0079696342</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  2       kmeans  0.3781956      ad  umap2 0.016635392  0.0009154977</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  2       kmeans  0.3781956      ad tsne45 0.009980966 -0.0014919117</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12 3       kmeans  0.3874730      ad  umap2 0.031341995  0.0025974857</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  2 hierarchical  0.3347079      ad   pca2 0.007788153 -0.0032532166</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18 4       kmeans  0.3808312      ad  umap2 0.045257947  0.0022535555</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  2 hierarchical  0.3347079      ad  umap2 0.017365150  0.0010476626</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2  2 hierarchical  0.3347079      ad tsne45 0.010890119  0.0027050821</span></span>
 <span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    Cluster_1_size Cluster_2_size Cluster_3_size Cluster_4_size</span></span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4       107.16667      109.50000            NaN            NaN</span></span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16       49.66667       59.33333       54.61111       53.05556</span></span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10       77.50000       71.02778       68.13889            NaN</span></span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6       107.16667      109.50000            NaN            NaN</span></span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       107.16667      109.50000            NaN            NaN</span></span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3       130.97222       85.69444            NaN            NaN</span></span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12       77.50000       71.02778       68.13889            NaN</span></span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18       49.66667       59.33333       54.61111       53.05556</span></span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9        88.08333       62.44444       66.13889            NaN</span></span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       130.97222       85.69444            NaN            NaN</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4       109.94444      106.72222            NaN            NaN</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10       75.58333       67.55556       73.52778            NaN</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16       53.47222       56.69444       53.83333       52.66667</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6       109.94444      106.72222            NaN            NaN</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       109.94444      106.72222            NaN            NaN</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12       75.58333       67.55556       73.52778            NaN</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       124.27778       92.38889            NaN            NaN</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18       53.47222       56.69444       53.83333       52.66667</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3       124.27778       92.38889            NaN            NaN</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2       124.27778       92.38889            NaN            NaN</span></span>
 <span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    TrainStabilityJaccard TrainStabilityNMI TrainStabilityARI      wsum</span></span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4              0.8527469         0.7647700         0.8267035 1.2334955</span></span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16             0.8417577         0.8396224         0.8735981 1.2215497</span></span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10             0.8234057         0.7992813         0.8307324 1.2100699</span></span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6              0.7854332         0.6646102         0.7566904 1.1661818</span></span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5              0.6758234         0.5161576         0.6110137 1.0565721</span></span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3              0.6496406         0.4945379         0.5245034 0.9919635</span></span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12             0.5750187         0.5579831         0.5825512 0.9616830</span></span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18             0.5431216         0.6013679         0.5989988 0.9229136</span></span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9              0.5295684         0.4850989         0.4998200 0.8535732</span></span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1              0.5062706         0.2355440         0.2012090 0.8485935</span></span></code></pre></div>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4              0.9051490         0.8500503         0.8981322 1.2833446</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10             0.8700979         0.8414773         0.8838325 1.2575710</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16             0.8716068         0.8680428         0.8986912 1.2524380</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6              0.7233905         0.5821350         0.6694613 1.1015861</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5              0.6222855         0.4401234         0.5318161 1.0004810</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12             0.5988351         0.5770088         0.6074205 0.9863082</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1              0.5771597         0.3661025         0.3877104 0.9118677</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18             0.5267773         0.5832169         0.5805442 0.9076085</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3              0.5312887         0.3161116         0.3447214 0.8659966</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2              0.5042154         0.2338253         0.2837688 0.8389234</span></span></code></pre></div>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate embedding and clustering based on best setting</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>best <span class="ot">&lt;-</span> <span class="fu">get_best_result</span>(results, scores)</span></code></pre></div>
 <div id="plot-study-and-cluster-associations-in-best-embedding-using-swamp" class="section level3">
