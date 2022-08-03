@@ -14,36 +14,83 @@ COPS(
   verbose = TRUE,
   parallel = 1,
   pathway_enrichment_method = "none",
+  multi_omic_methods = NULL,
   vertical_parallelization = FALSE,
   ...
 )
 }
 \arguments{
-\item{dat}{}
+\item{dat}{A single matrix or list of matrices, patients on columns and features on rows.}
 
-\item{nfolds}{}
+\item{nfolds}{Number of cross-validation folds for stability evaluation and metric estimates.}
 
-\item{nruns}{}
+\item{nruns}{Number of cross-validation replicates for stability evaluation and metric estimates.}
 
-\item{association_data}{}
+\item{association_data}{Data for association tests, see \code{\link{cluster_associations}} for details.}
 
-\item{survival_data}{}
+\item{survival_data}{Data for survival analysis, see \code{\link{survival_preprocess}} for details.}
 
-\item{module_eigs}{}
+\item{module_eigs}{Data for gene module correlation analysis, see \code{\link{gene_module_score}} for details.}
 
-\item{verbose}{}
+\item{verbose}{Prints progress messages and time taken.}
 
-\item{parallel}{}
+\item{parallel}{Number of parallel threads for supported operations.}
 
-\item{pathway_enrichment_method}{}
+\item{pathway_enrichment_method}{\code{enrichment_method} for \code{\link{genes_to_pathways}}.}
 
-\item{vertical_parallelization}{}
+\item{multi_omic_methods}{Character vector of multi-view clustering method names for \code{\link{multi_omic_clustering}}.}
 
-\item{...}{}
+\item{vertical_parallelization}{(Experimental) if set, all pipeline steps are evaluated in succession within each fold (instead of evaluating each step for all folds before moving on). Always true for multi-view methods.}
+
+\item{...}{Extra arguments are passed to pipeline components where appropriate.}
 }
 \value{
-
+Returns a \code{list} of pipeline component outputs for given settings and input data sets.
 }
 \description{
-Clustering algorithms for Omics based Patient Stratification
+Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
+\code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, \code{\link{stability_eval}}, 
+\code{\link{stability_eval}}, \code{\link{survival_evaluation}}, 
+\code{\link{module_evaluation}} and \code{\link{association_analysis_cv}} 
+to conveniently and comprehensively test clustering algorithms on a given set of input data.
+}
+\details{
+If multi_omic_methods is set, then the input matrices are treated as 
+different views of the same patients. Available methods are listed in the
+documentation for \code{\link{multi_omic_clustering}}.
+}
+\examples{
+library(parallel)
+library(COPS)
+
+# Dimensionality reduction and clustering (DR-CL)
+res <- COPS(ad_ge_micro_zscore, 
+association_data = ad_studies, 
+parallel = 2, nruns = 2, nfolds = 5, 
+dimred_methods = c("pca", "umap", "tsne"), 
+cluster_methods = c("hierarchical", "kmeans"), 
+metric = "euclidean", 
+n_clusters = 2:4)
+
+# Clustering (CL)
+res <- COPS(ad_ge_micro_zscore, 
+association_data = ad_studies, 
+parallel = 2, nruns = 2, nfolds = 5, 
+dimred_methods = c("none"), 
+cluster_methods = c("hierarchical"), 
+metric = "correlation", 
+n_clusters = 2:4)
+
+# Biological knowledge integration and clustering (BK-CL)
+res <- COPS(ad_ge_micro_zscore, 
+association_data = ad_studies, 
+pathway_enrichment_method = "DiffRank", 
+gene_key_expr = "ENSEMBL", 
+gs_subcats = "CP:KEGG", 
+parallel = 2, nruns = 2, nfolds = 5, 
+dimred_methods = c("none"), 
+cluster_methods = c("hierarchical"), 
+metric = "correlation", 
+n_clusters = 2:4)
+
 }

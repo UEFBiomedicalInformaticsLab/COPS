@@ -300,7 +300,7 @@ embedding_associations <-  function(dat,
 
   pca_silh <- list()
   pca_reg <- list()
-  #DSC_res <- c()
+  DSC_res <- c()
   for (i in 1:ncol(class)) {
     # PCA based
     dat_pca <- FactoMineR::PCA(t(dat),
@@ -315,7 +315,7 @@ embedding_associations <-  function(dat,
                                        n_top = min(c(n_pc_max, dim(dat)))))
 
     # Other
-    #DSC_res[i] <- DSC(dat, class[,i])
+    DSC_res[i] <- DSC(dat, class[,i])
   }
   if (!is.null(dimnames(class))) {
     names(pca_silh) <- dimnames(class)[[2]]
@@ -323,8 +323,8 @@ embedding_associations <-  function(dat,
     names(DSC_res) <- dimnames(class)[[2]]
   }
   out <- list(PCA_silhouette = pca_silh,
-              PCA_regression = pca_reg)#,
-              #DSC = DSC_res)
+              PCA_regression = pca_reg,
+              DSC = DSC_res)
   return(out)
 }
 
@@ -337,7 +337,8 @@ embedding_associations <-  function(dat,
 #'         as well as analysis of variance and kruskal-wallis test p-values for 
 #'         continuous variables. 
 #' @export
-cluster_associations <- function(clust, association_data) {
+cluster_associations <- function(clust, 
+                                 association_data) {
   association_data_matched <- association_data[match(clust$id, 
                                                rownames(association_data)), 
                                          , 

@@ -32,6 +32,10 @@ vertical_pipeline(
 
 \item{parallel}{}
 
+\item{data_is_kernels}{}
+
+\item{silhouette_dissimilarities}{}
+
 \item{...}{}
 }
 \value{

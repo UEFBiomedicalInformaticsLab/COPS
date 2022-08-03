@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Teemu Rintala and Vittorio Fortino" />
+
+<meta name="date" content="2022-08-02" />
+
+<title>Introduction to COPS</title>
+
+<script src="data:application/javascript;base64,Ly8gUGFuZG9jIDIuOSBhZGRzIGF0dHJpYnV0ZXMgb24gYm90aCBoZWFkZXIgYW5kIGRpdi4gV2UgcmVtb3ZlIHRoZSBmb3JtZXIgKHRvCi8vIGJlIGNvbXBhdGlibGUgd2l0aCB0aGUgYmVoYXZpb3Igb2YgUGFuZG9jIDwgMi44KS4KZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcignRE9NQ29udGVudExvYWRlZCcsIGZ1bmN0aW9uKGUpIHsKICB2YXIgaHMgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCJkaXYuc2VjdGlvbltjbGFzcyo9J2xldmVsJ10gPiA6Zmlyc3QtY2hpbGQiKTsKICB2YXIgaSwgaCwgYTsKICBmb3IgKGkgPSAwOyBpIDwgaHMubGVuZ3RoOyBpKyspIHsKICAgIGggPSBoc1tpXTsKICAgIGlmICghL15oWzEtNl0kL2kudGVzdChoLnRhZ05hbWUpKSBjb250aW51ZTsgIC8vIGl0IHNob3VsZCBiZSBhIGhlYWRlciBoMS1oNgogICAgYSA9IGguYXR0cmlidXRlczsKICAgIHdoaWxlIChhLmxlbmd0aCA+IDApIGgucmVtb3ZlQXR0cmlidXRlKGFbMF0ubmFtZSk7CiAgfQp9KTsK"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<link rel="stylesheet" href="data:text/css,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" type="text/css" />
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Introduction to COPS</h1>
+<h4 class="author">Teemu Rintala and Vittorio Fortino</h4>
+<h4 class="date">2022-08-02</h4>
+
+
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 12px;
+  }
+td {  /* Table  */
+  font-size: 10px;
+}
+h1.title {
+  font-size: 30px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+  font-size: 24px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 20px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+  font-size: 15px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 10px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 10px;
+}
+</style>
+<div id="patient-stratification-and-disease-subtype-discovery" class="section level2">
+<h2>Patient stratification and disease subtype discovery</h2>
+<p>The R package COPS provides a suite of feature reduction techniques and clustering algorithms for disease subtype discovery from single or multiple omics data.</p>
+<p>This notebook covers single-view clustering.</p>
+<p><strong>Single-omics tools provided by COPS</strong> * Knowledge-driven feature extraction: GSVA, DiffRank, RWR-FGSEA * Dimensional reduction: PCA, t-SNE, UMAP * Single-omics clustering algorithms: k-means++, agglomerative hierarchical clustering, DIANA, Gaussian Mixture Models (GMMs), kernel k-means, knn graph community detection</p>
+<p><strong>Multi-omics tools provided by COPS</strong> * Joint dimensionality reduction: MOFA2, IntNMF * Multi-omics clustering algorithms: ANF, iCluster(+/Bayes), IntNMF, Multiple Kernel K-Means with Matrix induced Regularization (MKKM-MR)</p>
+<p><strong>Performance metrics provided by COPS</strong> * External metrics: clinical variable associations (ANOVA, NMI, ARI, Jaccard), Survival analysis * Internal metrics: clustering stability, silhouette, gene module correlation * batch effect analysis: chi-squared test rejection rate, batch associations (ARI, NMI), kBET</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(COPS)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(swamp)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;gplots&#39; was built under R version 4.1.3</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;MASS&#39; was built under R version 4.1.3</span></span></code></pre></div>
+</div>
+<div id="how-to-perform-cluster-analysis-using-cops" class="section level2">
+<h2>1. How to perform cluster analysis using COPS</h2>
+<p>Example starting from a pre-processed data matrix and batch label vector. In this example we use the included Atopic Dermatitis (<em>ad_ge_micro_zscore</em>) data set and its annotations <em>ad_studies</em>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">COPS</span>(<span class="fu">list</span>(<span class="at">ad =</span> ad_ge_micro_zscore), </span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                <span class="at">association_data =</span> ad_studies, </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                <span class="at">include_original =</span> <span class="cn">FALSE</span>, </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>                <span class="at">parallel =</span> <span class="dv">2</span>, </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>                <span class="at">nruns =</span> <span class="dv">2</span>, </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>                <span class="at">nfolds =</span> <span class="dv">5</span>, </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>                <span class="at">dimred_methods =</span> <span class="fu">c</span>(<span class="st">&quot;pca&quot;</span>, <span class="st">&quot;umap&quot;</span>, <span class="st">&quot;tsne&quot;</span>),</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                <span class="at">cluster_methods =</span> <span class="fu">c</span>(<span class="st">&quot;hierarchical&quot;</span>, <span class="st">&quot;kmeans&quot;</span>),</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>                <span class="at">distance_metric =</span> <span class="st">&quot;euclidean&quot;</span>, </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>                <span class="at">n_clusters =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Processing data sets ...&quot;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting dimensionality reduction ...&quot;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished dimensionality reduction in 41.98 secs&quot;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting clustering analysis ...&quot;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished clustering analysis in 14.15 secs&quot;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting clustering stability analysis ...&quot;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished clustering stability analysis in 12.47 secs&quot;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Starting variable association analysis ...&quot;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished variable association analysis in 12.48 secs&quot;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Finished pipeline in 1.36 mins&quot;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>scores <span class="ot">&lt;-</span> <span class="fu">clusteval_scoring</span>(results)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning in clusteval_scoring(results): Currently summary of association p-values</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; is not implemented.</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="co"># List 10 best scores</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>scores<span class="sc">$</span>all[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,]</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    k            m Silhouette datname drname     GSE.nmi       GSE.ari</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4  2       kmeans  0.3807487      ad   pca2 0.006388778 -0.0045050643</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16 4       kmeans  0.3797920      ad   pca2 0.040717554 -0.0079548262</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10 3       kmeans  0.3866642      ad   pca2 0.020956787 -0.0059026993</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6  2       kmeans  0.3807487      ad  umap2 0.013539651 -0.0016906885</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5  2       kmeans  0.3807487      ad tsne45 0.010595603 -0.0004691016</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  2 hierarchical  0.3423229      ad  umap2 0.014708151 -0.0032192085</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12 3       kmeans  0.3866642      ad  umap2 0.036334063  0.0059371856</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18 4       kmeans  0.3797920      ad  umap2 0.046330358  0.0053969318</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9  3 hierarchical  0.3240048      ad  umap2 0.035284843  0.0007936717</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  2 hierarchical  0.3423229      ad   pca2 0.010756349 -0.0018088465</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    Cluster_1_size Cluster_2_size Cluster_3_size Cluster_4_size</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4       107.16667      109.50000            NaN            NaN</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16       49.66667       59.33333       54.61111       53.05556</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10       77.50000       71.02778       68.13889            NaN</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6       107.16667      109.50000            NaN            NaN</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5       107.16667      109.50000            NaN            NaN</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3       130.97222       85.69444            NaN            NaN</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12       77.50000       71.02778       68.13889            NaN</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18       49.66667       59.33333       54.61111       53.05556</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9        88.08333       62.44444       66.13889            NaN</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1       130.97222       85.69444            NaN            NaN</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    TrainStabilityJaccard TrainStabilityNMI TrainStabilityARI      wsum</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4              0.8527469         0.7647700         0.8267035 1.2334955</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16             0.8417577         0.8396224         0.8735981 1.2215497</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10             0.8234057         0.7992813         0.8307324 1.2100699</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 6              0.7854332         0.6646102         0.7566904 1.1661818</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5              0.6758234         0.5161576         0.6110137 1.0565721</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3              0.6496406         0.4945379         0.5245034 0.9919635</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12             0.5750187         0.5579831         0.5825512 0.9616830</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18             0.5431216         0.6013679         0.5989988 0.9229136</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 9              0.5295684         0.4850989         0.4998200 0.8535732</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1              0.5062706         0.2355440         0.2012090 0.8485935</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate embedding and clustering based on best setting</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>best <span class="ot">&lt;-</span> <span class="fu">get_best_result</span>(results, scores)</span></code></pre></div>
+<div id="plot-study-and-cluster-associations-in-best-embedding-using-swamp" class="section level3">
+<h3>Plot study and cluster associations in best embedding using swamp</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>swamp<span class="sc">::</span><span class="fu">confounding</span>(<span class="fu">data.frame</span>(best<span class="sc">$</span>embedding[,<span class="fu">grepl</span>(<span class="st">&quot;^dim[0-9]+&quot;</span>, <span class="fu">colnames</span>(best<span class="sc">$</span>embedding))], </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                              <span class="at">clusters =</span> <span class="fu">factor</span>(best<span class="sc">$</span>clusters<span class="sc">$</span>cluster), </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                              ad_studies))</span></code></pre></div>
+<p><img src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
+<pre><code>#&gt; $p.values
+#&gt;                  dim1      dim2     clusters       GSE
+#&gt; dim1     0.000000e+00 1.0000000 1.403775e-59 0.4172830
+#&gt; dim2     1.000000e+00 0.0000000 6.714416e-01 0.3925942
+#&gt; clusters 1.403775e-59 0.6714416 1.268520e-57 0.2557251
+#&gt; GSE      4.172830e-01 0.3925942 2.557251e-01 0.0000000
+#&gt; 
+#&gt; $n
+#&gt;          dim1 dim2 clusters GSE
+#&gt; dim1      260  260      260 260
+#&gt; dim2      260  260      260 260
+#&gt; clusters  260  260      260 260
+#&gt; GSE       260  260      260 260
+#&gt; 
+#&gt; $test.function
+#&gt;          dim1 dim2 clusters     GSE         
+#&gt; dim1     &quot;lm&quot; &quot;lm&quot; &quot;lm&quot;         &quot;lm&quot;        
+#&gt; dim2     &quot;lm&quot; &quot;lm&quot; &quot;lm&quot;         &quot;lm&quot;        
+#&gt; clusters &quot;lm&quot; &quot;lm&quot; &quot;chisq.test&quot; &quot;chisq.test&quot;
+#&gt; GSE      &quot;lm&quot; &quot;lm&quot; &quot;chisq.test&quot; &quot;chisq.test&quot;
+#&gt; 
+#&gt; $classes
+#&gt;      dim1      dim2  clusters       GSE 
+#&gt; &quot;numeric&quot; &quot;numeric&quot;  &quot;factor&quot;  &quot;factor&quot;</code></pre>
+</div>
+<div id="more-associations-in-best-embedding" class="section level3">
+<h3>More associations in best embedding</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">embedding_associations</span>(<span class="fu">t</span>(<span class="fu">as.matrix</span>(best<span class="sc">$</span>embedding[,<span class="fu">grepl</span>(<span class="st">&quot;^dim[0-9]+&quot;</span>, <span class="fu">colnames</span>(best<span class="sc">$</span>embedding))])), </span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">cbind</span>(<span class="at">clust =</span> best<span class="sc">$</span>clusters<span class="sc">$</span>cluster, <span class="at">study =</span> ad_studies))</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_silhouette</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_silhouette$clust</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.3355608</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_silhouette$GSE</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] -0.2376943</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxVar</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$PmaxVar</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 1e-16</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$pcNfrac</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.5</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$pcRegscale</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxCorr</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.8016252</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxR2</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.6426029</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$msigPC</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxsigPC</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$R2Var</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$ExplainedVar</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; numeric(0)</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$r2</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;          R.squared   p.value.lm p.value.t.test</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.1 0.6426028908 1.000000e-16   1.000000e-16</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.2 0.0006984749 6.714416e-01   6.714997e-01</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxVar</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$PmaxVar</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.3013529</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$pcNfrac</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$pcRegscale</span></span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxCorr</span></span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.2121244</span></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxR2</span></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.04499675</span></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$msigPC</span></span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxsigPC</span></span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$R2Var</span></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$ExplainedVar</span></span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; numeric(0)</span></span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$r2</span></span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;        R.squared p.value.lm p.value.F.test</span></span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.1 0.04382788  0.8828199      0.4172830</span></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.2 0.04499675  0.3013529      0.3925942</span></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $DSC</span></span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     clust       GSE </span></span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 0.7184229 0.2106262</span></span></code></pre></div>
+</div>
+<div id="associations-in-original-data" class="section level3">
+<h3>Associations in original data</h3>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">embedding_associations</span>(ad_ge_micro_zscore,</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">cbind</span>(<span class="at">clust =</span> best<span class="sc">$</span>clusters<span class="sc">$</span>cluster, <span class="at">study =</span> ad_studies))</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_silhouette</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_silhouette$clust</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] -0.001283457</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_silhouette$GSE</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] -0.1802496</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxVar</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$PmaxVar</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.1468498</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$pcNfrac</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$pcRegscale</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxCorr</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.09022275</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxR2</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.008140145</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$msigPC</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$maxsigPC</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$R2Var</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$ExplainedVar</span></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; numeric(0)</span></span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$clust$r2</span></span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;           R.squared p.value.lm p.value.t.test</span></span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.1  9.357946e-04  0.6234269      0.6236098</span></span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.2  2.141045e-03  0.4575378      0.4572408</span></span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.3  8.140145e-03  0.1468498      0.1468782</span></span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.4  6.989895e-04  0.6713276      0.6713992</span></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.5  4.079490e-03  0.3049044      0.3050064</span></span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.6  1.138984e-03  0.5880142      0.5879146</span></span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.7  2.414179e-04  0.8030942      0.8032009</span></span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.8  4.512361e-04  0.7331712      0.7334193</span></span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.9  1.001943e-04  0.8723863      0.8720783</span></span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.10 7.250465e-05  0.8913149      0.8915304</span></span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE</span></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxVar</span></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$PmaxVar</span></span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$pcNfrac</span></span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$pcRegscale</span></span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxCorr</span></span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 2.35396e-14</span></span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxR2</span></span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 5.541127e-28</span></span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$msigPC</span></span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$maxsigPC</span></span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$R2Var</span></span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$ExplainedVar</span></span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; numeric(0)</span></span>
+<span id="cb7-87"><a href="#cb7-87" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-88"><a href="#cb7-88" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $PCA_regression$GSE$r2</span></span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;           R.squared p.value.lm p.value.F.test</span></span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.1  3.279234e-29          1              1</span></span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.2  2.605039e-28          1              1</span></span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.3  3.471531e-29          1              1</span></span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.4  5.590274e-29          1              1</span></span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.5  1.419200e-28          1              1</span></span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.6  2.004976e-28          1              1</span></span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.7  2.046998e-28          1              1</span></span>
+<span id="cb7-97"><a href="#cb7-97" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.8  1.341570e-28          1              1</span></span>
+<span id="cb7-98"><a href="#cb7-98" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.9  5.541127e-28          1              1</span></span>
+<span id="cb7-99"><a href="#cb7-99" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Dim.10 1.543648e-28          1              1</span></span>
+<span id="cb7-100"><a href="#cb7-100" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-101"><a href="#cb7-101" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-102"><a href="#cb7-102" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-103"><a href="#cb7-103" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $DSC</span></span>
+<span id="cb7-104"><a href="#cb7-104" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;        clust          GSE </span></span>
+<span id="cb7-105"><a href="#cb7-105" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 5.268589e-02 1.542528e-14</span></span></code></pre></div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

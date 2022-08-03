@@ -1,7 +1,6 @@
 #' Pipeline combining dimensionality reduction, clustering, cross-validation and evaluation
 #'
-#' Combines \code{\link{cv_fold}}, \code{\link{cv_dimred}}, \code{\link{cv_clusteval}} and
-#' \code{\link{stability_eval}}.
+#' Old deprecated version of the pipeline. See \code{\link{COPS}} for the newer function. 
 #'
 #' @param dat A single matrix or list of data matrices corresponding to the same data but different pre-processing.  
 #' @param nfolds Number of cross-validation folds for stability evaluation and metric estimates.
@@ -17,39 +16,6 @@
 #'
 #' @return Returns a \code{list} of pipeline component outputs for given settings and input data sets
 #' @export
-#' 
-#' @examples library(parallel)
-#' library(COPS)
-#' 
-#' # DR-CL
-#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-#' batch_label = ad_studies, 
-#' parallel = 2, nruns = 2, nfolds = 5, 
-#' dimred_methods = c("pca", "umap", "tsne"), 
-#' cluster_methods = c("hierarchical", "kmeans"), 
-#' metric = "euclidean", 
-#' n_clusters = 2:4)
-#' 
-#' # CL
-#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-#' batch_label = ad_studies, 
-#' parallel = 2, nruns = 2, nfolds = 5, 
-#' dimred_methods = c("none"), 
-#' cluster_methods = c("hierarchical"), 
-#' metric = "correlation", 
-#' n_clusters = 2:4)
-#' 
-#' # BK-CL
-#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-#' batch_label = ad_studies, 
-#' pathway_enrichment_method = "DiffRank", 
-#' gene_key_expr = "ENSEMBL", 
-#' gs_subcats = "CP:KEGG", 
-#' parallel = 2, nruns = 2, nfolds = 5, 
-#' dimred_methods = c("none"), 
-#' cluster_methods = c("hierarchical"), 
-#' metric = "correlation", 
-#' n_clusters = 2:4)
 #' 
 #' @importFrom parallel makeCluster stopCluster
 #' @importFrom doParallel registerDoParallel
@@ -188,7 +154,6 @@ dimred_clusteval_pipeline <- function(dat,
   return(out)
 }
 
-
 #' @describeIn clusteval_scoring Retrieves best clustering from CV results based on scores. 
 #' In practice retrieves reference fold result from first run matching the best results. 
 #' 
@@ -246,20 +211,71 @@ data_preprocess <- function(dat, verbose = TRUE) {
 
 #' Clustering algorithms for Omics based Patient Stratification
 #'
-#' @param dat 
-#' @param nfolds 
-#' @param nruns 
-#' @param association_data 
-#' @param survival_data 
-#' @param module_eigs 
-#' @param verbose 
-#' @param parallel 
-#' @param pathway_enrichment_method 
-#' @param vertical_parallelization 
-#' @param ... 
+#' Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
+#' \code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, \code{\link{stability_eval}}, 
+#' \code{\link{stability_eval}}, \code{\link{survival_evaluation}}, 
+#' \code{\link{module_evaluation}} and \code{\link{association_analysis_cv}} 
+#' to conveniently and comprehensively test clustering algorithms on a given set of input data. 
 #'
-#' @return
+#' @param dat A single matrix or list of matrices, patients on columns and features on rows. 
+#' @param nfolds Number of cross-validation folds for stability evaluation and metric estimates.
+#' @param nruns Number of cross-validation replicates for stability evaluation and metric estimates.
+#' @param association_data Data for association tests, see \code{\link{cluster_associations}} for details.
+#' @param survival_data Data for survival analysis, see \code{\link{survival_preprocess}} for details.
+#' @param module_eigs Data for gene module correlation analysis, see \code{\link{gene_module_score}} for details.
+#' @param verbose Prints progress messages and time taken. 
+#' @param parallel Number of parallel threads for supported operations.
+#' @param pathway_enrichment_method \code{enrichment_method} for \code{\link{genes_to_pathways}}.
+#' @param multi_omic_methods Character vector of multi-view clustering method names for \code{\link{multi_omic_clustering}}.
+#' @param vertical_parallelization (Experimental) if set, all pipeline steps are evaluated in succession within each fold (instead of evaluating each step for all folds before moving on). Always true for multi-view methods. 
+#' @param ... Extra arguments are passed to pipeline components where appropriate.
+#' 
+#' @details
+#' If multi_omic_methods is set, then the input matrices are treated as 
+#' different views of the same patients. Available methods are listed in the
+#' documentation for \code{\link{multi_omic_clustering}}. 
+#'
+#' @return Returns a \code{list} of pipeline component outputs for given settings and input data sets.
 #' @export
+#' @examples library(parallel)
+#' library(COPS)
+#' 
+#' # Dimensionality reduction and clustering (DR-CL)
+#' res <- COPS(ad_ge_micro_zscore, 
+#' association_data = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("pca", "umap", "tsne"), 
+#' cluster_methods = c("hierarchical", "kmeans"), 
+#' metric = "euclidean", 
+#' n_clusters = 2:4)
+#' 
+#' # Clustering (CL)
+#' res <- COPS(ad_ge_micro_zscore, 
+#' association_data = ad_studies, 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("none"), 
+#' cluster_methods = c("hierarchical"), 
+#' metric = "correlation", 
+#' n_clusters = 2:4)
+#' 
+#' # Biological knowledge integration and clustering (BK-CL)
+#' res <- COPS(ad_ge_micro_zscore, 
+#' association_data = ad_studies, 
+#' pathway_enrichment_method = "DiffRank", 
+#' gene_key_expr = "ENSEMBL", 
+#' gs_subcats = "CP:KEGG", 
+#' parallel = 2, nruns = 2, nfolds = 5, 
+#' dimred_methods = c("none"), 
+#' cluster_methods = c("hierarchical"), 
+#' metric = "correlation", 
+#' n_clusters = 2:4)
+#' 
+#' @importFrom parallel makeCluster stopCluster
+#' @importFrom doParallel registerDoParallel
+#' @importFrom foreach registerDoSEQ
+#' @importFrom utils flush.console
+#' @importFrom data.table as.data.table setDT setkey
+#' @importFrom plyr join
 COPS <- function(dat, 
                  nfolds, 
                  nruns, 
@@ -269,18 +285,20 @@ COPS <- function(dat,
                  verbose = TRUE,
                  parallel = 1,
                  pathway_enrichment_method = "none",
+                 multi_omic_methods = NULL,
                  vertical_parallelization = FALSE, 
                  ...) {
   pipeline_start <- Sys.time()
   
   dat <- data_preprocess(dat, verbose)
   
-  if (vertical_parallelization) {
+  if (length(multi_omic_methods) > 0 | vertical_parallelization) {
     out <- vertical_pipeline(dat$dat_list, 
                              nruns = nruns,
                              nfolds = nfolds,
                              survival_data = survival_data, 
                              association_data = association_data,
+                             multi_omic_methods = multi_omic_methods, 
                              parallel = parallel,
                              gene_id_list = dat$gene_id_list,
                              ...)
@@ -409,6 +427,8 @@ COPS <- function(dat,
 #' @param association_data 
 #' @param multi_omic_methods 
 #' @param parallel 
+#' @param data_is_kernels 
+#' @param silhouette_dissimilarities 
 #' @param ... 
 #'
 #' @return

@@ -46,41 +46,5 @@ dimred_clusteval_pipeline(
 Returns a \code{list} of pipeline component outputs for given settings and input data sets
 }
 \description{
-Combines \code{\link{cv_fold}}, \code{\link{cv_dimred}}, \code{\link{cv_clusteval}} and
-\code{\link{stability_eval}}.
-}
-\examples{
-library(parallel)
-library(COPS)
-
-# DR-CL
-res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-batch_label = ad_studies, 
-parallel = 2, nruns = 2, nfolds = 5, 
-dimred_methods = c("pca", "umap", "tsne"), 
-cluster_methods = c("hierarchical", "kmeans"), 
-metric = "euclidean", 
-n_clusters = 2:4)
-
-# CL
-res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-batch_label = ad_studies, 
-parallel = 2, nruns = 2, nfolds = 5, 
-dimred_methods = c("none"), 
-cluster_methods = c("hierarchical"), 
-metric = "correlation", 
-n_clusters = 2:4)
-
-# BK-CL
-res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-batch_label = ad_studies, 
-pathway_enrichment_method = "DiffRank", 
-gene_key_expr = "ENSEMBL", 
-gs_subcats = "CP:KEGG", 
-parallel = 2, nruns = 2, nfolds = 5, 
-dimred_methods = c("none"), 
-cluster_methods = c("hierarchical"), 
-metric = "correlation", 
-n_clusters = 2:4)
-
+Old deprecated version of the pipeline. See \code{\link{COPS}} for the newer function.
 }

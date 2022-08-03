@@ -51,15 +51,23 @@ knitr::opts_chunk$set(
 
 ## Patient stratification and disease subtype discovery
 
-The R package COPS provides a suite of feature reduction techniques and clustering algorithms for disease subtype discovery from omics data.
+The R package COPS provides a suite of feature reduction techniques and clustering algorithms for disease subtype discovery from single or multiple omics data. 
 
-**Current functions provided by COPS**
+This notebook covers single-view clustering. 
 
-* Knowledge-driven feature extraction: pathway and network analysis 
+**Single-omics tools provided by COPS**
+* Knowledge-driven feature extraction: GSVA, DiffRank, RWR-FGSEA
 * Dimensional reduction: PCA, t-SNE, UMAP
-* Single-omics clustering algorithms: k-means, pam, hierarchical, diana, agnes, sota
-* Multi-omics clustering algorithms: 
-* Performance metrics: clustering stability, silhouette, Dunn, connectivity, batch effect analysis
+* Single-omics clustering algorithms: k-means++, agglomerative hierarchical clustering, DIANA, Gaussian Mixture Models (GMMs), kernel k-means, knn graph community detection
+
+**Multi-omics tools provided by COPS**
+* Joint dimensionality reduction: MOFA2, IntNMF
+* Multi-omics clustering algorithms: ANF, iCluster(+/Bayes), IntNMF, Multiple Kernel K-Means with Matrix induced Regularization (MKKM-MR)
+
+**Performance metrics provided by COPS** 
+* External metrics: clinical variable associations (ANOVA, NMI, ARI, Jaccard), Survival analysis
+* Internal metrics: clustering stability, silhouette, gene module correlation
+* batch effect analysis: chi-squared test rejection rate, batch associations (ARI, NMI), kBET
 
 ```{r setup, message = FALSE}
 library(COPS)
@@ -71,40 +79,43 @@ library(swamp)
 Example starting from a pre-processed data matrix and batch label vector. In this example we use the included Atopic Dermatitis (*ad_ge_micro_zscore*) data set and its annotations *ad_studies*. 
 
 ```{r pipeline, cache.lazy = TRUE, echo = TRUE, message = FALSE}
-method_evaluations <- COPS(list(ad = ad_ge_micro_zscore), 
-                           association_data = ad_studies, 
-                           include_original = FALSE, 
-                           parallel = 2, 
-                           nruns = 2, 
-                           nfolds = 5, 
-                           dimred_methods = c("pca", "umap", "tsne"),
-                           cluster_methods = c("hierarchical", "kmeans"),
-                           distance_metric = "euclidean", 
-                           n_clusters = 2:4)
-scores <- clusteval_scoring(method_evaluations)
+results <- COPS(list(ad = ad_ge_micro_zscore), 
+                association_data = ad_studies, 
+                include_original = FALSE, 
+                parallel = 2, 
+                nruns = 2, 
+                nfolds = 5, 
+                dimred_methods = c("pca", "umap", "tsne"),
+                cluster_methods = c("hierarchical", "kmeans"),
+                distance_metric = "euclidean", 
+                n_clusters = 2:4)
+scores <- clusteval_scoring(results)
 
 # List 10 best scores
 scores$all[1:10,]
-
+```
+```{r, cache.lazy = TRUE, echo = TRUE, message = FALSE}
 # Generate embedding and clustering based on best setting
-#best <- dimred_cluster(list(ad = ad_ge_micro_zscore), scores$best)
-
+best <- get_best_result(results, scores)
 ```
 
 ### Plot study and cluster associations in best embedding using swamp
 ```{r figure1, fig.height = 6, fig.width = 6, fig.align = "center", warning = FALSE}
-#swamp::confounding(data.frame(best$embedding, factor(best$clustering), ad_studies))
+swamp::confounding(data.frame(best$embedding[,grepl("^dim[0-9]+", colnames(best$embedding))], 
+                              clusters = factor(best$clusters$cluster), 
+                              ad_studies))
 ```
 
 ### More associations in best embedding
 ```{r ca_embedding}
-#class_associations(t(best$embedding), cbind(clust = best$clustering, study = ad_studies))
+embedding_associations(t(as.matrix(best$embedding[,grepl("^dim[0-9]+", colnames(best$embedding))])), 
+                       cbind(clust = best$clusters$cluster, study = ad_studies))
 ```
 
 ### Associations in original data
 ```{r ca_original}
-#class_associations(list(ad = ad_ge_micro_zscore)[[scores$best$datname]],
-#                   cbind(clust = best$clustering, study = ad_studies))
+embedding_associations(ad_ge_micro_zscore,
+                       cbind(clust = best$clusters$cluster, study = ad_studies))
 ```
 
 

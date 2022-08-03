@@ -525,29 +525,19 @@ plot_pvalues <- function(x,
     temp_facets <- NULL
   }
   
-  #temp_aes <- aes_string()
-  #if (!is.null(x_axis_var)) temp_aes$x <- x_axis_var
-  #if (!is.null(color_var)) temp_aes$fill <- color_var
-  #if (!is.null(group_var)) temp_aes$group <- group_var
+  # Deal with string aes in boxplot
+  con1 <- !is.null(x_axis_var)
+  con2 <- !is.null(color_var)
+  con3 <- !is.null(group_var)
   
-  # Assume that use of fill and group are mutually exclusive
-  if (!is.null(x_axis_var)) {
-    if (!is.null(color_var)) {
-      temp_aes <- aes_string(x = x_axis_var, fill = color_var)
-    } else {
-      if (!is.null(group_var)) {
-        temp_aes <- aes_string(x = x_axis_var, group = group_var)
-      }
-    }
-  } else {
-    if (!is.null(color_var)) {
-      temp_aes <- aes_string(fill = color_var)
-    } else {
-      if (!is.null(group_var)) {
-        temp_aes <- aes_string(group = group_var)
-      }
-    }
-  }
+  if (con1 & con2 & con3) temp_aes <- aes_string(x = x_axis_var, fill = color_var, group = group_var)
+  if (con1 & con2 & !con3) temp_aes <- aes_string(x = x_axis_var, fill = color_var)
+  if (con1 & !con2 & con3) temp_aes <- aes_string(x = x_axis_var, group = group_var)
+  if (con1 & !con2 & !con3) temp_aes <- aes_string(x = x_axis_var)
+  if (!con1 & !con2 & con3) temp_aes <- aes_string(group = group_var)
+  if (!con1 & con2 & con3) temp_aes <- aes_string(group = group_var, fill = color_var)
+  if (!con1 & con2 & !con3) temp_aes <- aes_string(fill = color_var)
+  if (!con1 & !con2 & !con3) temp_aes <- aes_string()
   
   temp <- ggplot(bp_quantiles, temp_aes) + 
     geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
