@@ -56,21 +56,74 @@ The R package COPS provides a suite of feature reduction techniques and clusteri
 This notebook covers single-view clustering. 
 
 **Single-omics tools provided by COPS**
-\itemize{
-  \item Knowledge-driven feature extraction: GSVA, DiffRank, RWR-FGSEA
-  \item Dimensional reduction: PCA, t-SNE, UMAP
-  \item Single-omics clustering algorithms: k-means++, agglomerative hierarchical clustering, DIANA, Gaussian Mixture Models (GMMs), kernel k-means, knn graph community detection
-}
-
+<ol>
+<li> Knowledge-driven feature extraction: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> GSVA </li>
+<li style="margin-left:2em; padding-bottom: 0;"> DiffRank </li>
+<li style="margin-left:2em; padding-bottom: 0;"> RWR-FGSEA </li>
+</ol>
+</li>
+<li> Dimensional reduction: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> PCA </li>
+<li style="margin-left:2em; padding-bottom: 0;"> t-SNE </li> 
+<li style="margin-left:2em; padding-bottom: 0;"> UMAP </li>
+</ol>
+</li>
+<li> Single-omics clustering algorithms: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> k-means++ </li>
+<li style="margin-left:2em; padding-bottom: 0;"> agglomerative hierarchical clustering </li>
+<li style="margin-left:2em; padding-bottom: 0;"> DIANA </li>
+<li style="margin-left:2em; padding-bottom: 0;"> Gaussian Mixture Models (GMMs) </li>
+<li style="margin-left:2em; padding-bottom: 0;"> kernel k-means </li>
+<li style="margin-left:2em; padding-bottom: 0;"> knn graph community detection </li>
+</ol>
+</li>
+</ol>
 
 **Multi-omics tools provided by COPS**
-* Joint dimensionality reduction: MOFA2, IntNMF
-* Multi-omics clustering algorithms: ANF, iCluster(+/Bayes), IntNMF, Multiple Kernel K-Means with Matrix induced Regularization (MKKM-MR)
+<ol>
+<li> Joint dimensionality reduction: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> MOFA2 </li>
+<li style="margin-left:2em; padding-bottom: 0;"> IntNMF </li>
+</ol>
+</li>
+<li> Multi-omics clustering algorithms: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> ANF </li>
+<li style="margin-left:2em; padding-bottom: 0;"> iCluster(+/Bayes) </li>
+<li style="margin-left:2em; padding-bottom: 0;"> IntNMF </li>
+<li style="margin-left:2em; padding-bottom: 0;"> MKKM-MR </li>
+</ol>
+</li>
+</ol>
 
 **Performance metrics provided by COPS** 
-* External metrics: clinical variable associations (ANOVA, NMI, ARI, Jaccard), Survival analysis
-* Internal metrics: clustering stability, silhouette, gene module correlation
-* batch effect analysis: chi-squared test rejection rate, batch associations (ARI, NMI), kBET
+<ol>
+<li>External metrics: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> clinical variable associations (ANOVA, NMI, ARI, Jaccard) </li>
+<li style="margin-left:2em; padding-bottom: 0;"> Survival analysis </li>
+</ol>
+</li>
+<li> Internal metrics: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> clustering stability </li>
+<li style="margin-left:2em; padding-bottom: 0;"> silhouette </li>
+<li style="margin-left:2em; padding-bottom: 0;"> gene module correlation </li>
+</ol>
+</li>
+<li> batch effect analysis: 
+<ol style="list-style-type: lower-alpha; padding-bottom: 0;"> 
+<li style="margin-left:2em"> chi-squared test rejection rate </li>
+<li style="margin-left:2em; padding-bottom: 0;"> batch associations (ARI, NMI) </li>
+<li style="margin-left:2em; padding-bottom: 0;"> kBET </li>
+</ol>
+</li>
+</ol>
 
 ```{r setup, message = FALSE}
 library(COPS)
