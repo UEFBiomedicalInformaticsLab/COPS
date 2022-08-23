@@ -28,6 +28,8 @@
 #'   See \code{\link[IntNMF]{nmf.mnnals}}.
 #' @param nmf_ini.nndsvd If set, IntNMF uses NNDSVD for initialization. 
 #'   See \code{\link[IntNMF]{nmf.mnnals}}.
+#' @param nmf_scaling Determines how views are scaled. Defaults to Frobenius norm
+#'   ratio when compared as in Chalise et al. 2017.
 #' @param mofa_scale_views MOFA scaling. 
 #'   See \code{\link[MOFA2]{get_default_data_options}}.
 #' @param mofa_likelihoods MOFA likelihoods. 
@@ -156,6 +158,7 @@ multi_omic_clustering <- function(dat_list_clust,
                                   nmf_st.count = 20,
                                   nmf_n.ini = 30,
                                   nmf_ini.nndsvd = TRUE,
+                                  nmf_scaling = "F-ratio",
                                   mofa_scale_views = FALSE,
                                   mofa_likelihoods = rep_len("gaussian", length(dat_list_clust)), 
                                   mofa_convergence_mode = "medium",
@@ -366,8 +369,9 @@ multi_omic_clustering <- function(dat_list_clust,
         k_res <- data.frame(m = "iClusterPlus", 
                             k = k,
                             cluster = temp_res$clusters)
-        cbind(non_data_cols[[1]], k_res)
-      }, error = function(e) return(NULL))
+        if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], k_res)
+        k_res
+      }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
@@ -390,27 +394,41 @@ multi_omic_clustering <- function(dat_list_clust,
         k_res <- data.frame(m = "iClusterBayes", 
                             k = k,
                             cluster = temp_res$clusters)
-        cbind(non_data_cols[[1]], k_res)
-      }, error = function(e) return(NULL))
+        if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], k_res)
+        k_res
+      }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
   if ("IntNMF" %in% multi_view_methods) {
-    for (i in 1:length(dat_list_clust)) {
+    dat_list_clust_nmf <- dat_list_clust
+    for (i in 1:length(dat_list_clust_nmf)) {
       if (non_negativity_transform[i] == "logistic") {
-        dat_list_clust[[i]] <- 1/(1 + exp(-dat_list_clust[[i]]))
+        dat_list_clust_nmf[[i]] <- 1/(1 + exp(-dat_list_clust_nmf[[i]]))
       }
       if (non_negativity_transform[i] == "rank") {
-        dat_list_clust[[i]] <- apply(dat_list_clust[[i]], 2, function(x) rank(x) / length(x))
+        dat_list_clust_nmf[[i]] <- apply(dat_list_clust_nmf[[i]], 2, function(x) rank(x) / length(x))
       }
       if (non_negativity_transform[i] == "offset2") {
-        dat_list_clust[[i]] <- dat_list_clust[[i]] + 2
+        dat_list_clust_nmf[[i]] <- dat_list_clust_nmf[[i]] + 2
       }
     }
     for (k in n_clusters) {
       k_res <- tryCatch({
-        nmf_view_weights <- sapply(dat_list_clust, function(x) mean(sqrt(apply(x^2, 1, sum))))
-        temp_res <- nmf.mnnals(dat_list_clust, 
+        if (nmf_scaling == "F-ratio") {
+          # First minmax scale each matrix to [0,1]
+          for (i in 1:length(dat_list_clust_nmf)) {
+            dat_list_clust_nmf[[i]] <- dat_list_clust_nmf[[i]] - min(dat_list_clust_nmf[[i]])
+            dat_list_clust_nmf[[i]] <- dat_list_clust_nmf[[i]] / max(dat_list_clust_nmf[[i]])
+          }
+          #nmf_view_weights <- sapply(dat_list_clust_nmf, function(x) mean(sqrt(apply(x^2, 1, sum))))
+          nmf_view_weights <- sapply(dat_list_clust_nmf, Matrix::norm, type = "F")
+          nmf_view_weights <- max(nmf_view_weights) / nmf_view_weights
+        } else {
+          nmf_view_weights <- 1 / sapply(dat_list_clust_nmf, max)
+        }
+        
+        temp_res <- nmf.mnnals(dat_list_clust_nmf, 
                                k = k, 
                                maxiter = nmf_maxiter,
                                st.count = nmf_st.count,
@@ -420,8 +438,9 @@ multi_omic_clustering <- function(dat_list_clust,
         k_res <- data.frame(m = "IntNMF", 
                             k = k,
                             cluster = temp_res$clusters)
-        cbind(non_data_cols[[1]], k_res)
-        }, error = function(e) return(NULL))
+        if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], k_res)
+        k_res
+        }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
@@ -466,12 +485,13 @@ multi_omic_clustering <- function(dat_list_clust,
       mofa_embedding$drname <- "MOFA2"
       
       mofa_diss <- clustering_dissimilarity_from_data(mofa_embedding, distance_metric, correlation_method)
-      mofa_cops_clust <- clustering_analysis(cbind(mofa_embedding, non_data_cols[[1]]), 
+      if (ncol(non_data_cols[[1]]) > 0) mofa_embedding <- cbind(mofa_embedding, non_data_cols[[1]])
+      mofa_cops_clust <- clustering_analysis(mofa_embedding, 
                                              n_clusters = n_clusters,
                                              clustering_dissimilarity = mofa_diss,
                                              ...)
       mofa_cops_clust
-    }, error = function(e) return(NULL))
+    }, error = function(e) {warning(e); return(NULL)})
     if(!is.null(temp_res)) if(nrow(temp_res) > 1) res <- c(res, list(temp_res))
   }
   if ("ANF" %in% multi_view_methods) {
@@ -483,7 +503,7 @@ multi_omic_clustering <- function(dat_list_clust,
     for (k in n_clusters) {
       temp_res <- ANF::spectral_clustering(aff_mat, k)
       temp_res <- data.frame(m = "ANF", k = k, cluster = temp_res)
-      k_res <- cbind(non_data_cols[[1]], temp_res)
+      if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], temp_res)
       res <- c(res, list(k_res))
     }
   }
@@ -498,8 +518,9 @@ multi_omic_clustering <- function(dat_list_clust,
                                             init = apply(approximation[,1:k], 1, which.max), 
                                             maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeans", k = k, cluster = temp_res$clusters)
-        cbind(non_data_cols[[1]], temp_res)
-      }, error = function(e) return(NULL))
+        if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+        temp_res
+      }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
@@ -513,8 +534,9 @@ multi_omic_clustering <- function(dat_list_clust,
                                   n_initializations = kkmeans_n_init, 
                                   maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
-        cbind(non_data_cols[[1]], temp_res)
-      }, error = function(e) return(NULL))
+        if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+        temp_res
+      }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
@@ -556,8 +578,9 @@ multi_omic_clustering <- function(dat_list_clust,
                                                                                ":", 
                                                                                optimal_kernel$mu, 
                                                                                collapse = ";")))
-          cbind(non_data_cols[[1]], temp_res)
-        }, error = function(e) return(NULL))
+          if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+          temp_res
+        }, error = function(e) {warning(e); return(NULL)})
         if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
       }
     }
@@ -611,8 +634,9 @@ multi_omic_clustering <- function(dat_list_clust,
         }
         temp_res <- data.frame(m = "ecmc", k = k, cluster = temp_res$clusters, 
                                kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
-        cbind(non_data_cols[[1]], temp_res)
-      }, error = function(e) return(NULL))
+        if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+        temp_res
+      }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
