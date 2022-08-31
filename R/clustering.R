@@ -12,7 +12,7 @@
 #' \item "spectral" - spectral clustering
 #' }
 #'
-#' @param dat A data matrix with samples on columns.
+#' @param dat A data.frame with features on columns labeled as "dim[0-9]+", must also contain "id" column.
 #' @param n_clusters A vector of integers, numbers of clusters to be generated.
 #' @param cluster_methods A vector of clustering method names, see details for options.
 #' @param clustering_dissimilarity A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity_from_data}} if missing. 
