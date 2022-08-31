@@ -152,8 +152,17 @@ stability_eval <- function(clust,
                            by = c("datname", "drname", "run", "k", "m"),
                            #by2 = c("fold"),
                            parallel = 1, 
+                           reference_fold = NULL,
                            ...)
 {
+  if (is.null(reference_fold)) {
+    if (!"cv_index" %in% colnames(clust)) {
+      stop("Please define the reference fold number.")
+    } else {
+      reference_fold <- unique(clust$fold)
+      reference_fold <- reference_fold[!reference_fold %in% unique(clust$cv_index)]
+    }
+  }
   by2 = c("fold")
   # Function to be applied for each
   f1 <- function(clust, clustref) {
@@ -186,10 +195,8 @@ stability_eval <- function(clust,
     return(list(jsc = jsc, nmi = nmi, ari = ari))
   }
   # Function to be applied for method combinations in clustering table
-  f2 <- function(x) {
+  f2 <- function(x, ref_i) {
     data.table::setDTthreads(1)
-    ref_i <- unique(x$fold)
-    ref_i <- ref_i[!ref_i %in% unique(x$cv_index)]
     
     ref <- x[fold == ref_i,]
     colnames(ref)[colnames(ref) == "cluster"] <- "reference_cluster"
@@ -264,7 +271,7 @@ stability_eval <- function(clust,
                         .multicombine = TRUE,
                         .maxcombine = max(length(temp_list), 2)) %dopar% {
     out <- tryCatch({
-      out <- f2(temp)
+      out <- f2(temp, reference_fold)
       for (j in by) {
         out[[j]] <- temp[[j]][1]
       }
