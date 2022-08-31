@@ -227,7 +227,7 @@ stability_eval <- function(clust,
     }
     
     
-    if (any(nonref$test_ind)) {
+    if (!all(is.na(nonref$test_ind))) if (any(nonref$test_ind)) {
       if("data.table" %in% class(nonref)) {
         test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
         test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
