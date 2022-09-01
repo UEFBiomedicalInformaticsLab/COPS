@@ -203,7 +203,12 @@ stability_eval <- function(clust,
     ref$fold <- NULL
     
     nonref <- x[fold != ref_i,]
-    nonref$test_ind <- nonref$cv_index == nonref$fold
+    if ("cv_index" %in% colnames(x)) {
+      nonref$test_ind <- nonref$cv_index == nonref$fold
+    } else {
+      # Assume all samples are from the training set
+      nonref$test_ind <- FALSE
+    }
     
     ref_cols <- c("id", by2[by2 != "fold"], "reference_cluster")
     if ("data.table" %in% class(ref)) {
@@ -227,7 +232,7 @@ stability_eval <- function(clust,
     }
     
     
-    if (!all(is.na(nonref$test_ind))) if (any(nonref$test_ind)) {
+    if (any(nonref$test_ind)) {
       if("data.table" %in% class(nonref)) {
         test_ref <- split(nonref$cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
         test_nonref <- split(nonref$reference_cluster[nonref$test_ind], nonref[nonref$test_ind, ..by2])
@@ -249,13 +254,6 @@ stability_eval <- function(clust,
                                      test_jsc = test_res$jsc,
                                      test_nmi = test_res$nmi,
                                      test_ari = test_res$ari)
-    
-    #out_f2 <- data.table::data.table(train_jsc = train_res$mean_jsc, 
-    #                                 train_nmi = train_res$mean_nmi, 
-    #                                 train_ari = train_res$mean_ari, 
-    #                                 test_jsc = test_res$mean_jsc, 
-    #                                 test_nmi = test_res$mean_nmi, 
-    #                                 test_ari = test_res$mean_ari)
     return(out_f2)
   }
   by <- by[by %in% colnames(clust)]
