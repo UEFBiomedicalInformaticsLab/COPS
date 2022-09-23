@@ -73,9 +73,13 @@ survival_evaluation <- function(event_data,
                    temp$cluster <- clust$cluster[survival_ind[!is.na(survival_ind)]]
                    temp$cluster <- factor(temp$cluster)
                    if ("data.table" %in% class(clust)) {
-                     out_i <- data.frame(clust[1,..by], cluster_significance = NA)
+                     out_i <- data.frame(clust[1,..by], 
+                                         cluster_significance = NA,
+                                         concordance_index = NA)
                    } else {
-                     out_i <- data.frame(clust[1,by], cluster_significance = NA)
+                     out_i <- data.frame(clust[1,by], 
+                                         cluster_significance = NA,
+                                         concordance_index = NA)
                    }
                    
                    colnames(out_i)[-ncol(out_i)] <- by
@@ -96,6 +100,8 @@ survival_evaluation <- function(event_data,
                      model0 <- survival::coxph(as.formula(model_formula0), data = temp)
                      res <- anova(model, model0, test="LRT")
                      out_i$cluster_significance <- res[["P(>|Chi|)"]][2]
+                     ci <- survival::concordance(model, data = temp)
+                     out_i$concordance_index <- ci[["concordance"]]
                    }
                    
                    out_i
