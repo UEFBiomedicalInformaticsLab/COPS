@@ -81,10 +81,10 @@ survival_evaluation <- function(event_data,
                                          cluster_significance = NA,
                                          concordance_index = NA)
                    }
-                   
-                   colnames(out_i)[-ncol(out_i)] <- by
-                   out_i$id <- NULL
-                   out_i$cluster <- NULL
+                   # rename and cleaning not necessary anymore
+                   #colnames(out_i)[-ncol(out_i)+0:1] <- by
+                   #out_i$id <- NULL
+                   #out_i$cluster <- NULL
                    if (length(table(temp$cluster)) > 1) {
                      covariates_in_temp <- sapply(survival_covariate_names, function(x) length(table(temp[[x]])) > 1)
                      
