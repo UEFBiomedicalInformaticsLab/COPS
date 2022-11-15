@@ -5,8 +5,9 @@
 #' @param dat_list list of data matrices with samples on columns
 #' @param nfolds number of cross-validation folds
 #' @param nruns number of cross-validation replicates
-#' @param stratified_cv if \code{TRUE}, try to maximize separation of batch labels within folds
-#' @param mixed_cv if \code{TRUE}, try to minimize separation of batch labels within folds
+#' @param stratified_cv if \code{TRUE}, perform stratified sampling for folds
+#' @param anti_stratified if \code{TRUE}, maximize separation of batch labels within folds, opposite of stratified sampling
+#' @param cv_stratification_var labels used for stratification
 #' @param ... extra arguments are ignored
 #'
 #' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
@@ -18,14 +19,14 @@ cv_fold <- function(dat_list,
                     nfolds = 5, 
                     nruns = 2, 
                     stratified_cv = FALSE, 
-                    mixed_cv = FALSE,
+                    anti_stratified = FALSE,
                     cv_stratification_var = NULL,
                     ...) {
   out <- list()
   for (i in 1:length(dat_list)) {
     folded <- list()
     for (j in 1:nruns) {
-      if (!is.null(cv_stratification_var) & (stratified_cv | mixed_cv)) {
+      if (!is.null(cv_stratification_var) & (stratified_cv)) {
         a_ind <- lapply(table(cv_stratification_var), function(x) sample(1:x, x))
         b_ind <- sample(1:length(unique(cv_stratification_var)), length(unique(cv_stratification_var)))
         c_ind <- cumsum(table(cv_stratification_var)[unique(cv_stratification_var)[b_ind]])
@@ -34,7 +35,7 @@ cv_fold <- function(dat_list,
           un <- unique(cv_stratification_var)[b_ind[u]]
           cv_index[cv_stratification_var == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
         }
-        if (stratified_cv) {
+        if (anti_stratified) {
           # Stratified cv folds such that holdout set labels mostly do not match to rest of data
           cv_index <- cv_index %/% -(length(cv_stratification_var) %/% -nfolds) + 1
         } else {

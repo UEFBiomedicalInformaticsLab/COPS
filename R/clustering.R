@@ -202,19 +202,9 @@ clustering_dissimilarity_from_data <- function(x,
   return(diss)
 }
 
-#' Clustering, internal evaluation and batch effect estimation
+#' Internal evaluation of clustering results
 #'
 #' Single embedding or dataset evaluation
-#'
-#' Supported clustering methods are:
-#' \itemize{
-#' \item "hierarchical" - agglomerative hierarchical clustering
-#' \item "diana" - divisive hierarchical clustering analysis
-#' \item "kmeans" - k-means++
-#' \item "model" - Gaussian Mixture Models
-#' \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
-#' \item "spectral" - spectral clustering
-#' }
 #'
 #' @param x A data.frame of clustering results. 
 #' @param dat A data.frame with data columns identified with "dim". Not required if clustering_dissimilarity is defined. 
@@ -252,7 +242,7 @@ clustering_metrics <- function(x,
   metrics <- data.frame()
   csize <- list()
   clusters <- split_by_safe(x, by)
-  for (i in 1:length(clusters)) {
+  for (i in 1:length(clusters)) { # TODO: add foreach
     # Silhouette
     matched_ind <- match(clusters[[i]]$id, labels(diss))
     silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 
@@ -325,7 +315,7 @@ cv_clusteval <- function(dat_embedded,
                           .maxcombine = max(length(temp_list), 2)) %dopar% {
                             temp_diss <- clustering_dissimilarity_from_data(temp, ..., preprocess = TRUE)
                             temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
-                            temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, ...)
+                            temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, by = c(by, "k", "m"), ...)
                             res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
                             res
                           }, finally = close_parallel_cluster(parallel_clust))

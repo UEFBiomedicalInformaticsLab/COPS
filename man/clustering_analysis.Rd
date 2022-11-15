@@ -23,7 +23,7 @@ clustering_analysis(
 )
 }
 \arguments{
-\item{dat}{A data matrix with samples on columns.}
+\item{dat}{A data.frame with features on columns labeled as "dim[0-9]+", must also contain "id" column.}
 
 \item{n_clusters}{A vector of integers, numbers of clusters to be generated.}
 

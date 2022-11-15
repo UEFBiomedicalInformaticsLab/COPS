@@ -20,6 +20,7 @@ multi_omic_clustering(
   nmf_st.count = 20,
   nmf_n.ini = 30,
   nmf_ini.nndsvd = TRUE,
+  nmf_scaling = "F-ratio",
   mofa_scale_views = FALSE,
   mofa_likelihoods = rep_len("gaussian", length(dat_list_clust)),
   mofa_convergence_mode = "medium",
@@ -96,6 +97,9 @@ See \code{\link[IntNMF]{nmf.mnnals}}.}
 
 \item{nmf_ini.nndsvd}{If set, IntNMF uses NNDSVD for initialization. 
 See \code{\link[IntNMF]{nmf.mnnals}}.}
+
+\item{nmf_scaling}{Determines how views are scaled. Defaults to Frobenius norm
+ratio when compared as in Chalise et al. 2017.}
 
 \item{mofa_scale_views}{MOFA scaling. 
 See \code{\link[MOFA2]{get_default_data_options}}.}

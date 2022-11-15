@@ -2,7 +2,7 @@
 % Please edit documentation in R/evaluation_metrics.R
 \name{association_analysis_cv}
 \alias{association_analysis_cv}
-\title{Runs \code{\link{cluster_associations}} in parallel.}
+\title{Cross-validated cluster association analysis}
 \usage{
 association_analysis_cv(
   clusters,
@@ -25,5 +25,8 @@ association_analysis_cv(
 \code{data.table} containing association variables
 }
 \description{
+Runs \code{\link{cluster_associations}} in parallel.
+}
+\details{
 Assumes that a parallel backend has been registered for \code{foreach}.
 }

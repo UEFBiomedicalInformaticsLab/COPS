@@ -394,7 +394,7 @@ cluster_associations <- function(clust,
 }
 
 
-#' 
+#' Cross-validated cluster association analysis
 #' 
 #' Runs \code{\link{cluster_associations}} in parallel. 
 #' 

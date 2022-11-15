@@ -8,6 +8,7 @@ stability_eval(
   clust,
   by = c("datname", "drname", "run", "k", "m"),
   parallel = 1,
+  reference_fold = NULL,
   ...
 )
 }

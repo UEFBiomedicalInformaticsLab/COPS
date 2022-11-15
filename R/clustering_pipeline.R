@@ -157,7 +157,7 @@ dimred_clusteval_pipeline <- function(dat,
 #' @describeIn clusteval_scoring Retrieves best clustering from CV results based on scores. 
 #' In practice retrieves reference fold result from first run matching the best results. 
 #' 
-#' @param res result from \code{\link{dimred_clusteval_pipeline}}
+#' @param res result from \code{\link{COPS}}
 #' @param scores scores from \code{\link{clusteval_scoring}}
 #' 
 #' @export
@@ -745,7 +745,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #'   \item ...
 #' }
 #'
-#' @param res \code{\link{dimred_clusteval_pipeline}} output
+#' @param res \code{\link{COPS}} output
 #' @param by character vector containing column names to group analysis by
 #' @param wsum an expression that indicates how a combined score is computed 
 #' @param chisq_significance_level p-value cutoff for computing rejection rate of \code{chisq.test}
@@ -759,8 +759,8 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #' @examples library(COPS)
 #' library(parallel)
 #' 
-#' res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-#' batch_label = ad_studies, 
+#' res <- COPS(ad_ge_micro_zscore, 
+#' association_data = ad_studies, 
 #' parallel = 2, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("pca", "umap", "tsne"), 
 #' cluster_methods = c("hierarchical", "kmeans"), 

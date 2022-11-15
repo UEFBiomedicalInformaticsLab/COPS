@@ -9,7 +9,7 @@ cv_fold(
   nfolds = 5,
   nruns = 2,
   stratified_cv = FALSE,
-  mixed_cv = FALSE,
+  anti_stratified = FALSE,
   cv_stratification_var = NULL,
   ...
 )
@@ -21,9 +21,11 @@ cv_fold(
 
 \item{nruns}{number of cross-validation replicates}
 
-\item{stratified_cv}{if \code{TRUE}, try to maximize separation of batch labels within folds}
+\item{stratified_cv}{if \code{TRUE}, perform stratified sampling for folds}
 
-\item{mixed_cv}{if \code{TRUE}, try to minimize separation of batch labels within folds}
+\item{anti_stratified}{if \code{TRUE}, maximize separation of batch labels within folds, opposite of stratified sampling}
+
+\item{cv_stratification_var}{labels used for stratification}
 
 \item{...}{extra arguments are ignored}
 }

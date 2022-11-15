@@ -2,7 +2,7 @@
 % Please edit documentation in R/clustering.R
 \name{clustering_metrics}
 \alias{clustering_metrics}
-\title{Clustering, internal evaluation and batch effect estimation}
+\title{Internal evaluation of clustering results}
 \usage{
 clustering_metrics(
   x,
@@ -34,15 +34,4 @@ Returns a \code{list} containing metrics and cluster sizes
 }
 \description{
 Single embedding or dataset evaluation
-}
-\details{
-Supported clustering methods are:
-\itemize{
-\item "hierarchical" - agglomerative hierarchical clustering
-\item "diana" - divisive hierarchical clustering analysis
-\item "kmeans" - k-means++
-\item "model" - Gaussian Mixture Models
-\item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
-\item "spectral" - spectral clustering
-}
 }
