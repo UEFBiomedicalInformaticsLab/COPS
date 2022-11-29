@@ -138,7 +138,7 @@ genes_to_pathways <- function(expr,
   gs_category <- sapply(strsplit(rownames(enriched_dat), "_"), function(x) x[[1]])
   
   out <- lapply(unique(gs_category), function(x) enriched_dat[gs_category == x,])
-  names(out) <- unique(gs_category)
+  names(out) <- unique(gs_category) # converted to dat_name by cv_dimred
   
   # Format output
   if (enrichment_method ==  "GSVA") {

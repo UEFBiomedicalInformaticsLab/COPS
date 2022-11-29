@@ -282,7 +282,7 @@ clustering_metrics <- function(x,
 #' @importFrom data.table rbindlist
 cv_clusteval <- function(dat_embedded, 
                          parallel = 1, 
-                         by = c("run", "fold"),
+                         by = c("datname", "drname", "run", "fold"),
                          ...) {
   temp_list <- list()
   for (i in 1:length(dat_embedded)) {

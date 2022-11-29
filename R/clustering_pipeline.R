@@ -212,7 +212,7 @@ data_preprocess <- function(dat, verbose = TRUE) {
 #' Clustering algorithms for Omics based Patient Stratification
 #'
 #' Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
-#' \code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, \code{\link{stability_eval}}, 
+#' \code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, 
 #' \code{\link{stability_eval}}, \code{\link{survival_evaluation}}, 
 #' \code{\link{module_evaluation}} and \code{\link{association_analysis_cv}} 
 #' to conveniently and comprehensively test clustering algorithms on a given set of input data. 
@@ -782,7 +782,12 @@ clusteval_scoring <- function(res,
                               chisq_significance_level = 0.05,
                               summarise = TRUE) {
   if (summarise == FALSE) {
-    by <- c(by, "run", "fold")
+    if (!"run" %in% by) {
+      by <- c(by, "run")
+    }
+    if (!"fold" %in% by) {
+      by <- c(by, "fold")
+    }
   }
   # Internal metrics
   if (!is.null(res$internal_metrics)) {
