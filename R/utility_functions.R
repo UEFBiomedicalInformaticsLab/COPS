@@ -2,7 +2,7 @@
 #' 
 #' Creates cross-validation folds of data for downstream analysis. 
 #'
-#' @param dat_list list of data matrices with samples on columns
+#' @param dat_list list of datasets, each either data.table or data.frame (samples x features) with an "id" column or expression matrix (genes x samples) with named columns
 #' @param nfolds number of cross-validation folds
 #' @param nruns number of cross-validation replicates
 #' @param stratified_cv if \code{TRUE}, perform stratified sampling for folds
@@ -15,15 +15,25 @@
 #' @export
 #'
 #' @importFrom plyr join
+#' @importFrom data.table data.table rbindlist
 cv_fold <- function(dat_list, 
                     nfolds = 5, 
                     nruns = 2, 
                     stratified_cv = FALSE, 
                     anti_stratified = FALSE,
                     cv_stratification_var = NULL,
+                    extra_fold = TRUE, 
                     ...) {
   out <- list()
   for (i in 1:length(dat_list)) {
+    if (any(c("data.table", "data.frame") %in% class(dat_list[[i]]))) {
+      id <- dat_list[[i]]$id
+    } else if ("matrix" %in% class(dat_list[[i]])) {
+      id <- colnames(dat_list[[i]])
+    } else {
+      stop("Unrecognized input class.")
+    }
+    if (is.null(id)) stop("No identifier for samples found.")
     folded <- list()
     for (j in 1:nruns) {
       if (!is.null(cv_stratification_var) & (stratified_cv)) {
@@ -57,9 +67,9 @@ cv_fold <- function(dat_list,
         #tempfold$fold <- f
         #tempfold$run <- j
         #tempfold$cv_index <- cv_index[cv_index != f]
-        folded[[j]][[f]] <- data.table(fold = f, run = j, 
-                                       cv_index = cv_index[cv_index != f], 
-                                       id = dat_list[[i]]$id[cv_index != f])
+        folded[[j]][[f]] <- data.table::data.table(fold = f, run = j, 
+                                                   cv_index = cv_index[cv_index != f], 
+                                                   id = id[cv_index != f])
       }
       folded[[j]] <- data.table::rbindlist(folded[[j]])
     }
@@ -67,6 +77,30 @@ cv_fold <- function(dat_list,
   }
   names(out) <- names(dat_list)
   return(out)
+}
+
+data_preprocess <- function(dat, verbose = FALSE) {
+  if ("list" %in% class(dat)) {
+    dat_list <- dat
+  } else {
+    dat_list <- list(dat)
+  }
+  if(verbose) print("Processing data sets ..."); flush.console()
+  
+  # Collect gene names for later. 
+  # They are required for pathway-based approaches
+  gene_id_list <- lapply(dat_list, rownames)
+  
+  # Convert data to data.table to optimize memory usage
+  for (i in 1:length(dat_list)) {
+    id <- colnames(dat_list[[i]])
+    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
+    #data.table::setDT(dat_list[[i]])
+    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
+    dat_list[[i]]$id <- id
+    data.table::setkey(dat_list[[i]], id)
+  }
+  return(list(dat_list = dat_list, gene_id_list = gene_id_list))
 }
 
 #' Empirical cumulative density function transformation
@@ -214,9 +248,10 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 #' 
 #' Utility function to extract a gene subnetwork from STRINGdb including only the seed genes and their interactions. 
 #' 
-#' @param gene.diseases a character vector indicating the gene seeds. 
+#' @param gene_ids a character vector indicating target genes to include. 
 #' @param cutoff a numeric value indicating the cutoff for the edge scores.  
 #' @param directed a boolean value indicating the type of grpah to be generated. 
+#' @param version a character value specifying STRINGdb version to query from 
 #' 
 #' @return an igraph object.
 #' @export
@@ -224,10 +259,11 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 #' @importFrom igraph graph_from_edgelist graph_from_adjacency_matrix as_adjacency_matrix
 #' @importFrom biomaRt useEnsembl getBM
 #' @importFrom Matrix rowSums
-getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALSE) {
-  string_db <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = cutoff)
+getHumanPPIfromSTRINGdb <- function(gene_ids, cutoff = 700, directed = FALSE, version = "11") {
+  string_db <- STRINGdb::STRINGdb$new(version = version, species=9606, score_threshold = cutoff)
   if(directed) {
-    gene.stringdb <- string_db$map(my_data_frame = gene.diseases, my_data_frame_id_col_names='target.gene_info.symbol', 
+    gene.stringdb <- string_db$map(my_data_frame = gene_ids, 
+                                   my_data_frame_id_col_names='target.gene_info.symbol', 
                                    removeUnmappedRows=TRUE)
     string_inter <- string_db$get_interactions(gene.stringdb$STRING_id)
     idx_from <- match(x = string_inter$from, table = gene.stringdb$STRING_id)
@@ -280,7 +316,7 @@ getHumanPPIfromSTRINGdb <- function(gene.diseases, cutoff = 700, directed = FALS
 #' Conveniently wraps \code{\link{RWRFGSEA}} using 
 #' \code{\link{retrieveDiseaseGenesOT}} for disease associated genes, 
 #' \code{STRINGdb} human PPI as a network, \code{msigdbr} for gene set annotations and 
-#' \code{biomaRt} for matching gene annotations. 
+#' \code{biomaRt} for matching gene IDs. 
 #'
 #' @param dat A gene expression matrix with samples on columns.
 #' @param disease_id Integer ID in Open Targets platform.
@@ -386,11 +422,31 @@ expressionToRWFeatures <- function(dat,
 #' @return
 #' @export
 #' 
+#' @importFrom ggplot2 ggtitle
+triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20, tsne = FALSE) {
+  p1 <- pca_viz(data, category, category_label) + ggtitle("PCA")
+  if (tsne) {
+    p2 <- tsne_viz(data, category, category_label, tsne_perplexity = tsne_perplexity) + ggtitle("t-SNE")
+  } else {
+    p2 <- NULL
+  }
+  p3 <- umap_viz(data, category, category_label, umap_neighbors = umap_neighbors) + ggtitle("UMAP")
+  
+  return(list(PCA = p1, tSNE = p2, UMAP = p3))
+}
+
+#' Data visualization using PCA
+#'
+#' @param data 
+#' @param category 
+#' @param category_label 
+#'
+#' @return
+#' @export
+#' 
 #' @importFrom FactoMineR PCA
-#' @importFrom Rtsne Rtsne
-#' @importFrom uwot umap
-#' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs ggtitle
-triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20, tsne = TRUE) {
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
+pca_viz <- function(data, category, category_label) {
   res_pca <- FactoMineR::PCA(data, scale.unit = FALSE, ncp = 2, graph = FALSE)
   res_pca_dat <- as.data.frame(res_pca$ind$coord)
   res_pca_dat <- cbind(res_pca_dat, category)
@@ -399,39 +455,64 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
   eig_percentages <- as.character(signif(eig_percentages, 3))
   p1 <- ggplot(res_pca_dat, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
     theme_bw() + scale_color_brewer(palette = "Dark2") + 
-    labs(x = paste0("PC1 (", eig_percentages[1], "%)"), y = paste0("PC2 (", eig_percentages[2], "%)"), color = category_label) +
-    ggtitle("PCA")
+    labs(x = paste0("PC1 (", eig_percentages[1], "%)"), y = paste0("PC2 (", eig_percentages[2], "%)"), color = category_label)
   
-  if (tsne) {
-    res_tsne <- Rtsne::Rtsne(data,
-                             dims = 2,
-                             perplexity = tsne_perplexity,
-                             initial_dims = min(50, dim(data)),
-                             check_duplicates = FALSE,
-                             pca = TRUE,
-                             partial_pca = TRUE,
-                             verbose = FALSE)$Y
-    res_tsne <- as.data.frame(res_tsne)
-    res_tsne <- cbind(res_tsne, category)
-    colnames(res_tsne)[3] <- "category"
-    p2 <- ggplot(res_tsne, aes(V1, V2, color = category)) + geom_point(shape = "+", size = 3) + 
-      theme_bw() + scale_color_brewer(palette = "Dark2") + 
-      labs(x = "Z1", y = "Z2", color = category_label) +
-      ggtitle("t-SNE")
-  } else {
-    p2 <- NULL
-  }
-  
+  return(p1)
+}
+
+#' Data visualization using UMAP
+#'
+#' @param data 
+#' @param category 
+#' @param category_label 
+#' @param umap_neighbors 
+#'
+#' @return
+#' @export
+#' 
+#' @importFrom uwot umap
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
+umap_viz <- function(data, category, category_label, umap_neighbors = 20) {
   res_umap <- uwot::umap(data, n_neighbors = umap_neighbors, n_components = 2, pca = min(50, dim(data)), verbose = FALSE, init = "normlaplacian")
   res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
   res_umap <- cbind(res_umap, category)
   colnames(res_umap)[3] <- "category"
-  p3 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
+  p1 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
     theme_bw() + scale_color_brewer(palette = "Dark2") + 
-    labs(x = "Z1", y = "Z2", color = category_label) + 
-    ggtitle("UMAP")
+    labs(x = "Z1", y = "Z2", color = category_label)
   
-  return(list(PCA = p1, tSNE = p2, UMAP = p3))
+  return(p1)
+}
+
+#' Data visualization using t-SNE
+#'
+#' @param data 
+#' @param category 
+#' @param category_label 
+#' @param tsne_perplexity 
+#'
+#' @return
+#' @export
+#' 
+#' @importFrom Rtsne Rtsne
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
+tsne_viz <- function(data, category, category_label, tsne_perplexity = 45) {
+  res_tsne <- Rtsne::Rtsne(data,
+                           dims = 2,
+                           perplexity = tsne_perplexity,
+                           initial_dims = min(50, dim(data)),
+                           check_duplicates = FALSE,
+                           pca = TRUE,
+                           partial_pca = TRUE,
+                           verbose = FALSE)$Y
+  res_tsne <- as.data.frame(res_tsne)
+  res_tsne <- cbind(res_tsne, category)
+  colnames(res_tsne)[3] <- "category"
+  p1 <- ggplot(res_tsne, aes(V1, V2, color = category)) + geom_point(shape = "+", size = 3) + 
+    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    labs(x = "Z1", y = "Z2", color = category_label)
+  
+  return(p1)
 }
 
 #' Rbind modification which fills missing columns with NA using base R functions
@@ -481,6 +562,8 @@ cbind_fill <- function(a,b) {
 }
 
 #' Plot p-values in -log10 scale with original labels
+#' 
+#' To help manage the scale differences, outliers (log p < Q1 - 1.5*IQR) are omitted. 
 #'
 #' @param x 
 #' @param target 
@@ -552,6 +635,15 @@ plot_pvalues <- function(x,
   return(temp)
 }
 
+plot_pairwise_metrics <- function(results, metrics) {
+  for (i in 1:(length(metrics)-1)) {
+    for (j in (i+1):length(metrics)) {
+      
+    }
+  }
+}
+
+
 setup_parallelization <- function(parallel) {
   if (is.null(parallel)) return(NULL)
   if (parallel > 1) {
@@ -586,6 +678,95 @@ split_by_safe <- function(x, by) {
     x_list <- NULL
   }
   return(x_list)
+}
+
+nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x), 
+                                  function(y) exp(-y), breaks = scales::log_breaks())
+
+#' Pairwise plots for visual Pareto based multi-objective optimization
+#'
+#' @param scores 
+#' @param plot_palette color codes used for coloring based on \code{color_var}
+#' @param metrics 
+#' @param color_var 
+#' @param shape_var 
+#' @param size_var 
+#'
+#' @return
+#' @export
+#'
+#' @importFrom pals watlington
+#' @importFrom ggplot2 ggplot ensym
+#' @importFrom cowplot get_legend
+#' @importFrom gridExtra grid.arrange
+#' @importFrom scales trans_new log_breaks
+pareto_plot <- function(scores, plot_palette = pals::watlington(16),
+                        metrics = c("TrainStabilityJaccard", 
+                                    "Silhouette", 
+                                    "Smallest_cluster_size"), 
+                        metrics_scale = rep("identity", length(metrics)), 
+                        color_var = "drname",
+                        shape_var = "m",
+                        size_var = "k", 
+                        size_range = c(2,6)) {
+  if (!"data.frame" %in% class(scores)) {
+    if (is.null(scores$all)) {
+      stop("Please provide a data.frame of scores")
+    } else {
+      # Assume that we are dealing with COPS::clusteval_scoring output
+      scores <- scores$all
+    }
+  }
+  
+  # Convert size_var to numeric to avoid warnings
+  size_var_conv <- as.numeric(as.character(scores[[size_var]]))
+  if (all(!is.na(size_var_conv))) scores[[size_var]] <- size_var_conv
+  
+  plot_list <- list()
+  # Create list of pairwise metric scatter plots
+  for (i in 1:(length(metrics)-1)) {
+    for (j in (i+1):length(metrics)) {
+      i_name <- metrics[i]
+      j_name <- metrics[j]
+      i_scale <- switch(metrics_scale[i], identity = "identity", nlog10 = nlog10_trans)
+      j_scale <- switch(metrics_scale[j], identity = "identity", nlog10 = nlog10_trans)
+      plot_ij <- ggplot(scores, aes(x = !!ggplot2::ensym(i_name), 
+                                    y = !!ggplot2::ensym(j_name), 
+                                    color = !!ggplot2::ensym(color_var), 
+                                    shape = !!ggplot2::ensym(shape_var), 
+                                    size = !!ggplot2::ensym(size_var))) + 
+        geom_point() + theme_bw() + scale_color_manual(values = plot_palette) + 
+        theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
+        scale_y_continuous(trans = j_scale, position = "right") +
+        scale_size(range = size_range)
+      plot_list <- c(plot_list, list(plot_ij))
+    }
+  }
+  # Create plot for legend extraction
+  legend_plot <- ggplot(scores, aes(x = 1, y = 1, 
+                                    color = !!ggplot2::ensym(color_var),
+                                    shape = !!ggplot2::ensym(shape_var), 
+                                    size = !!ggplot2::ensym(size_var))) + 
+    geom_point() + theme_bw() + scale_color_manual(values = plot_palette) +
+    theme(legend.box = "horizontal") + scale_size(range = size_range) + 
+    guides(shape = guide_legend(ncol = 1, order = 2), 
+           color = guide_legend(ncol = 1, order = 1),
+           size = guide_legend(ncol = 1, order = 3))
+  pareto_legend <- cowplot::get_legend(legend_plot)
+  
+  # Define layout for comparing metrics
+  layout <- matrix(NA, length(metrics) - 1, length(metrics) - 1)
+  layout[lower.tri(layout, diag = TRUE)] <- 1:length(plot_list)
+  layout <- layout[,(length(metrics)-1):1]
+  n <- length(metrics)-1
+  m <- floor(n/2)
+  layout[1:m,1:m] <- length(plot_list) + 1
+  
+  plot_list <- c(plot_list, list(pareto_legend))
+  
+  plot_out <- gridExtra::grid.arrange(grobs = plot_list, layout_matrix = layout)
+  
+  return(plot_out)
 }
 
 

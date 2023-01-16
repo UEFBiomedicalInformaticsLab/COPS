@@ -45,6 +45,7 @@ fgsea_wrapper(
   fgsea_input_cutoff = 0,
   parallel = 1,
   fgsea_nperm = 10000,
+  logp_scaling = TRUE,
   ...
 )
 }

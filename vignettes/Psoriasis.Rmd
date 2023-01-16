@@ -1,59 +1,471 @@
 ---
-title: "COPS tutorial"
+title: "COPS tutorial, gene-expression-driven psoriasis patient stratification"
 author: "Teemu Rintala and Vittorio Fortino"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{COPS tutorial}
+  %\VignetteIndexEntry{COPS tutorial, psoriasis}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-<style type="text/css">
+## Goals
 
-body{ /* Normal  */
-      font-size: 12px;
-  }
-td {  /* Table  */
-  font-size: 10px;
-}
-h1.title {
-  font-size: 30px;
-  color: DarkRed;
-}
-h1 { /* Header 1 */
-  font-size: 24px;
-  color: DarkBlue;
-}
-h2 { /* Header 2 */
-    font-size: 20px;
-  color: DarkBlue;
-}
-h3 { /* Header 3 */
-  font-size: 15px;
-  font-family: "Times New Roman", Times, serif;
-  color: DarkBlue;
-}
-code.r{ /* Code block */
-    font-size: 10px;
-}
-pre { /* Code block - determines code spacing between lines */
-    font-size: 10px;
-}
-</style>
+1. Pre-processing 
+    + batch correction
+    + normalization
+2. Clustering with COPS
+3. Comparing approaches
 
-## Load data
+## Load full psoriasis data set for pre-processing
 
-In this tutorial We use a subset of atopic dermatitis and psoriasis data from 
-Federico et al. 2020 (https://zenodo.org/record/4009497#.YPqD10xRWUl).
+In COPS we have included an example dataset related to psoriasis RNA-Seq data 
+from multiple studies collected by Federico et al. (2020). The full dataset 
+including atopic dermatitis studies is available at Zenodo. We also only consider 
+protein coding genes in this tutorial. 
 
 ```{r}
-
+names(COPS::psoriasis_rnaseq_example)
 ```
-
-##
 
 ```{r}
+psoriasis_data <- Reduce("cbind", lapply(COPS::psoriasis_rnaseq_example, as.matrix))
+#low_expression <- which(apply(psoriasis_rnaseq_example_combined > 0, 1, mean) < 0.5)
+zero_expression <- which(apply(psoriasis_data == 0, 1, all))
 
+psoriasis_data <- psoriasis_data[-zero_expression,]
 ```
+
+```{r}
+psoriasis_cli <- Reduce("rbind", COPS::psoriasis_clinical_example)
+if(any(rownames(psoriasis_cli) != colnames(psoriasis_data))) stop("id mismatch")
+```
+
+```{r}
+table(psoriasis_cli$lesional, psoriasis_cli$GSE)
+```
+
+## Batch effects
+In cases where we are trying to combine data from multiple different studies, it 
+is always advisable to check and correct for batch effects. 
+
+### RNA-Seq count normalization
+If batch effect correction is necessary, we should apply the correction first 
+before normalizing, but to check the effects without correction we simply omit 
+the correction step. 
+
+Let's define a function that uses edgeR TMM to normalize RNA-Seq data. And apply it:
+```{r}
+edger_normalize <- function(x) {
+  out <- edgeR::DGEList(counts = x)
+  out <- edgeR::calcNormFactors(out, method = "TMM")
+  return(edgeR::cpm(out))
+}
+psoriasis_data_normalized <- edger_normalize(psoriasis_data)
+```
+
+
+### Batch visualization before correction
+If the batch effect is very prominent, we can usually confirm it visually 
+by using tools like PCA or UMAP.
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+require(ggplot2)
+COPS::pca_viz(t(log2(psoriasis_data_normalized+1)), psoriasis_cli[["GSE"]], 
+              "study id") + scale_color_brewer(palette = "Set3")
+```
+
+### Batch correction
+
+To correct for a known batch effects we can use ComBat from the sva-package. 
+Since we also have different types of samples, we can either try to correct the 
+data for batch while using the sample type as a biological covariate and 
+retaining the associated variance in the data. Or alternatively, we can separate 
+the sample types and correct them separately. Here we apply the former strategy 
+since we have reasonably many batches(/studies) where different sample types 
+were sampled. 
+
+```{r}
+pso_combat_cov <- sva::ComBat_seq(psoriasis_data, 
+                                  batch = psoriasis_cli[["GSE"]], 
+                                  group = psoriasis_cli[["lesional"]])
+pso_combat_normalized <- edger_normalize(pso_combat_cov)
+```
+
+### Batch visualization after correction
+
+As expected, the batches become more mixed after correction: 
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+require(ggplot2)
+COPS::pca_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["GSE"]], 
+              "study id") + scale_color_brewer(palette = "Set3")
+```
+
+In addition, the lesional samples separate nicely from the nonlesional and 
+healthy control samples.
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+require(ggplot2)
+COPS::pca_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["lesional"]], 
+              "sample type")
+```
+
+The difference becomes even more obvious by using UMAP. 
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+require(ggplot2)
+set.seed(0)
+COPS::umap_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["lesional"]], 
+              "sample type")
+```
+
+### Batch effect metrics
+
+Our purpose is to discover subtypes of psoriasis in the gene-expression profiles 
+of patient skin samples affected by the disease, i.e. the lesional samples. 
+Therefore it is important that the batch effect within the affected subset is 
+small enough to be negligible in clustering analysis. After the correction it 
+is difficult to determine visually: 
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+require(ggplot2)
+lesional_id <- psoriasis_cli[["GSM"]][psoriasis_cli[["lesional"]] == "lesional"]
+COPS::pca_viz(t(log2(pso_combat_normalized[,lesional_id]+1)),
+              psoriasis_cli[lesional_id, "GSE"], 
+              "study id") + scale_color_brewer(palette = "Set3")
+```
+
+Dispersion Separability Criterion is used by TCGA batch viewer. In their 
+guidance they suggest 0.5 as a threshold for concern. 
+
+```{r}
+cat(paste0("DSC before correction: ", 
+           COPS::DSC(log2(psoriasis_data_normalized[,lesional_id]+1), 
+                     psoriasis_cli[lesional_id,"GSE"])))
+cat("\n")
+cat(paste0("DSC after  correction: ", 
+           COPS::DSC(log2(pso_combat_normalized[,lesional_id]+1), 
+                     psoriasis_cli[lesional_id,"GSE"])))
+```
+
+Clearly, ComBat was necessary and effective. 
+The DSC is a bit high for batch corrected data, but probably will not affect 
+clustering too much. Another way to measure batch effect is by using the 
+silhouette scores calculated with respect to the batch. Generally the average 
+silhouette should be under 0 for randomly labeled data (0 batch effect), but the 
+expected value depends on the dataset. 
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+norm_dist <- dist(t(log2(pso_combat_normalized[,lesional_id]+1)))
+norm_silh <- cluster::silhouette(as.numeric(factor(psoriasis_cli[lesional_id,"GSE"])), norm_dist)
+hist(norm_silh[,"sil_width"])
+```
+
+## Clustering analysis
+
+With the data batch corrected and normalized, we can start running clustering 
+algorithms. 
+
+For high dimensional datasets, dimensionality reduction is a useful technique 
+to improve the performance of clustering algorithms. For example, PCA can 
+reduce a full gene expression matrix to a handful of components that explain 
+most of the variance present. To check the amount of variance we can use any of 
+a multitude of options in R and we prefer FactomineR. 
+
+```{r}
+res_pca <- FactoMineR::PCA(t(log2(pso_combat_normalized+1)), scale.unit = FALSE, ncp = 10, graph = FALSE)
+res_pca$eig[1:20,]
+```
+
+We can see that after the 12 first components, each remaining component is 
+explaining less than 1% of the remaining variance. We presume that the latter 
+components comprise biological and technological noise and that the main 
+biological effects that we want to cluster are contained within the first 10 or 
+so components. Selecting the number of components is a non-trivial problem, but 
+we can test different numbers and see which yields the best clustering results. 
+
+### All in one pipeline
+
+The core functionality of COPS is the COPS-function which wraps cross-validation, 
+pathway profile computation, dimensionality reduction, clustering algorithms, 
+clustering quality analysis, clustering stability analysis, cluster-clinical 
+association analysis, cluster-survival analysis and cluster-gene-module 
+association analysis. 
+
+For evaluating silhouettes we can use distances computed in the embedded data 
+space or a pre-defined distance matrix. Silhouette scores are highly dependent 
+on the distribution of distances: in general as the number of dimensions 
+increases the average distance also increases which results in lower Silhouette 
+scores. To compare different settings for embeddings we can either focus on the 
+embedded space or the original space. Evaluating embedded space silhouettes we 
+are assessing the usefulness of the embedding for explaining the result while 
+using silhouettes based on the original space describes the overall molecular 
+cohesion and separation between the groups in each clustering result. In this 
+vignette we are doing a simple comparison of methods and therefore will be using 
+the latter strategy. 
+
+```{r}
+mrna_dist <- dist(t(log2(pso_combat_normalized[,lesional_id]+1)))
+```
+
+```{r}
+res <- COPS::COPS(log2(pso_combat_normalized[,lesional_id]+1), 
+                  parallel = 6, nruns = 2, nfolds = 5, 
+                  dimred_methods = c("pca"), 
+                  pca_dims = c(2:10),
+                  cluster_methods = c("diana", "kmeans"), 
+                  metric = "euclidean", 
+                  n_clusters = 2:6,
+                  association_data = psoriasis_cli[lesional_id,],
+                  silhouette_dissimilarity = mrna_dist)
+```
+
+The pipeline return a list of various analysis intermediaries such as the 
+embeddings (e.g., principal components computed on subsets of data), 
+the clusters and the appropriate clustering metrics. To summarise the results 
+into one data.frame we can use the clusteval_scoring function:
+
+```{r}
+scores <- COPS::clusteval_scoring(res, wsum = TrainStabilityJaccard + 
+                                              Silhouette - GSE.nmi,
+                                  significance_level = 0.05)
+```
+
+The wsum argument is used to define a composite metric comprised of multiple 
+metrics for ranking the results, but a better way to analyse results in terms of 
+multiple metrics or objectives is to consider all Pareto optimal solutions. 
+COPS includes a utility function to calculate Pareto fronts and to visualize 
+results with pairwise scatter plots of the metrics. Note that we exclude results 
+where the smallest cluster has fewer than 10 samples since very rare subtypes 
+would be difficult to validate. 
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
+                  metrics = c("TrainStabilityJaccard", "Silhouette", 
+                              "Smallest_cluster_size", "GSE.nmi"),
+                  plot_palette = RColorBrewer::brewer.pal(10, "Set3"))
+```
+
+Based on the figure DIANA seems to yield the highest silhouette and stability, 
+although the clusters are smaller than those based on k-means. The appropriate 
+number of clusters seems to be two. The number of principal components seems to 
+strongly impact the size of the second cluster in DIANA and the smaller groups 
+have higher silhouette scores. With seven components we achieve the highest 
+silhouette while average cluster size across the folds is 14.3. The batch effect 
+is low in general. COPS calculates many more metrics which could be used for 
+deciding on the solutions for down-stream analysis. For stability we prefer to 
+use the Jaccard index to compare each CV fold's clustering result to the reference, 
+since it weights pairs of samples belonging to the same cluster more heavily 
+than the adjusted Rand index (ARI) or normalized mutual information (NMI). For 
+batch effect we prefer the NMI, since usually the number of batches is higher 
+than the number of clusters and NMI is more approriate than Jaccard index or ARI 
+in that case. COPS also test for the homogeneity of the clusters with respect to 
+batches by using the Chi-squared test and if scoring summary is set to TRUE will 
+calculate the rejection rates for a given significance level. The Chi-squared 
+test can be overly sensitive, so usually NMI is more helpful. 
+
+### Disease gene modules
+
+A common method that can be used to find sets of genes that form potential disease 
+functional groups or pathways is weighted gene co-expression network analysis 
+(WGCNA). Here we provide an example of a quick analysis to define a gene 
+co-expression network and gene modules from gene-expression data. We can then 
+use the disease module eigen-genes to evaluate the mechanistic complexity of the 
+clustering results by using gene_module_score. Since this can take a while, we 
+will just use the 1000 highest variance genes. 
+
+```{r}
+top_var <- nrow(pso_combat_normalized) - rank(apply(log2(pso_combat_normalized + 1), 1, var))
+gene_correlation <- cor(t(pso_combat_normalized[top_var < 1000,]), method =  "spearman")
+```
+
+```{r, eval = FALSE}
+# NOT RUN
+# The pickSoftThreshold on version 1.71 of WGCNA has some issues for me. 
+# This code runs, but starts debug mode in RStudio. 
+WGCNA::disableWGCNAThreads()
+scale_free_stats <- WGCNA::pickSoftThreshold(gene_correlation, 
+                                             dataIsExpr = FALSE, 
+                                             powerVector = 1:20)
+plot(scale_free_stats$fitIndices$Power, scale_free_stats$fitIndices$SFT.R.sq)
+plot(scale_free_stats$fitIndices$Power, scale_free_stats$fitIndices$mean.k.)
+```
+
+```{r}
+gcn_power <- 7
+# Define adjacency matrix: correlation to power maximizing scale free topology
+adj <- WGCNA::adjacency.fromSimilarity(gene_correlation, power = gcn_power)
+# Calculate Topology Overlap Matrix
+TOM <- WGCNA::TOMsimilarity(adj, TOMType = "unsigned")
+# Hierarchical clustering based on 1-TOM
+geneTree <- flashClust::flashClust(as.dist(1 - TOM), method="average")
+# Use adptive branch pruning to get gene clustering result
+dynamicMods <- dynamicTreeCut::cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 20)
+# Calculate eigen-genes from expression data and modules
+MEList <- WGCNA::moduleEigengenes(t(log2(pso_combat_normalized[top_var < 1000,]+1)[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
+MEs <- MEList$eigengenes
+```
+
+With the eigen-genes defined we can use module_evaluation on the previous 
+clustering results to evaluate the mechanistic complexity. We do this by first
+calculating the correlation between clusters and the module eigen-genes. Second, 
+we apply a threshold on the correlations and calculate a score based on how many 
+modules are correlated with the clusters and how distinct the clusters are in 
+terms of modules correlated to them. 
+
+```{r}
+gm_scores <- COPS::module_evaluation(res$clusters, module_eigs = MEs,
+                                     module_cor_threshold = 0.3,
+                                     module_nan.substitute = 0, 
+                                     parallel = 6)
+```
+
+
+We can redo the summaries with the module scores included. 
+```{r}
+res$modules <- gm_scores
+scores <- COPS::clusteval_scoring(res, wsum = TrainStabilityJaccard + 
+                                              Silhouette - GSE.nmi,
+                                  significance_level = 0.05)
+```
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
+                  metrics = c("TrainStabilityJaccard", "Silhouette", 
+                              "Smallest_cluster_size", "GSE.nmi", 
+                              "Module_score"),
+                  plot_palette = RColorBrewer::brewer.pal(10, "Set3"))
+```
+
+
+### Pathway based clustering approaches
+
+COPS offers a few high performance pathway based clustering approaches that can 
+be used for large datasets while also utilizing resampling for evaluation. 
+Specifically, COPS can use GSVA, DiffRank or RWR-FGSEA to transform gene-expression 
+profiles into pathway activity profiles. 
+
+To download pathway gene sets we prefer to use MSigDB which combines many sources 
+of pathway annotations. To keep the runtime short we will only use KEGG and filter 
+the pathways based on size. 
+
+```{r}
+pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
+pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
+pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
+pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
+```
+
+The RWR-FGSEA method also requires a gene-network, since it uses random walk with 
+restart to generate gene statistics for gene set enrichment analysis. We can use 
+networks based on biological databases such as protein protein interactions (PPI) 
+or we can generate a co-expression network from the gene-expression data. For this 
+we can again use WGCNA, but this time we will use an unweighted network which tend 
+to perform better with RWR than weighted networks. To keep the runtime short we 
+again only consider the 1000 highest variance genes, but in general all genes 
+should be included, since the purpose of RWR is to extend a set of separately 
+identified dysregulated genes to genes that are guilty by association which are 
+otherwise missed by e.g. differential expression analysis. 
+
+```{r}
+top_var <- nrow(pso_combat_normalized) - rank(apply(log2(pso_combat_normalized + 1), 1, var))
+gene_correlation <- cor(t(pso_combat_normalized[top_var < 1000,]), method =  "spearman")
+```
+
+WGCNA has a helper function to identify a correlation cutoff that optimizes the 
+scale-free topology of the unweighted network:
+
+```{r, eval = FALSE}
+# NOT RUN
+# The pickSoftThreshold on version 1.71 of WGCNA has some issues for me. 
+# This code runs, but starts debug mode in RStudio. 
+WGCNA::disableWGCNAThreads()
+scale_free_stats <- WGCNA::pickHardThreshold(abs(gene_correlation), 
+                                             dataIsExpr = FALSE, 
+                                             cutVector = seq(0.5, 0.95, by = 0.05))
+plot(scale_free_stats$fitIndices$Cut, scale_free_stats$fitIndices$SFT.R.sq)
+plot(scale_free_stats$fitIndices$Cut, scale_free_stats$fitIndices$mean.k.)
+```
+
+```{r}
+gcn <- WGCNA::signumAdjacencyFunction(gene_correlation, threshold = 0.75)
+gcn <- igraph::graph_from_adjacency_matrix(gcn, mode = "undirected", weighted = NULL)
+gcn_components <- igraph::components(gcn)
+# remove all isolated genes
+gcn <- igraph::delete_vertices(gcn, gcn_components$csize[gcn_components$membership] == 1)
+```
+
+Now we only need to define a set of maximally dysregulated genes for each sample. 
+These are used as seeds for the random walk to discover associated genes and to 
+generate gene statistics for FGSEA. This is not a trivial task, but in practice 
+simple strategies like selecting the genes with highest expression in each sample 
+yield reasonable results. COPS::RWRFGSEA can do this automatically given an 
+expression matrix as input. For this vignette we want to consider pathway 
+transformation as an alternative to dimensionality reduction. Since the number of 
+considered pathways is still reasonably high at 171, we choose to utilize spearman 
+correlation distance and hierarchical clustering. 
+
+In order to run within the cross-validated evaluation framework, we can use the 
+COPS pipeline:
+
+```{r}
+res_rwrfgsea <- COPS::COPS(log2(pso_combat_normalized[,lesional_id]+1), 
+                           parallel = 6, nruns = 2, nfolds = 5, 
+                           pathway_enrichment_method = "RWRFGSEA", 
+                           gene_network = gcn, 
+                           rwr_seed_size = 25, 
+                           gene_set_list = pw_list, 
+                           dimred_methods = c("none"), 
+                           pca_dims = c(2:10),
+                           cluster_methods = c("diana"), 
+                           metric = "correlation", 
+                           n_clusters = 2:6,
+                           association_data = psoriasis_cli[lesional_id,],
+                           silhouette_dissimilarity = mrna_dist,
+                           module_eigs = MEs,
+                           module_cor_threshold = 0.3,
+                           module_nan.substitute = 0)
+```
+
+
+
+
+
+### Feature selection
+
+Feature selection has a very large impact on the results. Here we present 
+results obtained by using a preselected set of genes
+
+```{r}
+deg_dist <- dist(t(log2(pso_combat_normalized[COPS::psoriasis_degs_example,lesional_id]+1)))
+res_degs <- COPS::COPS(log2(pso_combat_normalized[COPS::psoriasis_degs_example,lesional_id]+1), 
+                       parallel = 6, nruns = 2, nfolds = 5, 
+                       dimred_methods = c("pca"), 
+                       pca_dims = c(2:10),
+                       cluster_methods = c("diana", "kmeans"), 
+                       metric = "euclidean", 
+                       n_clusters = 2:6,
+                       association_data = psoriasis_cli[lesional_id,],
+                       silhouette_dissimilarity = deg_dist)
+```
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+scores <- COPS::clusteval_scoring(res_degs, wsum = TrainStabilityJaccard + 
+                                              Silhouette - GSE.nmi,
+                                  significance_level = 0.05)
+COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
+                  metrics = c("TrainStabilityJaccard", "Silhouette", 
+                              "Smallest_cluster_size", "GSE.nmi"),
+                  plot_palette = RColorBrewer::brewer.pal(10, "Set3"))
+```
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+
 

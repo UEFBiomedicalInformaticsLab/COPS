@@ -185,30 +185,6 @@ get_best_result <- function(res,
   return(out)
 }
 
-data_preprocess <- function(dat, verbose = TRUE) {
-  if ("list" %in% class(dat)) {
-    dat_list <- dat
-  } else {
-    dat_list <- list(dat)
-  }
-  if(verbose) print("Processing data sets ..."); flush.console()
-  
-  # Collect gene names for later. 
-  # They are required for pathway-based approaches
-  gene_id_list <- lapply(dat_list, rownames)
-  
-  # Convert data to data.table to optimize memory usage
-  for (i in 1:length(dat_list)) {
-    id <- colnames(dat_list[[i]])
-    dat_list[[i]] <- data.table::as.data.table(t(dat_list[[i]]))
-    #data.table::setDT(dat_list[[i]])
-    colnames(dat_list[[i]]) <- paste0("dim", 1:ncol(dat_list[[i]]))
-    dat_list[[i]]$id <- id
-    data.table::setkey(dat_list[[i]], id)
-  }
-  return(list(dat_list = dat_list, gene_id_list = gene_id_list))
-}
-
 #' Clustering algorithms for Omics based Patient Stratification
 #'
 #' Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
@@ -235,7 +211,19 @@ data_preprocess <- function(dat, verbose = TRUE) {
 #' different views of the same patients. Available methods are listed in the
 #' documentation for \code{\link{multi_omic_clustering}}. 
 #'
-#' @return Returns a \code{list} of pipeline component outputs for given settings and input data sets.
+#' @return 
+#' Returns a \code{list} of pipeline component outputs for each run, fold and 
+#' method given different settings and input data sets. 
+#' \itemize{
+#'   \item{clusters} \code{data.frame} defining clusters
+#'   \item{internal_metrics} \code{data.frame} of internal metrics
+#'   \item{stability} \code{data.frame} of stability scores
+#'   \item{survival} \code{data.frame} of survival analysis results
+#'   \item{modules} \code{data.frame} of gene module association scores
+#'   \item{association} \code{data.frame} of association results to variables of interest
+#'   \item{cluster_sizes} \code{data.frame} giving the sizes of clusters
+#' }
+#' 
 #' @export
 #' @examples library(parallel)
 #' library(COPS)
@@ -319,9 +307,9 @@ COPS <- function(dat,
     }
     pw_start <- Sys.time()
     if(verbose) print("Starting pathway enrichment ..."); flush.console()
-    dat_pw <- cv_pathway_enrichment(dat$dat_list, 
-                                    cv_index, 
-                                    dat$gene_id_list, 
+    dat_pw <- cv_pathway_enrichment(dat_list = dat$dat_list, 
+                                    cv_index = cv_index, 
+                                    gene_id_list = dat$gene_id_list, 
                                     enrichment_method = pathway_enrichment_method, 
                                     parallel = parallel, 
                                     ...)
@@ -748,7 +736,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #' @param res \code{\link{COPS}} output
 #' @param by character vector containing column names to group analysis by
 #' @param wsum an expression that indicates how a combined score is computed 
-#' @param chisq_significance_level p-value cutoff for computing rejection rate of \code{chisq.test}
+#' @param significance_level p-value cutoff for computing rejection rates
 #' @param summarise If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. By default the metrics 
 #'   are averaged across runs and folds. 
 #'
@@ -779,8 +767,9 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 clusteval_scoring <- function(res,
                               by = c("datname", "drname", "k", "m", "mkkm_mr_lambda"),
                               wsum = TrainStabilityJaccard + Silhouette,
-                              chisq_significance_level = 0.05,
+                              significance_level = 0.05,
                               summarise = TRUE) {
+  uf <- unique(res$clusters[["fold"]])
   if (summarise == FALSE) {
     if (!"run" %in% by) {
       by <- c(by, "run")
@@ -788,11 +777,15 @@ clusteval_scoring <- function(res,
     if (!"fold" %in% by) {
       by <- c(by, "fold")
     }
+    non_reference_fold <- uf
+  } else {
+    non_reference_fold <- uf[uf %in% unique(res$clusters[["cv_index"]])]
   }
+  
   # Internal metrics
   if (!is.null(res$internal_metrics)) {
     by_internal <- by[by %in% colnames(res$internal_metrics)]
-    mean_internals <- plyr::ddply(res$internal_metrics, 
+    mean_internals <- plyr::ddply(res$internal_metrics[res$internal_metrics[["fold"]] %in% non_reference_fold,], 
                                   c(by_internal, "metric"), 
                                   function(x) data.frame(mean = mean(x$value, na.rm = TRUE), 
                                                          sd = sd(x$value, na.rm = TRUE)))
@@ -803,19 +796,22 @@ clusteval_scoring <- function(res,
     mean_internals <- NULL
   }
   
+  # Batch label chi-squared tests (deprecated)
   if (!is.null(res$chisq_pval)) {
     # Average number of chi-squared test pvalues under threshold in all given labels
     by_chisq <- by[by %in% colnames(res$chisq_pval)]
     if (summarise) {
-      chisq_f <- function(x) data.frame(chisqRR = mean(x$p < chisq_significance_level, na.rm = TRUE))
-      chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
+      chisq_f <- function(x) data.frame(chisqRR = mean(x$p < significance_level, na.rm = TRUE))
+      chisq_rr <- plyr::ddply(res$chisq_pval[res$chisq_pval[["fold"]] %in% non_reference_fold,], 
+                              c(by_chisq, "label"), chisq_f)
       chisq_rr$label <- paste0("ChisqRR.", chisq_rr$label)
       chisq_rr <- reshape2::dcast(chisq_rr, 
                                   as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
                                   value.var = "chisqRR")
     } else {
       chisq_f <- function(x) data.frame(chisq.p = mean(x$p, na.rm = TRUE))
-      chisq_rr <- plyr::ddply(res$chisq_pval, c(by_chisq, "label"), chisq_f)
+      chisq_rr <- plyr::ddply(res$chisq_pval[res$chisq_pval[["fold"]] %in% non_reference_fold,], 
+                              c(by_chisq, "label"), chisq_f)
       chisq_rr$label <- paste0("chisq.p.", chisq_rr$label)
       chisq_rr <- reshape2::dcast(chisq_rr, 
                                   as.formula(paste(paste(by_chisq, collapse = "+"), "~ label")), 
@@ -825,11 +821,11 @@ clusteval_scoring <- function(res,
     chisq_rr <- NULL
   }
   
-  # Batch label associations (to be deprecated)
+  # Batch label associations (deprecated)
   if (!is.null(res$batch_association)) {
     if (nrow(res$batch_association) > 0) {
       by_bassoc <- by[by %in% colnames(res$batch_association)]
-      bassoc <- plyr::ddply(res$batch_association, 
+      bassoc <- plyr::ddply(res$batch_association[res$batch_association[["fold"]] %in% non_reference_fold,], 
                               c(by_bassoc, "label"), 
                               function(x) data.frame(NMI = mean(x$nmi, na.rm = TRUE), ARI = mean(x$ari, na.rm = TRUE)))
       bassoc_nmi <- reshape2::dcast(bassoc, 
@@ -849,11 +845,11 @@ clusteval_scoring <- function(res,
     bassoc_ari <- NULL
   }
   
-  # Subtype label associations (to be deprecated)
+  # Subtype label associations (deprecated)
   if (!is.null(res$subtype_association)) {
     if (nrow(res$subtype_association) > 0) {
       by_sassoc <- by[by %in% colnames(res$subtype_association)]
-      sassoc <- plyr::ddply(res$subtype_association, 
+      sassoc <- plyr::ddply(res$subtype_association[res$subtype_association[["fold"]] %in% non_reference_fold,], 
                             c(by_sassoc, "label"), 
                             function(x) data.frame(NMI = mean(x$nmi, na.rm = TRUE), ARI = mean(x$ari, na.rm = TRUE)))
       sassoc_nmi <- reshape2::dcast(sassoc, 
@@ -876,13 +872,17 @@ clusteval_scoring <- function(res,
   # Survival likelihood ratio test
   if (!is.null(res$survival)) {
     if (summarise) {
+      # TODO: p-value like handling, c-index easier?
       warning("Currently summary of survival p-values is not implemented.")
+      survival <- res$survival[res$survival[["fold"]] %in% non_reference_fold,]
+      colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
+      
     }
     #by_survival <- by[by %in% colnames(res$survival)]
     #survival <- plyr::ddply(res$survival, 
     #                        by_survival, 
     #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
-    survival <- res$survival
+    survival <- res$survival[res$survival[["fold"]] %in% non_reference_fold,]
     colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
   } else {
     survival <- NULL
@@ -891,7 +891,7 @@ clusteval_scoring <- function(res,
   # Module correlation scores
   if (!is.null(res$modules)) {
     by_modules <- by[by %in% colnames(res$modules)]
-    modules <- plyr::ddply(res$modules, 
+    modules <- plyr::ddply(res$modules[res$modules[["fold"]] %in% non_reference_fold,], 
                             by_modules, 
                             function(x) data.frame(Module_score = mean(x$Module_score, na.rm = TRUE)))
   } else {
@@ -901,29 +901,37 @@ clusteval_scoring <- function(res,
   # Variable association tests
   if (!is.null(res$association)) {
     if (summarise) {
-      warning("Currently summary of association p-values is not implemented.")
       assoc_string <- "\\.nmi$|\\.ari$"
     } else {
       assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
     }
     by_association <- by[by %in% colnames(res$association)]
-    association <- plyr::ddply(res$association, 
+    association <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
                                by_association, 
                                function(x) as.data.frame(lapply(x[grepl(assoc_string, colnames(x))], mean, na.rm = TRUE)))
+    if (summarise) {
+      association_rr <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
+                                    by_association, 
+                                    function(x) as.data.frame(lapply(x[grepl("\\.p$", colnames(x))], function(x) mean(x < significance_level, na.rm = TRUE))))
+      colnames(association_rr) <- gsub("\\.p$", ".rr", colnames(association_rr))
+      association <- plyr::join(association, association_rr, by = by_association)
+    }
   } else {
     association <- NULL
   }
   
+  # Cluster sizes
   if (!is.null(res$cluster_sizes)) {
-    # TODO: fix clustering analysis so that drname, run and fold are present in res$cluster_sizes
     by_cluster_sizes <- by[by %in% colnames(res$cluster_sizes)]
-    cluster_sizes <- res$cluster_sizes
+    cluster_sizes <- res$cluster_sizes[res$cluster_sizes[["fold"]] %in% non_reference_fold,]
     cluster_cols <- grep("X[0-9]+", colnames(cluster_sizes))
     csize_names <- paste0("Cluster_", gsub("^X", "", colnames(cluster_sizes))[cluster_cols], "_size")
     colnames(cluster_sizes)[cluster_cols] <- csize_names
+    smallest_cluster_size <- apply(as.data.frame(cluster_sizes)[,csize_names], 1, min, na.rm = TRUE)
+    cluster_sizes[["Smallest_cluster_size"]] <- smallest_cluster_size
     cluster_sizes <- plyr::ddply(cluster_sizes, 
                                  by_cluster_sizes, 
-                                 function(x) as.data.frame(lapply(x[grepl("^Cluster_[0-9]+_size", colnames(x))], mean, na.rm = TRUE)))
+                                 function(x) as.data.frame(lapply(x[c(csize_names, "Smallest_cluster_size")], mean, na.rm = TRUE)))
   } else {
     cluster_sizes <- NULL
   }
@@ -931,7 +939,7 @@ clusteval_scoring <- function(res,
   if (!is.null(res$stability)) {
     # Stability
     by_stability <- by[by %in% colnames(res$stability)]
-    stability <- res$stability
+    stability <- res$stability[res$stability[["fold"]] %in% non_reference_fold,]
     stab_col_ind <- match(c("train_jsc", "train_nmi", "train_ari", "test_jsc", "test_nmi", "test_ari"), colnames(stability))
     colnames(stability)[stab_col_ind[!is.na(stab_col_ind)]] <- c("TrainStabilityJaccard", "TrainStabilityNMI", "TrainStabilityARI",
                                            "TestStabilityJaccard", "TestStabilityNMI", "TestStabilityARI")[!is.na(stab_col_ind)]
@@ -955,7 +963,7 @@ clusteval_scoring <- function(res,
               cluster_sizes,
               stability)
   if (!is.null(res$mkkm_mr_weights) & !summarise) {
-    out$mkkm_mr_weights <- res$mkkm_mr_weights
+    out$mkkm_mr_weights <- res$mkkm_mr_weights[res$mkkm_mr_weights[["fold"]] %in% non_reference_fold,]
   }
   #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   out <- Reduce(function(x,y) plyr::join(x, y, 
@@ -970,6 +978,10 @@ clusteval_scoring <- function(res,
   
   out$wsum <- eval(score, out)
   best <- out[which.max(out$wsum),]
+  
+  if ("run" %in% colnames(out)) out[["run"]] <- factor(out[["run"]])
+  if ("fold" %in% colnames(out)) out[["fold"]] <- factor(out[["fold"]])
+  if ("k" %in% colnames(out)) out[["k"]] <- factor(out[["k"]])
   
   return(list(all = out[order(out$wsum, decreasing = TRUE),], 
               best = best))

@@ -8,7 +8,7 @@ clustering_metrics(
   x,
   dat = NULL,
   by = c("k", "m"),
-  clustering_dissimilarity = NULL,
+  dissimilarity = NULL,
   cluster_size_table = TRUE,
   silhouette_min_cluster_size = 0,
   ...
@@ -17,11 +17,11 @@ clustering_metrics(
 \arguments{
 \item{x}{A data.frame of clustering results.}
 
-\item{dat}{A data.frame with data columns identified with "dim". Not required if clustering_dissimilarity is defined.}
+\item{dat}{A data.frame with data columns identified with "dim". Not required if dissimilarity is defined.}
 
 \item{by}{vector of variable names to split by}
 
-\item{clustering_dissimilarity}{a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}}
+\item{dissimilarity}{a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}}
 
 \item{cluster_size_table}{return cluster sizes if \code{TRUE}.}
 

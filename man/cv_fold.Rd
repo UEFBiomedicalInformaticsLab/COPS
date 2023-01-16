@@ -11,11 +11,12 @@ cv_fold(
   stratified_cv = FALSE,
   anti_stratified = FALSE,
   cv_stratification_var = NULL,
+  extra_fold = TRUE,
   ...
 )
 }
 \arguments{
-\item{dat_list}{list of data matrices with samples on columns}
+\item{dat_list}{list of datasets, each either data.table or data.frame (samples x features) with an "id" column or expression matrix (genes x samples) with named columns}
 
 \item{nfolds}{number of cross-validation folds}
 

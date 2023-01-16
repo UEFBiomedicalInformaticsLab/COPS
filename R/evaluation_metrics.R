@@ -1,7 +1,7 @@
 #' Dispersion Separability Criterion
 #'
 #' Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
-#' Based on \url{http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.95.1128}.
+#' Based on \url{https://www.jmlr.org/papers/v5/dy04a.html}.
 #' Can be used to measure batch effect. 
 #'
 #' @param data_matrix numeric matrix, samples on columns

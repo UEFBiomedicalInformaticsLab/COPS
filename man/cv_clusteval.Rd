@@ -4,7 +4,13 @@
 \alias{cv_clusteval}
 \title{Clustering analysis on cross-validated data sets}
 \usage{
-cv_clusteval(dat_embedded, parallel = 1, by = c("run", "fold"), ...)
+cv_clusteval(
+  dat_embedded,
+  parallel = 1,
+  by = c("datname", "drname", "run", "fold"),
+  silhouette_dissimilarity = NULL,
+  ...
+)
 }
 \arguments{
 \item{dat_embedded}{list of \code{data.frame}s}
@@ -13,7 +19,9 @@ cv_clusteval(dat_embedded, parallel = 1, by = c("run", "fold"), ...)
 
 \item{by}{variables to split input data by}
 
-\item{...}{extra arguments are passed through to clustering_evaluation}
+\item{silhouette_dissimilarity}{dissimilarity matrix used for silhouette evaluation}
+
+\item{...}{extra arguments are passed through to \code{\link{clustering_dissimilarity_from_data}}, \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}}}
 }
 \value{
 Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}} outputs for every

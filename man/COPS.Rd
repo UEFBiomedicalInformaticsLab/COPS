@@ -45,11 +45,21 @@ COPS(
 \item{...}{Extra arguments are passed to pipeline components where appropriate.}
 }
 \value{
-Returns a \code{list} of pipeline component outputs for given settings and input data sets.
+Returns a \code{list} of pipeline component outputs for each run, fold and 
+method given different settings and input data sets. 
+\itemize{
+  \item{clusters} \code{data.frame} defining clusters
+  \item{internal_metrics} \code{data.frame} of internal metrics
+  \item{stability} \code{data.frame} of stability scores
+  \item{survival} \code{data.frame} of survival analysis results
+  \item{modules} \code{data.frame} of gene module association scores
+  \item{association} \code{data.frame} of association results to variables of interest
+  \item{cluster_sizes} \code{data.frame} giving the sizes of clusters
+}
 }
 \description{
 Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
-\code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, \code{\link{stability_eval}}, 
+\code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, 
 \code{\link{stability_eval}}, \code{\link{survival_evaluation}}, 
 \code{\link{module_evaluation}} and \code{\link{association_analysis_cv}} 
 to conveniently and comprehensively test clustering algorithms on a given set of input data.

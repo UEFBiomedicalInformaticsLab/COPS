@@ -4,10 +4,15 @@
 \alias{getHumanPPIfromSTRINGdb}
 \title{Retrieve human protein-protein interaction network from STRINGdb.}
 \usage{
-getHumanPPIfromSTRINGdb(gene.diseases, cutoff = 700, directed = FALSE)
+getHumanPPIfromSTRINGdb(
+  gene_ids,
+  cutoff = 700,
+  directed = FALSE,
+  version = "11"
+)
 }
 \arguments{
-\item{gene.diseases}{a character vector indicating the gene seeds.}
+\item{gene_ids}{a character vector indicating target genes to include.}
 
 \item{cutoff}{a numeric value indicating the cutoff for the edge scores.}
 

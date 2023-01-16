@@ -11,12 +11,12 @@ clusteval_scoring(
   res,
   by = c("datname", "drname", "k", "m", "mkkm_mr_lambda"),
   wsum = TrainStabilityJaccard + Silhouette,
-  chisq_significance_level = 0.05,
+  significance_level = 0.05,
   summarise = TRUE
 )
 }
 \arguments{
-\item{res}{\code{\link{dimred_clusteval_pipeline}} output}
+\item{res}{\code{\link{COPS}} output}
 
 \item{scores}{scores from \code{\link{clusteval_scoring}}}
 
@@ -24,7 +24,7 @@ clusteval_scoring(
 
 \item{wsum}{an expression that indicates how a combined score is computed}
 
-\item{chisq_significance_level}{p-value cutoff for computing rejection rate of \code{chisq.test}}
+\item{significance_level}{p-value cutoff for computing rejection rates}
 
 \item{summarise}{If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. By default the metrics 
 are averaged across runs and folds.}
@@ -56,8 +56,8 @@ In practice retrieves reference fold result from first run matching the best res
 library(COPS)
 library(parallel)
 
-res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-batch_label = ad_studies, 
+res <- COPS(ad_ge_micro_zscore, 
+association_data = ad_studies, 
 parallel = 2, nruns = 2, nfolds = 5, 
 dimred_methods = c("pca", "umap", "tsne"), 
 cluster_methods = c("hierarchical", "kmeans"), 

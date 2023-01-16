@@ -207,9 +207,9 @@ clustering_dissimilarity_from_data <- function(x,
 #' Single embedding or dataset evaluation
 #'
 #' @param x A data.frame of clustering results. 
-#' @param dat A data.frame with data columns identified with "dim". Not required if clustering_dissimilarity is defined. 
+#' @param dat A data.frame with data columns identified with "dim". Not required if dissimilarity is defined. 
 #' @param by vector of variable names to split by
-#' @param clustering_dissimilarity a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}
+#' @param dissimilarity a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}
 #' @param cluster_size_table return cluster sizes if \code{TRUE}.
 #' @param silhouette_min_cluster_size proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.
 #' @param ... extra arguments are passed to \code{\link{clustering_dissimilarity_from_data}}
@@ -220,15 +220,15 @@ clustering_dissimilarity_from_data <- function(x,
 clustering_metrics <- function(x, 
                                dat = NULL, 
                                by = c("k", "m"), # must have k and m # TODO: fix?
-                               clustering_dissimilarity = NULL, 
+                               dissimilarity = NULL, 
                                cluster_size_table = TRUE, 
                                silhouette_min_cluster_size = 0.0,
                                ...) {
   x <- as.data.frame(x)
   by <- by[by %in% colnames(x)]
   # Create dissimilarity matrix for Silhouette computation and HC
-  if (!is.null(clustering_dissimilarity)) {
-    diss <- clustering_dissimilarity
+  if (!is.null(dissimilarity)) {
+    diss <- dissimilarity
   } else {
     if (is.null(dat)) {
       stop("Cannot evaluate metrics, both dissimilarity and data are missing.")
@@ -272,7 +272,8 @@ clustering_metrics <- function(x,
 #' @param dat_embedded list of \code{data.frame}s
 #' @param parallel number of threads
 #' @param by variables to split input data by
-#' @param ... extra arguments are passed through to clustering_evaluation
+#' @param silhouette_dissimilarity dissimilarity matrix used for silhouette evaluation
+#' @param ... extra arguments are passed through to \code{\link{clustering_dissimilarity_from_data}}, \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}}
 #'
 #' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}} outputs for every
 #'         combination of CV run, CV fold, clustering method, number of clusters as well as all combinations of
@@ -282,7 +283,8 @@ clustering_metrics <- function(x,
 #' @importFrom data.table rbindlist
 cv_clusteval <- function(dat_embedded, 
                          parallel = 1, 
-                         by = c("datname", "drname", "run", "fold"),
+                         by = c("datname", "drname", "run", "fold"), 
+                         silhouette_dissimilarity = NULL, 
                          ...) {
   temp_list <- list()
   for (i in 1:length(dat_embedded)) {
@@ -296,12 +298,12 @@ cv_clusteval <- function(dat_embedded,
   # Binding function that concatenates relevant list components
   cfun <- function(...){
     bound_list <- list()
-    bound_list$clusters <- rbindlist(lapply(list(...), function(x) x$clusters))
-    bound_list$metrics <- rbindlist(lapply(list(...), function(x) x$metrics))
-    #bound_list$chisq_pval <- rbindlist(lapply(list(...), function(x) x$chisq_pval))
-    #bound_list$batch_association <- rbindlist(lapply(list(...), function(x) x$batch_association))
-    #bound_list$subtype_association <- rbindlist(lapply(list(...), function(x) x$subtype_association))
-    bound_list$cluster_sizes <- rbindlist(lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
+    bound_list$clusters <- data.table::rbindlist(lapply(list(...), function(x) x$clusters))
+    bound_list$metrics <- data.table::rbindlist(lapply(list(...), function(x) x$metrics))
+    #bound_list$chisq_pval <- data.table::rbindlist(lapply(list(...), function(x) x$chisq_pval))
+    #bound_list$batch_association <- data.table::rbindlist(lapply(list(...), function(x) x$batch_association))
+    #bound_list$subtype_association <- data.table::rbindlist(lapply(list(...), function(x) x$subtype_association))
+    bound_list$cluster_sizes <- data.table::rbindlist(lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
     return(bound_list)
   }
   
@@ -315,7 +317,8 @@ cv_clusteval <- function(dat_embedded,
                           .maxcombine = max(length(temp_list), 2)) %dopar% {
                             temp_diss <- clustering_dissimilarity_from_data(temp, ..., preprocess = TRUE)
                             temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
-                            temp_metrics <- clustering_metrics(temp_clust, clustering_dissimilarity = temp_diss, by = c(by, "k", "m"), ...)
+                            if (is.null(silhouette_dissimilarity)) silhouette_dissimilarity <- temp_diss
+                            temp_metrics <- clustering_metrics(temp_clust, dissimilarity = silhouette_dissimilarity, by = c(by, "k", "m"), ...)
                             res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
                             res
                           }, finally = close_parallel_cluster(parallel_clust))

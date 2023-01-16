@@ -40,5 +40,5 @@ plot_pvalues(
 
 }
 \description{
-Plot p-values in -log10 scale with original labels
+To help manage the scale differences, outliers (log p < Q1 - 1.5*IQR) are omitted.
 }

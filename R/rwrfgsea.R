@@ -6,7 +6,7 @@
 #' @param expr a gene expression matrix with samples on columns
 #' @param gene_network an \code{igraph.object} with nodes matching to \code{expr} rows
 #' @param gene_set_list list of character vectors containing gene sets for FGSEA
-#' @param disease_genes a character vector containing Entrez IDs of genes associated with the target disease
+#' @param disease_genes a character vector containing gene IDs associated with the target disease
 #' @param rwr_gene_lists list containing exactly two character vectors corresponding to gene ids. Used to separate genes for double RWR 
 #'   (e.g. up and down regulated seeds) RWR affinities of second seed list will get subtracted from the RWR affinities of the first seed list. 
 #' @param rwr_seed_size integer, controls the number of gene seed candidates to intersect with the disease genes
@@ -23,6 +23,8 @@
 #' @param rwr_return_seeds if TRUE, returns seeds in output list (not implemented)
 #' @param fgsea_nperm a numeric value determining the number of permutations used in \code{\link[fgsea]{fgseaSimple}}
 #' @param ... extra arguments are ignored
+#' 
+#' @details The default behaviour 
 #'
 #' @return matrix of enrichment scores
 #' @export
@@ -184,6 +186,7 @@ fgsea_wrapper <- function(data_matrix,
                           fgsea_input_cutoff = 0, 
                           parallel = 1, 
                           fgsea_nperm = 10000, 
+                          logp_scaling = TRUE, 
                           ...) {
   parallel_clust <- setup_parallelization(parallel)
   # Use foreach to speed up per sample FGSEA
@@ -201,7 +204,12 @@ fgsea_wrapper <- function(data_matrix,
                                                maxSize = min(max(sapply(gene_set_list, length)), length(genes_i) - 1), 
                                                nproc = 1)
                    res_out <- rep(NA, length(gene_set_list))
-                   res_out[match(res_i$pathway, names(gene_set_list))] <- res_i$NES * (-log10(res_i$pval)) 
+                   if (logp_scaling) {
+                     res_ii <- res_i$NES * (-log10(res_i$pval)) 
+                   } else {
+                     res_ii <- res_i$NES
+                   }
+                   res_out[match(res_i$pathway, names(gene_set_list))] <- 
                    
                    res_out
                  }, finally = close_parallel_cluster(parallel_clust))

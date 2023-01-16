@@ -48,5 +48,5 @@ list of enrichment scores
 Conveniently wraps \code{\link{RWRFGSEA}} using 
 \code{\link{retrieveDiseaseGenesOT}} for disease associated genes, 
 \code{STRINGdb} human PPI as a network, \code{msigdbr} for gene set annotations and 
-\code{biomaRt} for matching gene annotations.
+\code{biomaRt} for matching gene IDs.
 }
