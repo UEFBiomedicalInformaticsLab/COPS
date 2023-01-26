@@ -17,6 +17,8 @@ getHumanPPIfromSTRINGdb(
 \item{cutoff}{a numeric value indicating the cutoff for the edge scores.}
 
 \item{directed}{a boolean value indicating the type of grpah to be generated.}
+
+\item{version}{a character value specifying STRINGdb version to query from}
 }
 \value{
 an igraph object.

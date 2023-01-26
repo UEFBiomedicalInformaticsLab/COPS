@@ -56,7 +56,7 @@ fgsea_wrapper(
 
 \item{gene_set_list}{list of character vectors containing gene sets for FGSEA}
 
-\item{disease_genes}{a character vector containing Entrez IDs of genes associated with the target disease}
+\item{disease_genes}{a character vector containing gene IDs associated with the target disease}
 
 \item{rwr_gene_lists}{list containing exactly two character vectors corresponding to gene ids. Used to separate genes for double RWR 
 (e.g. up and down regulated seeds) RWR affinities of second seed list will get subtracted from the RWR affinities of the first seed list.}
@@ -97,6 +97,9 @@ matrix of enrichment scores
 \description{
 Runs random walk in a given network starting from seed genes selected from most over/under expressed in the data intersected with 
 known disease genes. The gene affinities are then processed with FGSEA to yield pathway features.
+}
+\details{
+The default behaviour
 }
 \section{Functions}{
 \itemize{

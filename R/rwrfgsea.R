@@ -104,7 +104,7 @@ RWRFGSEA <- function(expr,
     
     # Rank disease-genes within each sample
     if (rwr_ecdf) {
-      expr_list[[i]] <- COPS::ecdf_transform(expr_list[[i]], parallel)
+      expr_list[[i]] <- ecdf_transform(expr_list[[i]], parallel)
     }
     
     if (second_seed_list_reverse_order & i == 2) {
@@ -115,13 +115,13 @@ RWRFGSEA <- function(expr,
       rwr_seed_size <- nrow(expr_list[[i]]) %/% 6
     }
     
-    rwr_results[[i]] <- COPS::rwr_wrapper(expr_list[[i]], 
-                                          gene_network, 
-                                          rwr_seed_size = rwr_seed_size, 
-                                          parallel = 1, 
-                                          rwr_restart_probability = rwr_restart_probability, 
-                                          rwr_adjacency_normalization = rwr_adjacency_normalization,
-                                          rwr_affinity_normalization = rwr_affinity_normalization)
+    rwr_results[[i]] <- rwr_wrapper(expr_list[[i]], 
+                                    gene_network, 
+                                    rwr_seed_size = rwr_seed_size, 
+                                    parallel = 1, 
+                                    rwr_restart_probability = rwr_restart_probability, 
+                                    rwr_adjacency_normalization = rwr_adjacency_normalization,
+                                    rwr_affinity_normalization = rwr_affinity_normalization)
   }
   
   if (length(rwr_results) == 2) {
@@ -209,7 +209,7 @@ fgsea_wrapper <- function(data_matrix,
                    } else {
                      res_ii <- res_i$NES
                    }
-                   res_out[match(res_i$pathway, names(gene_set_list))] <- 
+                   res_out[match(res_i$pathway, names(gene_set_list))] <- res_ii
                    
                    res_out
                  }, finally = close_parallel_cluster(parallel_clust))

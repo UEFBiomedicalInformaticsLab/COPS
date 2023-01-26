@@ -737,8 +737,10 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #' @param by character vector containing column names to group analysis by
 #' @param wsum an expression that indicates how a combined score is computed 
 #' @param significance_level p-value cutoff for computing rejection rates
-#' @param summarise If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. By default the metrics 
-#'   are averaged across runs and folds. 
+#' @param summarise If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. 
+#'   By default the metrics are averaged across runs and folds. 
+#' @param format_names If TRUE, formats internally used method names etc. to more 
+#'   user friendly names.
 #'
 #' @return Returns a \code{list} containing a \code{data.frame} \code{$all} of all scores and
 #'         a single row \code{$best} with the best score according to \code{wsum}.
@@ -768,7 +770,8 @@ clusteval_scoring <- function(res,
                               by = c("datname", "drname", "k", "m", "mkkm_mr_lambda"),
                               wsum = TrainStabilityJaccard + Silhouette,
                               significance_level = 0.05,
-                              summarise = TRUE) {
+                              summarise = TRUE, 
+                              format_names = TRUE) {
   uf <- unique(res$clusters[["fold"]])
   if (summarise == FALSE) {
     if (!"run" %in% by) {
@@ -972,6 +975,9 @@ clusteval_scoring <- function(res,
                                                                   colnames(y))), 
                                          type = "full"), 
                 out[!sapply(out, is.null)])
+  if(format_names) {
+    out <- format_scores(out)
+  }
   
   # Scoring
   score <- substitute(wsum)
@@ -983,8 +989,10 @@ clusteval_scoring <- function(res,
   if ("fold" %in% colnames(out)) out[["fold"]] <- factor(out[["fold"]])
   if ("k" %in% colnames(out)) out[["k"]] <- factor(out[["k"]])
   
-  return(list(all = out[order(out$wsum, decreasing = TRUE),], 
-              best = best))
+  out <- list(all = out[order(out$wsum, decreasing = TRUE),], 
+              best = best)
+  
+  return(out)
 }
 
 #aov(value ~ run * fold, method_evaluations$internal_metrics[method_evaluations$internal_metrics$k == 2 & method_evaluations$internal_metrics$m == "hierarchical" & method_evaluations$internal_metrics$drname == "pca4" & method_evaluations$internal_metrics$metric == "Silhouette",])

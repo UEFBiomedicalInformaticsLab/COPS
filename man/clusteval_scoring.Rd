@@ -12,7 +12,8 @@ clusteval_scoring(
   by = c("datname", "drname", "k", "m", "mkkm_mr_lambda"),
   wsum = TrainStabilityJaccard + Silhouette,
   significance_level = 0.05,
-  summarise = TRUE
+  summarise = TRUE,
+  format_names = TRUE
 )
 }
 \arguments{
@@ -26,8 +27,11 @@ clusteval_scoring(
 
 \item{significance_level}{p-value cutoff for computing rejection rates}
 
-\item{summarise}{If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. By default the metrics 
-are averaged across runs and folds.}
+\item{summarise}{If FALSE, adds \code{"run"} and \code{"fold"} to \code{by}. 
+By default the metrics are averaged across runs and folds.}
+
+\item{format_names}{If TRUE, formats internally used method names etc. to more 
+user friendly names.}
 }
 \value{
 Returns a \code{list} containing a \code{data.frame} \code{$all} of all scores and

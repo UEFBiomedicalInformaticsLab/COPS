@@ -696,7 +696,7 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 #' @export
 #'
 #' @importFrom pals watlington
-#' @importFrom ggplot2 ggplot ensym
+#' @importFrom ggplot2 ggplot ensym scale_color_manual geom_point theme_bw 
 #' @importFrom cowplot get_legend
 #' @importFrom gridExtra grid.arrange
 #' @importFrom scales trans_new log_breaks
@@ -705,10 +705,11 @@ pareto_plot <- function(scores, plot_palette = pals::watlington(16),
                                     "Silhouette", 
                                     "Smallest_cluster_size"), 
                         metrics_scale = rep("identity", length(metrics)), 
-                        color_var = "drname",
-                        shape_var = "m",
+                        color_var = "Transform",
+                        shape_var = "Clustering",
                         size_var = "k", 
-                        size_range = c(2,6)) {
+                        size_range = c(2,6),
+                        color_scale = ggplot2::scale_color_manual(values = plot_palette)) {
   if (!"data.frame" %in% class(scores)) {
     if (is.null(scores$all)) {
       stop("Please provide a data.frame of scores")
@@ -767,6 +768,102 @@ pareto_plot <- function(scores, plot_palette = pals::watlington(16),
   plot_out <- gridExtra::grid.arrange(grobs = plot_list, layout_matrix = layout)
   
   return(plot_out)
+}
+
+
+#' Reorder factors in scores to organize plots
+#'
+#' @param x scores from COPS pipeline
+#'
+#' @return
+#' @export
+reorder_method_factors <- function(x) {
+  gsva_ind <- grepl("GSVA", x$Approach)
+  diff_ind <- grepl("DiffRank", x$Approach)
+  rwrfgsea_ind <- grepl("RWR-FGSEA", x$Approach)
+  other_ind <- !(gsva_ind|diff_ind|rwrfgsea_ind)
+  pw_settings <- unique(x$Embedding[!other_ind])
+  x$Transform <- factor(x$Transform, c(unique(x$Transform[other_ind]), 
+                                     unique(x$Transform[gsva_ind]),
+                                     unique(x$Transform[diff_ind]),
+                                     unique(x$Transform[rwrfgsea_ind])))
+  x$Embedding <- factor(x$Embedding, c(unique(x$Embedding[other_ind]), 
+                                       unique(x$Embedding[!other_ind])))
+  x$Approach <- factor(x$Approach, c(unique(x$Approach[other_ind]), 
+                                     unique(x$Approach[gsva_ind]),
+                                     unique(x$Approach[diff_ind]),
+                                     unique(x$Approach[rwrfgsea_ind])))
+  return(x)
+}
+
+
+#' Renames internal method and score names to something more understandable. 
+#'
+#' @param x scores from COPS pipeline
+#'
+#' @return
+#' @export
+format_scores <- function(x) {
+  if (class(x) == "list" & "all" %in% names(x)) {
+    out <- list()
+    out$all <- format_scores(x$all)
+    out$best <- format_scores(x$best)
+    return(out)
+  }
+  # Factor for grouping observations in plots
+  x$Method <- paste0(x$datname, "+", x$drname, "+", x$m)
+  
+  # Approach, either DR or specific PW enrichment method name
+  pathway_approaches <- grepl("_RWRFGSEA$|_GSVA$|_DiffRank$", x$datname)
+  x$Approach <- NA
+  x$Approach[!pathway_approaches] <- "DR"
+  x$Approach[grepl("_RWRFGSEA$", x$datname)] <- "RWR-FGSEA"
+  x$Approach[grepl("_GSVA$", x$datname)] <- "GSVA"
+  x$Approach[grepl("_DiffRank$", x$datname)] <- "DiffRank"
+  
+  # Embedding, describes the features which are used for clustering
+  x$Embedding <- NA
+  x$Embedding[pathway_approaches] <- x$datname[pathway_approaches]
+  x$Embedding[!pathway_approaches] <- ifelse(!is.na(as.numeric(as.character(x$datname[!pathway_approaches]))), 
+                                             "", x$datname[!pathway_approaches])
+  x$Embedding[!pathway_approaches] <- paste0(x$drname, "+", x$Embedding[!pathway_approaches])
+  # remove "original" tag which is just used to indicate a skipped DR step
+  x$Embedding <- gsub("\\+original$", "", x$Embedding)
+  x$Embedding <- gsub("\\+$", "", x$Embedding)
+  # remove redundant pathway method tags (included in Transform)
+  x$Embedding <- gsub("_RWRFGSEA|_GSVA|_DiffRank", "", x$Embedding)
+  # format methods and dimension numbers
+  x$Embedding <- paste0(gsub("^pca", "PCA, ", x$Embedding), ifelse(grepl("^pca", x$Embedding), "d", ""))
+  x$Embedding <- paste0(gsub("^tsne", "t-SNE, ", x$Embedding), ifelse(grepl("^tsne", x$Embedding), "d", ""))
+  x$Embedding <- paste0(gsub("^umap", "UMAP, ", x$Embedding), ifelse(grepl("^umap", x$Embedding), "d", ""))
+  
+  # Transform, same as Embedding except that pathway gene sets are appended with 
+  # enrichment method name (used for Pareto plots)
+  x$Transform <- NA
+  x$Transform[!pathway_approaches] <- x$Embedding
+  x$Transform[pathway_approaches] <- gsub("_", " ", x$datname)
+  
+  # Clustering method
+  x$Clustering <- x$m
+  x$Clustering <- gsub("model", "GMM", x$Clustering)
+  x$Clustering <- gsub("kmeans", "k-means", x$Clustering)
+  x$Clustering <- gsub("hierarchical", "HC", x$Clustering)
+  x$Clustering <- gsub("_average$", " (average)", x$Clustering)
+  x$Clustering <- gsub("_ward$", " (Ward)", x$Clustering)
+  x$Clustering <- gsub("_complete$", " (complete)", x$Clustering)
+  x$Clustering <- gsub("^diana$", "DIANA", x$Clustering)
+  
+  # Survival
+  colnames(x)[colnames(x) == "cluster_significance"] <- "SurvivalPValue"
+  
+  # Stability
+  colnames(x) <- gsub("^TrainStability", "ClusteringStability", colnames(x))
+  colnames(x) <- gsub("^TestStability", "ProjectionClusteringStability", colnames(x))
+  
+  # Other
+  x$k <- factor(x$k)
+  
+  return(x)
 }
 
 

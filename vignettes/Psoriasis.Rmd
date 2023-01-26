@@ -1,6 +1,6 @@
 ---
-title: "COPS tutorial, gene-expression-driven psoriasis patient stratification"
-author: "Teemu Rintala and Vittorio Fortino"
+title: "COPS tutorial, multi-cohort gene-expression-driven psoriasis patient stratification"
+author: "Teemu Rintala"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -11,18 +11,19 @@ vignette: >
 
 ## Goals
 
-1. Pre-processing 
-    + batch correction
-    + normalization
-2. Clustering with COPS
-3. Comparing approaches
+The purpose of this tutorial is to go over common steps in the clustering analysis 
+of multi-cohort gene-expression data, i.e., data gathered from multiple sources. 
+As an example we will use a Psoriasis related dataset and perform pre-processing 
+steps, namely batch correction and expression normalization, before applying the 
+COPS tools for evaluation of different clustering strategies. Towards the end we 
+go over different metrics and how to compare methods based on multiple criteria. 
 
 ## Load full psoriasis data set for pre-processing
 
 In COPS we have included an example dataset related to psoriasis RNA-Seq data 
-from multiple studies collected by Federico et al. (2020). The full dataset 
-including atopic dermatitis studies is available at Zenodo. We also only consider 
-protein coding genes in this tutorial. 
+from multiple studies collected and harmonised by Federico et al. (2020). The full 
+dataset including atopic dermatitis studies is available at Zenodo. We also only 
+consider Psoriasis patients and protein coding genes in this tutorial. 
 
 ```{r}
 names(COPS::psoriasis_rnaseq_example)
@@ -117,7 +118,7 @@ The difference becomes even more obvious by using UMAP.
 require(ggplot2)
 set.seed(0)
 COPS::umap_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["lesional"]], 
-              "sample type")
+               "sample type")
 ```
 
 ### Batch effect metrics
@@ -227,7 +228,7 @@ the clusters and the appropriate clustering metrics. To summarise the results
 into one data.frame we can use the clusteval_scoring function:
 
 ```{r}
-scores <- COPS::clusteval_scoring(res, wsum = TrainStabilityJaccard + 
+scores <- COPS::clusteval_scoring(res, wsum = ClusteringStabilityJaccard + 
                                               Silhouette - GSE.nmi,
                                   significance_level = 0.05)
 ```
@@ -240,9 +241,9 @@ results with pairwise scatter plots of the metrics. Note that we exclude results
 where the smallest cluster has fewer than 10 samples since very rare subtypes 
 would be difficult to validate. 
 
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
+```{r, out.width="100%", fig.width = 10, fig.height = 8}
 COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
-                  metrics = c("TrainStabilityJaccard", "Silhouette", 
+                  metrics = c("ClusteringStabilityJaccard", "Silhouette", 
                               "Smallest_cluster_size", "GSE.nmi"),
                   plot_palette = RColorBrewer::brewer.pal(10, "Set3"))
 ```
@@ -325,14 +326,14 @@ gm_scores <- COPS::module_evaluation(res$clusters, module_eigs = MEs,
 We can redo the summaries with the module scores included. 
 ```{r}
 res$modules <- gm_scores
-scores <- COPS::clusteval_scoring(res, wsum = TrainStabilityJaccard + 
+scores <- COPS::clusteval_scoring(res, wsum = ClusteringStabilityJaccard + 
                                               Silhouette - GSE.nmi,
                                   significance_level = 0.05)
 ```
 
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
+```{r, out.width="100%", fig.width = 10, fig.height = 8}
 COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
-                  metrics = c("TrainStabilityJaccard", "Silhouette", 
+                  metrics = c("ClusteringStabilityJaccard", "Silhouette", 
                               "Smallest_cluster_size", "GSE.nmi", 
                               "Module_score"),
                   plot_palette = RColorBrewer::brewer.pal(10, "Set3"))
@@ -417,7 +418,6 @@ res_rwrfgsea <- COPS::COPS(log2(pso_combat_normalized[,lesional_id]+1),
                            rwr_seed_size = 25, 
                            gene_set_list = pw_list, 
                            dimred_methods = c("none"), 
-                           pca_dims = c(2:10),
                            cluster_methods = c("diana"), 
                            metric = "correlation", 
                            n_clusters = 2:6,
@@ -429,36 +429,75 @@ res_rwrfgsea <- COPS::COPS(log2(pso_combat_normalized[,lesional_id]+1),
 ```
 
 
-
-
-
-### Feature selection
-
-Feature selection has a very large impact on the results. Here we present 
-results obtained by using a preselected set of genes
-
 ```{r}
-deg_dist <- dist(t(log2(pso_combat_normalized[COPS::psoriasis_degs_example,lesional_id]+1)))
-res_degs <- COPS::COPS(log2(pso_combat_normalized[COPS::psoriasis_degs_example,lesional_id]+1), 
-                       parallel = 6, nruns = 2, nfolds = 5, 
-                       dimred_methods = c("pca"), 
-                       pca_dims = c(2:10),
-                       cluster_methods = c("diana", "kmeans"), 
-                       metric = "euclidean", 
-                       n_clusters = 2:6,
-                       association_data = psoriasis_cli[lesional_id,],
-                       silhouette_dissimilarity = deg_dist)
-```
-
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-scores <- COPS::clusteval_scoring(res_degs, wsum = TrainStabilityJaccard + 
+scores_rwrfgsea <- COPS::clusteval_scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
                                               Silhouette - GSE.nmi,
                                   significance_level = 0.05)
-COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
-                  metrics = c("TrainStabilityJaccard", "Silhouette", 
-                              "Smallest_cluster_size", "GSE.nmi"),
-                  plot_palette = RColorBrewer::brewer.pal(10, "Set3"))
 ```
+
+In order to compare the scores, we can just combine the two data.frames containing 
+all scores using rbind: 
+
+```{r}
+scores_combined <- rbind(scores$all, scores_rwrfgsea$all)
+```
+
+```{r, out.width="100%", fig.width = 10, fig.height = 8}
+COPS::pareto_plot(scores_combined[scores_combined[["Smallest_cluster_size"]] >= 10 &
+                                    (scores_combined[["drname"]] == "pca7" |
+                                       scores_combined[["Approach"]] == "RWR-FGSEA"),],
+                  metrics = c("ClusteringStabilityJaccard", "Silhouette", 
+                              "Smallest_cluster_size", "GSE.nmi", 
+                              "Module_score"),
+                  plot_palette = RColorBrewer::brewer.pal(9, "Set1"))
+```
+
+We can see that without properly optimizing the network and selection of gene 
+seeds, the RWR-FGSEA approach can be relatively unstable.
+
+### Metric stability
+
+For visualizing the spread of metrics, we cab use boxplots after reorganizing the 
+scores without summarising them with the mean:
+
+```{r}
+scores_dist <- COPS::clusteval_scoring(res, wsum = ClusteringStabilityJaccard + 
+                                                   Silhouette - GSE.nmi,
+                                       significance_level = 0.05, 
+                                       summarise = FALSE)
+scores_rwrfgsea_dist <- COPS::clusteval_scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
+                                                                     Silhouette - GSE.nmi,
+                                                significance_level = 0.05, 
+                                                summarise = FALSE)
+```
+
+```{r}
+scores_combined <- rbind(scores_dist$all, scores_rwrfgsea_dist$all)
+```
+
+We can see that for fewer clusters k-means does better than DIANA combined with 
+either pathways or DR. 
+
+```{r, out.width="100%", fig.width = 8, fig.height = 6}
+ggplot(scores_combined, 
+       aes(x = interaction(Embedding, Clustering),  
+           y = Module_score, 
+           fill = interaction(Embedding, Clustering))) + 
+        geom_boxplot() + 
+        theme_bw() + 
+        #scale_fill_manual(values = plot_palette) + 
+        ggh4x::facet_grid2(Approach ~ k, scales = "free_x", independent = "x",
+                           labeller = labeller(k = function(x) paste0("k=", x)))+
+        #theme(axis.text.x = element_blank(), axis.title.x = element_blank()) + #ylim(0.05, 0.7) + 
+        #ylab(cf) + 
+        theme(legend.position="bottom", 
+              axis.text.x = element_blank(), 
+              axis.ticks.x = element_blank(), 
+              axis.title.x = element_blank()) + 
+        guides(fill = guide_legend(ncol = 3, title.position = "top"))
+```
+
+## Session info
 
 ```{r}
 sessionInfo()
