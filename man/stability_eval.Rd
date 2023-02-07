@@ -5,7 +5,7 @@
 \title{Clustering stability evaluation}
 \usage{
 stability_eval(
-  clust,
+  clusters,
   by = c("datname", "drname", "run", "k", "m"),
   parallel = 1,
   reference_fold = NULL,
@@ -13,9 +13,11 @@ stability_eval(
 )
 }
 \arguments{
-\item{clust}{clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}}
+\item{clusters}{clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}}
 
 \item{by}{vector of column names to keep}
+
+\item{reference_fold}{fold number that corresponds to reference which other folds are compared against, inferred from input by default}
 
 \item{...}{extra arguments are ignored}
 }

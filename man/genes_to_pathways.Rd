@@ -6,7 +6,7 @@
 \title{Transform a gene-level data matrix into path-level information}
 \usage{
 genes_to_pathways(
-  expr,
+  x,
   enrichment_method = "GSVA",
   gene_set_list = NULL,
   batch_label_pw = NULL,
@@ -14,20 +14,20 @@ genes_to_pathways(
   max_size = 200,
   parallel = 1,
   verbose = FALSE,
-  gene_key_expr = "SYMBOL",
+  gene_key_x = "SYMBOL",
   gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
   gsva_kcdf = "Gaussian",
   ...
 )
 
-DiffRank(expr, gene_set_list, parallel = 1)
+DiffRank(x, gene_set_list, parallel = 1)
 }
 \arguments{
-\item{expr}{gene expression matrix, samples on columns and genes on rows}
+\item{x}{gene feature matrix, samples on columns and genes on rows.}
 
 \item{enrichment_method}{options: "DiffRank", "GSVA", "RWRFGSEA"}
 
-\item{gene_set_list}{list of gene sets with gene names that correspond to rows in \strong{expr}}
+\item{gene_set_list}{list of gene sets with gene names that correspond to rows in \strong{x}}
 
 \item{batch_label_pw}{batch labels for batch-wise enrichment, normal enrichment performed if NULL}
 
@@ -39,7 +39,7 @@ DiffRank(expr, gene_set_list, parallel = 1)
 
 \item{verbose}{controls verbosity}
 
-\item{gene_key_expr}{if \code{is.null(gene_set_list)} and \code{expr} rownames are not gene symbols, this specifies the column name in 
+\item{gene_key_x}{if \code{is.null(gene_set_list)} and \code{x} rownames are not gene symbols, this specifies the column name in 
 \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} to translate pathway gene symbols to. The default value results in gene symbol based gene 
 sets when \code{is.null(gene_set_list)}.}
 
@@ -52,38 +52,36 @@ names that are included in the analysis.}
 }
 \value{
 a list of data.frames corresponding to the transformed features based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
-
-
 }
 \description{
-This is a utility function which wraps several methods to extract pathway-based features from gene expression data
+This is a utility function which wraps several methods to extract pathway-based features from gene feature data
 }
 \section{Functions}{
 \itemize{
-\item \code{DiffRank}: DiffRank by Wang et al. BMC Medical Genomics 2019
-}}
+\item \code{DiffRank()}: DiffRank by Wang et al. BMC Medical Genomics 2019
 
+}}
 \examples{
 library(parallel)
 library(COPS)
 
 ## GSVA example
 ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-                             parallel = 2, gene_key_expr = "ENSEMBL", 
+                             parallel = 2, gene_key_x = "ENSEMBL", 
                              gs_subcats = "CP:KEGG")
 # batch-wise
 ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
                              batch_label_pw = ad_studies$GSE, parallel = 2, 
-                             gene_key_expr = "ENSEMBL", gs_subcats = "CP:KEGG")
+                             gene_key_x = "ENSEMBL", gs_subcats = "CP:KEGG")
 
 ## DiffRank example with batch-wise enrichment
 ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-                                 parallel = 2, gene_key_expr = "ENSEMBL", 
+                                 parallel = 2, gene_key_x = "ENSEMBL", 
                                  gs_subcats = "CP:KEGG")
 # batch-wise
 ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
                                  batch_label_pw = ad_studies$GSE, 
-                                 parallel = 2, gene_key_expr = "ENSEMBL", 
+                                 parallel = 2, gene_key_x = "ENSEMBL", 
                                  gs_subcats = "CP:KEGG")
 
 ## RWRFGSEA example

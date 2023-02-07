@@ -13,9 +13,6 @@ pca_viz(data, category, category_label)
 
 \item{category_label}{}
 }
-\value{
-
-}
 \description{
 Data visualization using PCA
 }

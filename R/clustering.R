@@ -10,10 +10,13 @@
 #' \item "model" - Gaussian Mixture Models
 #' \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
 #' \item "spectral" - spectral clustering
+#' \item "SC3" - consensus clustering http://dx.doi.org/10.1038/nmeth.4236, note that this requires SC3 installation which is not required by default
+#' \item "kkmeans" - kernelized k-means initialized by a spectral approximation
+#' \item "kkmeanspp" - kernelized k-means++ with random initializations
 #' }
 #'
 #' @param dat A data.frame with features on columns labeled as "dim[0-9]+", must also contain "id" column.
-#' @param n_clusters A vector of integers, numbers of clusters to be generated.
+#' @param n_clusters A vector of integers defining the number of clusters.
 #' @param cluster_methods A vector of clustering method names, see details for options.
 #' @param clustering_dissimilarity A dissimilarity matrix used in some methods such as hierarchical clustering. Computed with \code{\link{clustering_dissimilarity_from_data}} if missing. 
 #' @param distance_metric Either "euclidean" or "correlation".
@@ -26,6 +29,13 @@
 #' @param gmm_shrinkage Shrinkage parameter for \code{\link[mclust]{priorControl}}. 
 #' @param knn_neighbours number of nearest neighbours for community detection.
 #' @param knn_jaccard computes shared neighbour weights with Jaccard ubdex if \code{TRUE}. 
+#' @param kernel kernel for kernel k-means, options: "linear", "gaussian", "rbf", "jaccard", "tanimoto"
+#' @param kernel_gamma gamma for the Gaussian/RBF kernel, higher values correspond to more complicated boundaries
+#' @param kernel_center center kernels if TRUE
+#' @param kernel_normalize normalize kernels to L2 norm 1 if TRUE
+#' @param kernel_scale_norm scale kernel matrices to Frobenious norm 1 if TRUE
+#' @param kkmeans_maxiter maximum number of iterations for kernel k-means
+#' @param kkmeans_n_init number of random initializations for kernel k-means++
 #' @param ... extra arguments are ignored currently
 #'
 #' @return Returns a \code{list} containing clusters, metrics, and
@@ -53,6 +63,13 @@ clustering_analysis <- function(dat,
                                 gmm_shrinkage = 0.01, 
                                 knn_neighbours = 30, 
                                 knn_jaccard = TRUE, 
+                                kernel = "linear",
+                                kernel_gamma = 1,
+                                kernel_center = TRUE,
+                                kernel_normalize = TRUE,
+                                kernel_scale_norm = FALSE,
+                                kkmeans_maxiter = 100,
+                                kkmeans_n_init = 100,
                                 ...) {
   temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]
   temp <- temp[,sapply(temp, function(x) all(!is.na(x)))]
@@ -159,7 +176,53 @@ clustering_analysis <- function(dat,
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
                                                k = n_clusters[j], cluster = clust_k))
       }
-    }else {
+    } else if (cluster_methods_expanded[i] %in% c("kkmeans", "kkmeanspp")) {
+      for (kernel_i in kernel) {
+        if (kernel_i == "linear") {
+          temp_kernel <- temp %*% t(temp)
+          if (kernel_center) temp_kernel <- center_kernel(temp_kernel)
+          if (kernel_normalize) temp_kernel <- normalize_kernel(temp_kernel)
+          if (kernel_scale_norm) temp_kernel <- scale_kernel_norm(temp_kernel)
+          temp_kernel <- list(temp_kernel)
+        } else if (kernel_i %in% c("gaussian", "rbf")) {
+          temp_kernel <- lapply(kernel_gamma, function(kg) exp(- kg * as.matrix(dist(temp))**2))
+        } else if (kernel_i %in% c("jaccard", "tanimoto")) {
+          temp_kernel <- jaccard_matrix(t(temp))
+          temp_kernel[is.nan(temp_kernel)] <- 0
+          diag(temp_kernel) <- 1
+          if (kernels_center[i]) temp_kernel <- center_kernel(temp_kernel)
+          if (kernels_normalize[i]) temp_kernel <- normalize_kernel(temp_kernel)
+          if (kernels_scale_norm[i]) temp_kernel <- scale_kernel_norm(temp_kernel)
+          temp_kernel <- list(temp_kernel)
+        } else {
+          stop(paste0("Kernel \"", kernel_i, "\" is not supported."))
+        }
+        for (k_i in 1:length(temp_kernel)) {
+          if (cluster_methods_expanded[i] == "kkmeans") {
+            approximation <- eigen(temp_kernel, symmetric = TRUE)$vectors
+            for (k in n_clusters) {
+              temp_res <- kernel_kmeans_algorithm(K = temp_kernel[[k_i]], 
+                                                  n_k = k, 
+                                                  init = apply(approximation[,1:k], 1, which.max), 
+                                                  maxiter = kkmeans_maxiter)
+            }
+          } else if (cluster_methods_expanded[i] == "kkmeanspp") {
+            for (k in n_clusters) {
+              temp_res <- kernel_kmeans(K = temp_kernel[[k_i]], 
+                                        n_k = k, 
+                                        n_initializations = kkmeans_n_init, 
+                                        maxiter = kkmeans_maxiter)
+            }
+          }
+          method_string <- paste0(kernel_i, 
+                                  ifelse(kernel_i %in% c("gaussian", "rbf"), 
+                                         paste0("_", kernel_gamma[k_i]), ""), 
+                                  "_", cluster_methods_expanded[i])
+          clusters <- rbind(clusters, data.frame(id = rownames(temp), m = method_string, 
+                                                 k = k, cluster = temp_res$clusters))
+        }
+      } 
+    } else {
       stop(paste("Unsupported method:", cluster_methods_expanded[i]))
     }
   }
@@ -171,6 +234,57 @@ clustering_analysis <- function(dat,
   out <- out[!is.na(out$cluster),] # potential issue with reference fold missing later
   return(out)
 }
+
+temp_function <- function(x) {
+  if (cluster_methods_expanded[i] %in% c("kkmeans", "kkmeanspp")) {
+    if (kernel == "linear") {
+      temp_kernel <- temp %*% t(temp)
+      if (kernel_center) temp_kernel <- center_kernel(temp_kernel)
+      if (kernel_normalize) temp_kernel <- normalize_kernel(temp_kernel)
+      if (kernel_scale_norm) temp_kernel <- scale_kernel_norm(temp_kernel)
+    } else if (kernel %in% c("gaussian", "rbf")) {
+      temp_kernel <- exp(- kernel_gamma * as.matrix(dist(temp))**2)
+    } else if (kernel %in% c("jaccard", "tanimoto")) {
+      temp_kernel <- jaccard_matrix(t(temp))
+      temp_kernel[is.nan(temp_kernel)] <- 0
+      diag(temp_kernel) <- 1
+      if (kernels_center[i]) temp_kernel <- center_kernel(temp_kernel)
+      if (kernels_normalize[i]) temp_kernel <- normalize_kernel(temp_kernel)
+      if (kernels_scale_norm[i]) temp_kernel <- scale_kernel_norm(temp_kernel)
+    } else {
+      stop(paste0("Kernel \"", kernel, "\" is not supported."))
+    }
+    if (cluster_methods_expanded[i] == "kkmeans") {
+      approximation <- eigen(temp_kernel, symmetric = TRUE)$vectors
+      for (k in n_clusters) {
+        k_res <- tryCatch({
+          temp_res <- kernel_kmeans_algorithm(K = temp_kernel, 
+                                              n_k = k, 
+                                              init = apply(approximation[,1:k], 1, which.max), 
+                                              maxiter = kkmeans_maxiter)
+          temp_res <- data.frame(m = "kkmeans", k = k, cluster = temp_res$clusters)
+          if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+          temp_res
+        }, error = function(e) {warning(e); return(NULL)})
+        if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+      }
+    } else if (cluster_methods_expanded[i] == "kkmeanspp") {
+      for (k in n_clusters) {
+        k_res <- tryCatch({
+          temp_res <- kernel_kmeans(K = temp_kernel, 
+                                    n_k = k, 
+                                    n_initializations = kkmeans_n_init, 
+                                    maxiter = kkmeans_maxiter)
+          temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
+          if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+          temp_res
+        }, error = function(e) {warning(e); return(NULL)})
+        if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+      }
+    }
+  }
+}
+
 
 #' Dissimilarity matrix
 #'
@@ -212,45 +326,82 @@ clustering_dissimilarity_from_data <- function(x,
 #' @param dissimilarity a \code{dist} object to use in silhouette calculation, defaults to euclidean distance matrix if left \code{NULL}
 #' @param cluster_size_table return cluster sizes if \code{TRUE}.
 #' @param silhouette_min_cluster_size proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.
+#' @param internal_metrics Internal metric names passed to \code{\link[clusterCrit]{intCriteria}}. This will slow the pipeline down considerably. 
 #' @param ... extra arguments are passed to \code{\link{clustering_dissimilarity_from_data}}
 #'
 #' @return Returns a \code{list} containing metrics and cluster sizes
 #' @export
 #' @importFrom cluster silhouette
+#' @importFrom clusterCrit intCriteria
 clustering_metrics <- function(x, 
                                dat = NULL, 
                                by = c("k", "m"), # must have k and m # TODO: fix?
                                dissimilarity = NULL, 
                                cluster_size_table = TRUE, 
                                silhouette_min_cluster_size = 0.0,
+                               internal_metrics = NULL, 
                                ...) {
   x <- as.data.frame(x)
   by <- by[by %in% colnames(x)]
-  # Create dissimilarity matrix for Silhouette computation and HC
-  if (!is.null(dissimilarity)) {
-    diss <- dissimilarity
-  } else {
-    if (is.null(dat)) {
-      stop("Cannot evaluate metrics, both dissimilarity and data are missing.")
+  # If internal_metrics is not set, we use the given dissimilarity matrix
+  if (is.null(internal_metrics)) {
+    # Create dissimilarity matrix for Silhouette computation and HC
+    if (!is.null(dissimilarity)) {
+      diss <- dissimilarity
+    } else {
+      if (is.null(dat)) {
+        stop("Cannot evaluate metrics, both dissimilarity and data are missing.")
+      }
+      if (length(class(dat)) == 1 && class(dat) == "list") {
+        if (length(dat) > 1) warning("More than one input dataset was found for internal evaluation. Using only the first one.")
+        dat <- dat[[1]]
+      }
+      temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]#, with = FALSE]
+      temp <- temp[,apply(!is.na(temp), 2, all)]#, with = FALSE]
+      rownames(temp) <- dat$id
+      diss <- clustering_dissimilarity_from_data(temp, ...)
     }
-    temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]#, with = FALSE]
-    temp <- temp[,apply(!is.na(temp), 2, all)]#, with = FALSE]
-    rownames(temp) <- dat$id
-    diss <- clustering_dissimilarity_from_data(temp, ...)
   }
   
   metrics <- data.frame()
   csize <- list()
   clusters <- split_by_safe(x, by)
-  for (i in 1:length(clusters)) { # TODO: add foreach
-    # Silhouette
-    matched_ind <- match(clusters[[i]]$id, labels(diss))
-    silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 
-                                  diss = as.matrix(diss)[matched_ind, matched_ind], 
-                                  min_size = silhouette_min_cluster_size)
-    metrics <- rbind(metrics, data.frame(clusters[[i]][1, by], 
-                                         metric = "Silhouette",
-                                         value = mean(silh_i[,"sil_width"])))
+  for (i in 1:length(clusters)) { # TODO: add foreach and prevent nested parallelization
+    if (!is.null(internal_metrics)) {
+      if ("data.frame" %in% class(dat)) dat <- list(dat) # make list of dataframes
+      if (length(dat) > 1 & is.null(names(dat))) names(dat) <- paste0("input", 1:length(dat))
+      if (length(dat) == 0) stop("No data for internal metric calculations.")
+      for (j in 1:length(dat)) {
+        temp <- as.data.frame(dat[[j]])
+        rownames(temp) <- temp[["id"]]
+        temp <- temp[,grepl("^dim[0-9]+$", colnames(temp))]
+        #temp <- temp[,apply(!is.na(temp), 2, all)]
+        temp <- as.matrix(temp)
+        
+        if(any(!clusters[[i]]$id %in% rownames(temp))) stop("ID mismatch in internal indices data.")
+        if(any(is.na(temp))) stop("NAs in internal indices data.")
+        
+        ccrit <- clusterCrit::intCriteria(temp[clusters[[i]]$id,], 
+                                          as.integer(clusters[[i]]$cluster), 
+                                          internal_metrics)
+        
+        ccrit <- data.frame(clusters[[i]][1, by], 
+                            metric = paste0(names(dat)[j], names(ccrit)), 
+                            value = unlist(ccrit),
+                            row.names = 1:length(ccrit))
+        metrics <- rbind(metrics, ccrit)
+      }
+    } else {
+      # Silhouette using given distance matrix
+      matched_ind <- match(clusters[[i]]$id, labels(diss))
+      silh_i <- silhouette_adjusted(clusters[[i]]$cluster, 
+                                    diss = as.matrix(diss)[matched_ind, matched_ind], 
+                                    min_size = silhouette_min_cluster_size)
+      metrics <- rbind(metrics, data.frame(clusters[[i]][1, by], 
+                                           metric = "Silhouette",
+                                           value = mean(silh_i[,"sil_width"])))
+    }
+    
     if (cluster_size_table) {
       csize[[i]] <- data.frame(clusters[[i]][1, by], 
                                as.data.frame(t(as.matrix(table(clusters[[i]]$cluster)))))
@@ -273,6 +424,7 @@ clustering_metrics <- function(x,
 #' @param parallel number of threads
 #' @param by variables to split input data by
 #' @param silhouette_dissimilarity dissimilarity matrix used for silhouette evaluation
+#' @param dat_list list of input data matrices used for calculating clustering indices
 #' @param ... extra arguments are passed through to \code{\link{clustering_dissimilarity_from_data}}, \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}}
 #'
 #' @return Returns a \code{list} of \code{data.frames} containing \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}} outputs for every
@@ -285,6 +437,7 @@ cv_clusteval <- function(dat_embedded,
                          parallel = 1, 
                          by = c("datname", "drname", "run", "fold"), 
                          silhouette_dissimilarity = NULL, 
+                         dat_list = NULL, 
                          ...) {
   temp_list <- list()
   for (i in 1:length(dat_embedded)) {
@@ -307,6 +460,8 @@ cv_clusteval <- function(dat_embedded,
     return(bound_list)
   }
   
+  #arg_list <- list(...)
+  
   parallel_clust <- setup_parallelization(parallel)
   
   out <- tryCatch(foreach(temp = temp_list,
@@ -316,11 +471,21 @@ cv_clusteval <- function(dat_embedded,
                           .multicombine = TRUE,
                           .maxcombine = max(length(temp_list), 2)) %dopar% {
                             temp_diss <- clustering_dissimilarity_from_data(temp, ..., preprocess = TRUE)
+                            #temp_diss <- do.call(clustering_dissimilarity_from_data, 
+                            #                     args = c(list(x = temp), arg_list, list(preprocess = TRUE)))
                             temp_clust <- clustering_analysis(temp, clustering_dissimilarity = temp_diss, ...)
+                            #temp_clust <- do.call(clustering_analysis, 
+                            #                      args = c(list(dat = temp, clustering_dissimilarity = temp_diss), arg_list))
                             if (is.null(silhouette_dissimilarity)) silhouette_dissimilarity <- temp_diss
-                            temp_metrics <- clustering_metrics(temp_clust, dissimilarity = silhouette_dissimilarity, by = c(by, "k", "m"), ...)
+                            temp_metrics <- clustering_metrics(temp_clust, dat = dat_list, dissimilarity = silhouette_dissimilarity, by = c(by, "k", "m"), ...)
+                            #temp_metrics <- do.call(clustering_metrics, 
+                            #                        args = c(list(x = temp_clust, dat = dat_list, 
+                            #                                      dissimilarity = silhouette_dissimilarity, 
+                            #                                      by = c(by, "k", "m")), 
+                            #                                 arg_list))
                             res <- list(clusters = temp_clust, metrics = temp_metrics$metrics, cluster_sizes = temp_metrics$cluster_sizes)
                             res
                           }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
+

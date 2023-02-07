@@ -11,9 +11,6 @@ global_kernel_kmeans(K, n_clusters)
 
 \item{n_clusters}{}
 }
-\value{
-
-}
 \description{
 Global kernel k-means (Tzortzis & Likas 2008)
 }

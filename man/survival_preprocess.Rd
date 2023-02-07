@@ -29,9 +29,6 @@ survival_preprocess(
 
 \item{event_time_lower_cutoff}{Lower cutoff value for time.}
 }
-\value{
-
-}
 \description{
 Use when survival data is not in time and event format e.g., TCGA clinical data.
 }

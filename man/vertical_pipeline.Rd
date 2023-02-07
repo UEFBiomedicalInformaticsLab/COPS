@@ -38,9 +38,6 @@ vertical_pipeline(
 
 \item{...}{}
 }
-\value{
-
-}
 \description{
 COPS pipeline vertical parallelization
 }

@@ -19,13 +19,20 @@ clustering_analysis(
   gmm_shrinkage = 0.01,
   knn_neighbours = 30,
   knn_jaccard = TRUE,
+  kernel = "linear",
+  kernel_gamma = 1,
+  kernel_center = TRUE,
+  kernel_normalize = TRUE,
+  kernel_scale_norm = FALSE,
+  kkmeans_maxiter = 100,
+  kkmeans_n_init = 100,
   ...
 )
 }
 \arguments{
 \item{dat}{A data.frame with features on columns labeled as "dim[0-9]+", must also contain "id" column.}
 
-\item{n_clusters}{A vector of integers, numbers of clusters to be generated.}
+\item{n_clusters}{A vector of integers defining the number of clusters.}
 
 \item{cluster_methods}{A vector of clustering method names, see details for options.}
 
@@ -51,6 +58,20 @@ clustering_analysis(
 
 \item{knn_jaccard}{computes shared neighbour weights with Jaccard ubdex if \code{TRUE}.}
 
+\item{kernel}{kernel for kernel k-means, options: "linear", "gaussian", "rbf", "jaccard", "tanimoto"}
+
+\item{kernel_gamma}{gamma for the Gaussian/RBF kernel, higher values correspond to more complicated boundaries}
+
+\item{kernel_center}{center kernels if TRUE}
+
+\item{kernel_normalize}{normalize kernels to L2 norm 1 if TRUE}
+
+\item{kernel_scale_norm}{scale kernel matrices to Frobenious norm 1 if TRUE}
+
+\item{kkmeans_maxiter}{maximum number of iterations for kernel k-means}
+
+\item{kkmeans_n_init}{number of random initializations for kernel k-means++}
+
 \item{...}{extra arguments are ignored currently}
 }
 \value{
@@ -70,5 +91,8 @@ Supported clustering methods are:
 \item "model" - Gaussian Mixture Models
 \item "knn_communities" - Louvain community detection on shared k nearest neighbour graphs
 \item "spectral" - spectral clustering
+\item "SC3" - consensus clustering http://dx.doi.org/10.1038/nmeth.4236, note that this requires SC3 installation which is not required by default
+\item "kkmeans" - kernelized k-means initialized by a spectral approximation
+\item "kkmeanspp" - kernelized k-means++ with random initializations
 }
 }

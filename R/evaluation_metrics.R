@@ -137,9 +137,9 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #'
 #' Default settings work with \code{\link{cv_clusteval}} output 'clusters'.
 #'
-#' @param clust clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}
+#' @param clusters clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}
 #' @param by vector of column names to keep
-# @param by2 vector of column names to split by, must contain "fold"
+#' @param reference_fold fold number that corresponds to reference which other folds are compared against, inferred from input by default
 #' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{data.frame} where each row corresponds to clustering stability
@@ -148,7 +148,7 @@ jdist_ref <- function(clustering_list, clustering_reference_list) {
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table is.data.table rbindlist setDT setDTthreads
 #'
-stability_eval <- function(clust,
+stability_eval <- function(clusters,
                            by = c("datname", "drname", "run", "k", "m"),
                            #by2 = c("fold"),
                            parallel = 1, 
@@ -156,11 +156,11 @@ stability_eval <- function(clust,
                            ...)
 {
   if (is.null(reference_fold)) {
-    if (!"cv_index" %in% colnames(clust)) {
+    if (!"cv_index" %in% colnames(clusters)) {
       stop("Please define the reference fold number.")
     } else {
-      reference_fold <- unique(clust$fold)
-      reference_fold <- reference_fold[!reference_fold %in% unique(clust$cv_index)]
+      reference_fold <- unique(clusters$fold)
+      reference_fold <- reference_fold[!reference_fold %in% unique(clusters$cv_index)]
     }
   }
   by2 = c("fold")
@@ -256,9 +256,9 @@ stability_eval <- function(clust,
                                      test_ari = test_res$ari)
     return(out_f2)
   }
-  by <- by[by %in% colnames(clust)]
+  by <- by[by %in% colnames(clusters)]
   
-  temp_list <- split_by_safe(clust, by)
+  temp_list <- split_by_safe(clusters, by)
   
   parallel_clust <- setup_parallelization(parallel)
   
@@ -279,72 +279,78 @@ stability_eval <- function(clust,
   return(as.data.frame(stability))
 }
 
-#' Continuous variable to categorical variable association analysis
+#' Feature batch-effect analysis
 #'
-#' Three non-clustering batch effect estimators put together. \cr
-#' Can be used for other purposes as well. 
+#' Three batch effect estimators for numeric features put together. \cr
+#' Can be used for other purposes, e.g., as a multivariate association index. 
 #'
 #' @param dat data matrix, samples on columns
-#' @param class vector or matrix where columns are categorical variables
+#' @param class vector, data.frame or list where columns are categorical variables
 #' @param n_pc_max maximum number of principal components to analyze
 #' @param ... extra arguments are ignored
 #'
-#' @return Returns a \code{list} containing \code{\link[kBET]{batch_sil}},
-#'         \code{\link[kBET]{pcRegression}} and \code{\link{DSC}}
-#'         computed for each column of \code{class}
+#' @return Returns a \code{list} containing the following objects: 
+#' \itemize{
+#'   \item{associations}{\code{data.frame} summary of \code{\link[kBET]{batch_sil}},
+#'                       \code{\link[kBET]{pcRegression}} (\code{$maxR2}) and 
+#'                       \code{\link{DSC}} computed for each column of \code{class}}
+#'   \item{eigenvalues}{PC eigenvalues and percentage of explained variance from 
+#'                      \code{\link[FactoMineR]{PCA}}}
+#' }
 #' @export
 #' @importFrom FactoMineR PCA
 #' @importFrom kBET batch_sil
 #' @importFrom kBET pcRegression
-embedding_associations <-  function(dat, 
-                                    class, 
-                                    n_pc_max = 10, 
-                                    ...){
-  out <- list()
-  if (is.null(dim(class))) class <- cbind(as.character(class), c())
-
-  pca_silh <- list()
+feature_associations <- function(x, 
+                                 class, 
+                                 n_pc_max = 10, 
+                                 ...){
+  if (is.null(dim(class))) class <- data.frame(class = as.character(class))
+  class <- lapply(class, as.factor)
+  class <- class[sapply(class, function(x) length(levels(x)))>1]
+  
+  pca_silh <- c()
   pca_reg <- list()
   DSC_res <- c()
-  for (i in 1:ncol(class)) {
+  
+  dat_pca <- FactoMineR::PCA(t(x),
+                             scale.unit = FALSE,
+                             ncp = min(c(n_pc_max, dim(x))),
+                             graph = FALSE)
+  
+  for (i in 1:length(class)) {
     # PCA based
-    dat_pca <- FactoMineR::PCA(t(dat),
-                               scale.unit = FALSE,
-                               ncp = min(c(n_pc_max, dim(dat))),
-                               graph = FALSE)
-    pca_silh[[i]] <- kBET::batch_sil(list(x = dat_pca$ind$coord),
-                                     class[,i],
-                                     nPCs = min(c(n_pc_max, dim(dat))))
-    pca_reg[[i]] <- suppressWarnings(kBET::pcRegression(list(x = dat_pca$ind$coord),
-                                       class[,i],
-                                       n_top = min(c(n_pc_max, dim(dat)))))
+    pca_silh[i] <- kBET::batch_sil(list(x = dat_pca$ind$coord[!is.na(class[[i]]),]),
+                                     class[[i]][!is.na(class[[i]])],
+                                     nPCs = min(c(n_pc_max, dim(x))))
+    pca_reg[[i]] <- kBET::pcRegression(list(x = dat_pca$ind$coord[!is.na(class[[i]]),], 
+                                          sdev = sqrt(dat_pca$eig[,"eigenvalue"])),
+                                     class[[i]][!is.na(class[[i]])],
+                                     n_top = min(c(n_pc_max, dim(x))))
 
     # Other
-    DSC_res[i] <- DSC(dat, class[,i])
+    DSC_res[i] <- DSC(x[,!is.na(class[[i]])], class[[i]][!is.na(class[[i]])])
   }
-  if (!is.null(dimnames(class))) {
-    names(pca_silh) <- dimnames(class)[[2]]
-    names(pca_reg) <- dimnames(class)[[2]]
-    names(DSC_res) <- dimnames(class)[[2]]
-  }
-  out <- list(PCA_silhouette = pca_silh,
-              PCA_regression = pca_reg,
-              DSC = DSC_res)
-  return(out)
+  if (!is.null(names(class))) names(class) <- 1:length(class)
+  out <- data.frame(class = names(class),
+                    PC_silhouette = pca_silh,
+                    PC_R2_max = sapply(pca_reg, function(a) a[["maxR2"]]), 
+                    DSC = DSC_res)
+  return(list(associations = out, eigenvalues = dat_pca$eig))
 }
 
 #' Association analysis for clustering results
 #'
-#' @param clust data.frame with columns id and cluster.
-#' @param association_data data.frame with association variables, rownames should match with id in \code{clust}.
+#' @param clusters data.frame with columns id and cluster.
+#' @param association_data data.frame with association variables, rownames should match with id in \code{clusters}.
 #'
 #' @return A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 
 #'         as well as analysis of variance and kruskal-wallis test p-values for 
 #'         continuous variables. 
 #' @export
-cluster_associations <- function(clust, 
+cluster_associations <- function(clusters, 
                                  association_data) {
-  association_data_matched <- association_data[match(clust$id, 
+  association_data_matched <- association_data[match(clusters$id, 
                                                rownames(association_data)), 
                                          , 
                                          drop = FALSE]
@@ -354,7 +360,7 @@ cluster_associations <- function(clust,
     nna_ind <- which(!is.na(association_var))
     if (length(nna_ind) > 1) {
       if (length(unique(association_var[nna_ind])) > 1 &
-          length(unique(clust$cluster[nna_ind])) > 1) {
+          length(unique(clusters$cluster[nna_ind])) > 1) {
         valid <- TRUE
       } else {
         valid <- FALSE
@@ -364,11 +370,11 @@ cluster_associations <- function(clust,
     }
     if(valid) {
       if (class(association_var) %in% c("character", "factor")) {
-        out[[i]] <- data.frame(nmi = aricode::NMI(clust$cluster[nna_ind], 
+        out[[i]] <- data.frame(nmi = aricode::NMI(clusters$cluster[nna_ind], 
                                                   association_var[nna_ind]), 
-                               ari = aricode::ARI(clust$cluster[nna_ind], 
+                               ari = aricode::ARI(clusters$cluster[nna_ind], 
                                                   association_var[nna_ind]))
-        temp <- tryCatch(suppressWarnings(chisq.test(clust$cluster[nna_ind], 
+        temp <- tryCatch(suppressWarnings(chisq.test(clusters$cluster[nna_ind], 
                                                      association_var[nna_ind])), 
                          error = function(e) NULL)
         if (is.null(temp)) {
@@ -378,9 +384,9 @@ cluster_associations <- function(clust,
         }
         colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
       } else if (class(association_var) %in% c("numeric", "integer")) {
-        anova_res <- stats::aov(association_var[nna_ind] ~ clust$cluster[nna_ind])
+        anova_res <- stats::aov(association_var[nna_ind] ~ clusters$cluster[nna_ind])
         kruskal_res <- stats::kruskal.test(association_var[nna_ind], 
-                                           clust$cluster[nna_ind])
+                                           clusters$cluster[nna_ind])
         out[[i]] <- data.frame(aov.p = summary(anova_res)[[1]][1,"Pr(>F)"],
                                kruskal.p = kruskal_res$p.value)
         colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
@@ -403,11 +409,12 @@ cluster_associations <- function(clust,
 #' @param clusters A data.table or data.frame with clustering information. 
 #' @param association_data A data.frame with association variables (categoric or numeric).
 #' @param by Column names that identify a single clustering result.
+#' @param parallel Number of parallel threads.
 #' @param ... Extra arguments are ignored.
 #'
 #' @return \code{data.table} containing association variables
 #' @export
-association_analysis_cv <- function(clusters, 
+cv_association_analysis <- function(clusters, 
                                 association_data, 
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 parallel = 1, 
@@ -436,7 +443,7 @@ association_analysis_cv <- function(clusters,
 #' 
 #' Metric based on gene module eigen gene correlation
 #' 
-#' @param clust A \code{data.frame} with columns "id" and "cluster".
+#' @param x A \code{data.frame} with columns "id" and "cluster".
 #' @param module_eigs Gene module eigen-genes for each sample (samples x modules).
 #' @param module_cor_threshold Threshold for counting correlations.
 #' @param module_nan.substitute Substituted value when dividing by zero when there are no correlated clusters for a module.
@@ -468,24 +475,24 @@ association_analysis_cv <- function(clusters,
 #' parallel = 2, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("pca", "umap", "tsne"), 
 #' cluster_methods = c("hierarchical", "kmeans"), 
-#' metric = "euclidean", 
+#' distance_metric = "euclidean", 
 #' n_clusters = 2:4, 
 #' module_eigs = MEs)
 #' 
 #' scores <- clusteval_scoring(res, wsum = Silhouette - Module_score, summarise = TRUE)
-gene_module_score <- function(clust, 
+gene_module_score <- function(x, 
                               module_eigs, 
                               module_cor_threshold = 0.3, 
                               module_nan.substitute = 0) {
-  clust_cor <- lapply(as.data.frame(module_eigs[clust$id,]), 
-                                    function(x) sapply(unique(clust$cluster), 
-                                                       function(y) cor(x, clust$cluster == y)))
+  clust_cor <- lapply(as.data.frame(module_eigs[x$id,]), 
+                                    function(a) sapply(unique(x$cluster), 
+                                                       function(b) cor(a, x$cluster == b)))
   clust_cor_mat <- Reduce("rbind", clust_cor)
   clust_cor_mat_pos <- clust_cor_mat > module_cor_threshold
   clust_cor_mat_neg <- clust_cor_mat < -module_cor_threshold
   
-  score <- apply(clust_cor_mat_pos, 1, function(x) min(1, sum(x)))
-  score <- score + apply(clust_cor_mat_neg, 1, function(x) min(1, sum(x)))
+  score <- apply(clust_cor_mat_pos, 1, function(a) min(1, sum(a)))
+  score <- score + apply(clust_cor_mat_neg, 1, function(a) min(1, sum(a)))
   score <- score / apply(clust_cor_mat_pos + clust_cor_mat_neg, 1, sum)
   score[is.nan(score)] <- module_nan.substitute
   score <- mean(score, na.rm = TRUE)
@@ -497,20 +504,15 @@ gene_module_score <- function(clust,
 #' Runs \code{\link{gene_module_score}} in parallel. 
 #' 
 #' Assumes that a parallel backend has been registered for \code{foreach}.
-#'
+#' 
 #' @param clusters A data.table or data.frame with clustering information. 
-#' @param module_eigs See \code{\link{gene_module_score}}.
-#' @param module_cor_threshold See \code{\link{gene_module_score}}.
-#' @param module_nan.substitute See \code{\link{gene_module_score}}.
 #' @param by Column names that identify a single clustering result.
+#' @param parallel Number of parallel threads.
 #' @param ... Extra arguments are ignored.
-#'
+#' 
 #' @return
 #' @export
-module_evaluation <- function(clusters, 
-                              module_eigs, 
-                              module_cor_threshold = 0.3, 
-                              module_nan.substitute = 0, 
+cv_module_evaluation <- function(clusters, 
                               by = c("run", "fold", "datname", "drname", "k", "m"), 
                               parallel = 1, 
                               ...) {

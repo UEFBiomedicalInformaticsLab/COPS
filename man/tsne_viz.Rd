@@ -15,9 +15,6 @@ tsne_viz(data, category, category_label, tsne_perplexity = 45)
 
 \item{tsne_perplexity}{}
 }
-\value{
-
-}
 \description{
 Data visualization using t-SNE
 }

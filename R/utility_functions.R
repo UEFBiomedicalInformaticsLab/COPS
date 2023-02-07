@@ -259,7 +259,8 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 #' @importFrom igraph graph_from_edgelist graph_from_adjacency_matrix as_adjacency_matrix
 #' @importFrom biomaRt useEnsembl getBM
 #' @importFrom Matrix rowSums
-getHumanPPIfromSTRINGdb <- function(gene_ids, cutoff = 700, directed = FALSE, version = "11") {
+getHumanPPIfromSTRINGdb <- function(gene_ids = NULL, cutoff = 700, directed = FALSE, 
+                                    version = "11", gene_id_mart_column = "hgnc_symbol") {
   string_db <- STRINGdb::STRINGdb$new(version = version, species=9606, score_threshold = cutoff)
   if(directed) {
     gene.stringdb <- string_db$map(my_data_frame = gene_ids, 
@@ -279,9 +280,7 @@ getHumanPPIfromSTRINGdb <- function(gene_ids, cutoff = 700, directed = FALSE, ve
   } 
   else {
     hs_all_proteins = string_db$get_proteins(); rownames(hs_all_proteins) = hs_all_proteins[,1]
-    hs_ex_proteins = hs_all_proteins[which((hs_all_proteins$preferred_name %in% 
-                                              rownames(gene.diseases)) == TRUE),]; 
-    g = string_db$get_subnetwork(hs_ex_proteins$protein_external_id)
+    g = string_db$get_subnetwork(hs_all_proteins$protein_external_id)
     # create adjacency matrix
     adj_matrix <- igraph::as_adjacency_matrix(g)
     # map gene ids to protein ids
@@ -293,14 +292,14 @@ getHumanPPIfromSTRINGdb <- function(gene_ids, cutoff = 700, directed = FALSE, ve
     # extract protein ids from the human network
     protein_ids <- sapply(strsplit(rownames(adj_matrix), '\\.'), function(x) x[2])
     # get protein to gene id mappings
-    mart_results <- biomaRt::getBM(attributes = c("hgnc_symbol","ensembl_peptide_id"),
-                                   filters = "ensembl_peptide_id", values = protein_ids,
+    mart_results <- biomaRt::getBM(attributes = c(gene_id_mart_column,"ensembl_peptide_id"),
+                                   #filters = "ensembl_peptide_id", values = protein_ids,
                                    mart = mart)
     ### replace protein ids with gene ids
     ix <- match(protein_ids, mart_results$ensembl_peptide_id)
     ix <- ix[!is.na(ix)]
     newnames <- protein_ids
-    newnames[match(mart_results[ix,'ensembl_peptide_id'], newnames)] <- mart_results[ix, 'hgnc_symbol']
+    newnames[match(mart_results[ix,'ensembl_peptide_id'], newnames)] <- mart_results[ix, gene_id_mart_column]
     rownames(adj_matrix) <- newnames
     colnames(adj_matrix) <- newnames
     ppi <- adj_matrix[!duplicated(newnames), !duplicated(newnames)]
@@ -347,7 +346,7 @@ expressionToRWFeatures <- function(dat,
                                    pw_max.size = 200, 
                                    dat_gene_key = "SYMBOL", 
                                    gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"), 
-                                   directed_ppi = TRUE,
+                                   directed_ppi = FALSE,
                                    ...) {
   assoc_score_fields <- paste(paste("&fields=", c('disease.efo_info.label',
                                                   'disease.efo_info.therapeutic_area',
@@ -866,4 +865,48 @@ format_scores <- function(x) {
   return(x)
 }
 
+multi_view_cv_fold <- function(dat_list, nfolds = 5, nruns = 2, ...) {
+  if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
+    warning("Colnames in all views do not match.")
+    stop("Cross-validation for missing sample views not implemented.")
+  }
+  return(cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...))
+}
+
+subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
+  dat_i <- list()
+  non_data_cols <- list()
+  if(data_is_kernels) {
+    for (j in 1:length(dat_list)) {
+      if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
+        stop("Input kernels are not square!")
+      }
+      ij_ind <- match(cv_index$id, dat_list[[j]]$id)
+      dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
+      
+      temp <- merge(cv_index, dat_list[[j]], by = "id")
+      sel <- grep("^dim[0-9]+$", colnames(temp))
+      if ("data.table" %in% class(temp)) {
+        non_data_cols[[j]] <- temp[,-..sel]
+      } else {
+        non_data_cols[[j]] <- temp[,-sel]
+      }
+    }
+  } else {
+    for (j in 1:length(dat_list)) {
+      dat_i[[j]] <- merge(cv_index, dat_list[[j]], by = "id")
+      sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
+      if ("data.table" %in% class(dat_i[[j]])) {
+        non_data_cols[[j]] <- dat_i[[j]][,-..sel]
+        dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
+      } else {
+        non_data_cols[[j]] <- dat_i[[j]][,-sel]
+        dat_i[[j]] <- as.matrix(dat_i[[j]][,sel])
+      }
+    }
+  }
+  names(dat_i) <- names(dat_list)
+  names(non_data_cols) <- names(dat_list)
+  return(list(dat_i = dat_i, non_data_cols = non_data_cols))
+}
 

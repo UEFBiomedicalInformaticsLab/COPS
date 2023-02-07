@@ -34,3 +34,27 @@
 #' 
 #' @keywords datasets
 "psoriasis_degs_example"
+#' Normalized psoriasis expression data
+#' 
+#' RNA-Seq normalized counts
+#' 
+#' @docType data
+#' 
+#' @usage data(psoriasis_rnaseq_normalized)
+#' 
+#' @format An object of class \code{matrix}
+#' 
+#' @keywords datasets
+"psoriasis_rnaseq_normalized"
+#' Batch corrected psoriasis expression data
+#' 
+#' RNA-Seq batch-corrected and normalized counts
+#' 
+#' @docType data
+#' 
+#' @usage data(psoriasis_rnaseq_corrected)
+#' 
+#' @format An object of class \code{matrix}
+#' 
+#' @keywords datasets
+"psoriasis_rnaseq_corrected"

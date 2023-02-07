@@ -11,9 +11,6 @@ rbind_fill(a, b)
 
 \item{b}{}
 }
-\value{
-
-}
 \description{
 Rbind modification which fills missing columns with NA using base R functions
 }

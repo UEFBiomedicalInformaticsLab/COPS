@@ -9,159 +9,441 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-## Goals
+## Introduction
 
-The purpose of this tutorial is to go over common steps in the clustering analysis 
+While other R-packages such as <code>clValid</code> nad <code>clusterCrit</code> 
+provide access to a plethora of metrics to evaluate clustering results, 
+<code>COPS</code> provides a few unique functionalities for omics data in life 
+sciences. First, <code>COPS</code> uses repeated cross-fold validation to assess 
+the stability of clusters and metrics for subsets of the data. Second, 
+<code>COPS</code> implements several pathway based clustering approaches that 
+integrate biological knowledge with omics data. Third, <code>COPS</code> can be 
+used to evaluate mechanistic relevance for a given set of meta-genes identified 
+using WGCNA for example. Fourth, <code>COPS</code> provides robust test for 
+survival differences between clusters while accounting for relevant covariates. 
+
+<code>COPS</code> has been built to parallelize most operations and has been 
+optimized to run relatively efficiently in terms of memory so that most analyses 
+with relatively small datasets (up to 1000 samples) can be run on a personal 
+computer. 
+
+
+### Installation
+
+```{r, eval=FALSE}
+# Tested on CentOS Linux 7, R 4.2.0 and Bioconductor 3.15
+install.packages("devtools")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+bioc_dependencies <- c("ANF", "AnnotationDbi", "biomaRt", "dnet", "fgsea", 
+                       "graph", "GSVA", "iClusterPlus", "MOFA2", "org.Hs.eg.db", 
+                       "Rgraphviz", "ROntoTools", "STRINGdb", "supraHex")
+BiocManager::install(bioc_dependencies)
+devtools::install_github("cran/clusteval")
+devtools::install_github("theislab/kBet")
+devtools::install_github("vittoriofortino84/COPS")
+```
+
+## Clustering functionality
+
+Clustering analysis in <code>COPS</code> is divided into several steps, many of 
+which are optional:
+
+1. <code>cv_fold</code> generates cross-validation folds.
+2. <code>cv_pathway_enrichment</code> transforms the data from gene features 
+to pathway features thereby integrating biological knowledge with omics data.
+3. <code>cv_dimred</code> transforms the data into a lower dimensional 
+representation that is more suitable for clustering.
+4. <code>cv_clusteval</code> runs clustering algorithms and computes clustering 
+internal clustering metrics. 
+5. <code>stability_eval</code> evaluates clustering stability by comparing 
+cluster assignments obtained within each fold to a reference obtained from the 
+full dataset. 
+6. <code>cv_survival_evaluation</code> evaluates survival differences between 
+clusters. 
+7. <code>cv_module_evaluation</code> evaluates cluster-gene-module associations as 
+in https://doi.org/10.1093/bib/bbab314.
+8. <code>cv_association_analysis</code> calculates various statistics and indices 
+for cluster association with external variables. 
+
+### Function signatures
+
+To simplify the usage the full pipeline can be called using the eponymous 
+<code>COPS</code>-function. Most steps are also associated with a separate 
+function that processes each CV fold. Below is a list of arguments that are 
+relevant to each step, starting from general arguments shared by many functions:
+
+* generic arguments that apply to most functions
+    + <code>dat</code> : Input data which can be a matrix or list of matrices, 
+    columns will be treated as samples and rows as features. 
+    + <code>dat_list</code> : List of data.frames or data.tables with features 
+    on columns where feature names have been replaced with 'dim[0-9]+', they may 
+    also contain other columns with metadata such as sample id, CV fold etc. 
+    Managed by the <code>COPS</code> function. 
+    + <code>parallel</code> : Number of parallel threads to execute, defaults to 1.
+    + <code>by</code> : Column names by which data is split into smaller tasks 
+    corresponding to different CV folds and method settings. Managed by the 
+    <code>COPS</code> function. 
+* <code>COPS</code> arguments
+    + <code>pathway_enrichment_method</code> : (Optional) Name of the pathway 
+    enrichment method to use, passed to cv_pathway_enrichment. Affects certain 
+    routines in the pipeline.
+    + <code>multi_omic_methods</code> : (Optional) Names of the multi-view 
+    clustering algorithms to use. Affects certain routines in the pipeline.
+    + <code>vertical_parallelization</code> : Controls whether each analysis 
+    step waits for threads to finish on all folds and settings before moving to 
+    next step (horizontal) or to create one thread per fold and execute all 
+    steps and method settings in sequentially within each thread (vertical). 
+    The latter can help lower memory utilization when using fewer threads than 
+    folds.
+    + <code>verbose</code> : Controls, whether progress and time taken is 
+    printed to the console.
+    + <code>...</code> : All additional arguments are passed on to each step in 
+    the pipeline so that all relevant functionality is accessible via just one 
+    function call. See <code>?COPS</code> for more information. 
+* <code>cv_fold</code>
+    + <code>nfolds</code> : Number of CV folds.
+    + <code>nruns</code> : Number of CV repeats
+    + <code>stratified_cv</code> : Sets use of stratified CV, sample given 
+    stratification variable as evenly as possible across the folds.
+    + <code>anti_stratified</code> : Sets use of anti-stratified CV, sample 
+    given stratification variable as unevenly as possible across the folds.
+    + <code>cv_stratification_var</code> : Categorical variable for stratified CV.
+    + <code>extra_fold</code> : If set to TRUE, the function will return an 
+    additional k+1th fold containing all data points, this fold is used as 
+    reference by stability_eval.
+* <code>cv_pathway_enrichment</code>, <code>genes_to_pathways </code>
+    + <code>cv_index</code> : List of data.frames corresponding to 
+    cross-validation fold indicators as produced by <code>cv_fold</code>. 
+    Managed by the <code>COPS</code> function. 
+    + <code>gene_id_list</code> : List of gene id vectors of the corresponding 
+    columns in <code>dat_list</code> used to translate 'dim[0-9]+' back to genes 
+    for pathway analysis. Managed by the <code>COPS</code> function. 
+    + <code>x</code> : Gene feature matrix, samples on columns and genes on rows. 
+    Only used when calling <code>genes_to_pathways </code> directly. 
+    + <code>enrichment_method</code> : The options are: "DiffRank", "GSVA", 
+    "RWRFGSEA". Only one method is allowed at a time. 
+    + <code>gene_set_list</code> : List of gene sets corresponding to pathways 
+    with gene names that correspond to rows in <code>expr</code> (i.e., rownames 
+    in input data). 
+    + <code>batch_label_pw</code> : Batch labels for batch-wise enrichment which 
+    is not performed if this is <code>NULL</code>. 
+    + <code>...</code> : See <code>?genes_to_pathways</code> for more options. 
+* <code>cv_dimred</code>, <code>dimensionality_reduction</code>
+    + <code>cv_index</code> : List of data.frames corresponding to 
+    cross-validation fold indicators as produced by <code>cv_fold</code>. 
+    Managed by the <code>COPS</code> function. 
+    + <code>cv_split_data</code> : Can be set to <code>FALSE</code> if 
+    <code>dat_list</code> elements already contain the columns "run" and "fold". 
+    The first transformation step in the analysis (either pathway-based or DR-based) 
+    splits the data according to the folds, so if DR is performed after PW 
+    transformation the data will be already split. Managed by the 
+    <code>COPS</code> function. 
+    + <code>dimred_methods</code> : Character vector of method names. Options 
+    are: "none", "pca", "tsne" and "umap".
+    + <code>x</code> : Data matrix, features on columns and samples on rows. 
+    Only used when calling <code>dimensionality_reduction</code> directly. 
+    + <code>...</code> : See <code>?dimensionality_reduction</code> for more 
+    options. 
+* <code>cv_clusteval</code>, <code>clustering_analysis</code>, 
+<code>clustering_metrics</code>
+    + <code>dat_embedded</code> : Same format as <code>dat_list</code>. 
+    Managed by the <code>COPS</code> function. 
+    + <code>x</code> : A data.frame with features on columns labeled as 
+    "dim[0-9]+", must also contain "id" column. Used only when calling 
+    <code>clustering_analysis</code> directly. 
+    + <code>n_clusters</code> : A vector of integers defining the number of 
+    clusters.
+    + <code>cluster_methods</code> : A vector of clustering method names.
+    Options are: "hierarchical", "diana", "kmeans", "model", "knn_communities", 
+    "spectral", "SC3", "kkmeans" and "kkmeanspp". 
+    + <code>silhouette_dissimilarity</code> : Dissimilarity matrix used for 
+    silhouette evaluation, should contain all samples in the data. If this is 
+    not given, silhouette will be estimated using the extracted features which 
+    tends to favour lower dimensional representations. 
+    + <code>internal_metrics</code> : Names of internal indices corresponding 
+    to <code>clusterCrit::intCriteria crit</code> argument. Note that using this 
+    interface is much slower than the inbuilt average silhouette metric.
+    + <code>...</code> : See <code>?clustering_analysis</code> and 
+    <code>?clustering_metrics</code> for more options. 
+* <code>stability_eval</code>
+    + <code>clusters</code> : A clustering data.frame such as returned by 
+    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    + <code>reference_fold</code> : Fold number that corresponds to reference 
+    which other folds are compared against, inferred from input by default.
+* <code>cv_survival_evaluation</code>, <code>cv_survival_evaluation</code>
+    + <code>event_data</code> : A data.frame that contains survival times, event 
+    data and covariates.. 
+    + <code>clusters</code> : A clustering data.frame such as returned by 
+    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    + <code>survival_time_col</code> : Name of the column in 
+    <code>event_data</code> that contains survival time.
+    + <code>survival_event_col</code> : Name of the column in 
+    <code>event_data</code> that contains event indicators. 
+    + <code>survival_covariate_names</code> : Names of covariate columns in 
+    <code>event_data</code>.
+    + <code>row_id</code> : Name of column in <code>event_data</code> that 
+    matches "id" column in <code>clusters</code>.
+* <code>cv_module_evaluation</code>, <code>gene_module_score</code>
+    + <code>clusters</code> : A clustering data.frame such as returned by 
+    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    + <code>x</code> : A data.frame with columns "id" and "cluster" 
+    corresponding to a single clustering result.
+    + <code>module_eigs</code> : A matrix of meta-features, e.g. gene module 
+    eigen-genes for each sample (samples x modules) from <code>COPS</code>.
+    + <code>...</code> : See <code>?gene_module_score</code> for more options. 
+* <code>cv_association_analysis</code>, <code>cluster_associations</code>
+    + <code>clusters</code> : A clustering data.frame such as returned by 
+    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    + <code>association_data</code> : A data.frame with external variables 
+    corresponding to the input samples (categoric or numeric), rownames are 
+    matched from <code>clusters</code> "id" column (i.e., <code>dat</code> 
+    colnames), missing values are removed automatically.
+
+## Quick example
+
+The purpose of this tutorial is to go over typical steps in the clustering analysis 
 of multi-cohort gene-expression data, i.e., data gathered from multiple sources. 
-As an example we will use a Psoriasis related dataset and perform pre-processing 
-steps, namely batch correction and expression normalization, before applying the 
-COPS tools for evaluation of different clustering strategies. Towards the end we 
-go over different metrics and how to compare methods based on multiple criteria. 
-
-## Load full psoriasis data set for pre-processing
+As an example we will use a Psoriasis related dataset and use COPS to check for 
+batch effect related issues, before applying COPS for evaluation of different 
+clustering strategies. Towards the end we go over different metrics and how to 
+compare methods based on multiple criteria. 
 
 In COPS we have included an example dataset related to psoriasis RNA-Seq data 
 from multiple studies collected and harmonised by Federico et al. (2020). The full 
 dataset including atopic dermatitis studies is available at Zenodo. We also only 
 consider Psoriasis patients and protein coding genes in this tutorial. 
 
-```{r}
-names(COPS::psoriasis_rnaseq_example)
+### Biological knowledge integration and feature extraction
+
+COPS offers a few high performance pathway based clustering approaches that can 
+be used for large datasets while also utilizing resampling for evaluation. 
+Specifically, COPS can use GSVA, DiffRank or RWR-FGSEA to transform gene-expression 
+profiles into pathway activity profiles. The provided the unsupervised pathway 
+activation inference methods are summarised the in table below. 
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Method    | Description                    | Reference                                 |
+|-----------|:-------------------------------|:------------------------------------------|
+| GSVA      | Gene Set Variation Analysis    | https://doi.org/10.1186/1471-2105-14-7    |
+|           | summarises gene-expression     |                                           |
+|           | at the level of pathways by    |                                           |
+|           | using non-parametric gene      |                                           |
+|           | statistics.                    |                                           |
+| DiffRank  | A ranking based approach to    | https://doi.org/10.1186/s12920-018-0449-4 |
+|           | score pathway activity in      |                                           |
+|           | individual samples.            |                                           |
+| RWR-FGSEA | Combines Random Walk with      | https://doi.org/10.1093/bib/bbab314       |
+|           | Restart and Fast Gene Set      |                                           |
+|           | Enrichment Analysis to first   |                                           |
+|           | propagate dysregulated gene    |                                           |
+|           | information through a network  |                                           |
+|           | to generate gene-statistics    |                                           |
+|           | which used to identify sample  |                                           |
+|           | specific pathway enrichment.   |                                           |
+"
+cat(tabl)
 ```
 
-```{r}
-psoriasis_data <- Reduce("cbind", lapply(COPS::psoriasis_rnaseq_example, as.matrix))
-#low_expression <- which(apply(psoriasis_rnaseq_example_combined > 0, 1, mean) < 0.5)
-zero_expression <- which(apply(psoriasis_data == 0, 1, all))
-
-psoriasis_data <- psoriasis_data[-zero_expression,]
-```
-
-```{r}
-psoriasis_cli <- Reduce("rbind", COPS::psoriasis_clinical_example)
-if(any(rownames(psoriasis_cli) != colnames(psoriasis_data))) stop("id mismatch")
-```
-
-```{r}
-table(psoriasis_cli$lesional, psoriasis_cli$GSE)
-```
-
-## Batch effects
-In cases where we are trying to combine data from multiple different studies, it 
-is always advisable to check and correct for batch effects. 
-
-### RNA-Seq count normalization
-If batch effect correction is necessary, we should apply the correction first 
-before normalizing, but to check the effects without correction we simply omit 
-the correction step. 
-
-Let's define a function that uses edgeR TMM to normalize RNA-Seq data. And apply it:
-```{r}
-edger_normalize <- function(x) {
-  out <- edgeR::DGEList(counts = x)
-  out <- edgeR::calcNormFactors(out, method = "TMM")
-  return(edgeR::cpm(out))
-}
-psoriasis_data_normalized <- edger_normalize(psoriasis_data)
-```
-
-
-### Batch visualization before correction
-If the batch effect is very prominent, we can usually confirm it visually 
-by using tools like PCA or UMAP.
-
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-require(ggplot2)
-COPS::pca_viz(t(log2(psoriasis_data_normalized+1)), psoriasis_cli[["GSE"]], 
-              "study id") + scale_color_brewer(palette = "Set3")
-```
-
-### Batch correction
-
-To correct for a known batch effects we can use ComBat from the sva-package. 
-Since we also have different types of samples, we can either try to correct the 
-data for batch while using the sample type as a biological covariate and 
-retaining the associated variance in the data. Or alternatively, we can separate 
-the sample types and correct them separately. Here we apply the former strategy 
-since we have reasonably many batches(/studies) where different sample types 
-were sampled. 
+These pathway activity inference methods require pathway gene-sets. 
+To download pathway gene sets we prefer to use MSigDB which combines many sources 
+of pathway annotations. To keep the runtime short we will only use KEGG and filter 
+the pathways based on size. 
 
 ```{r}
-pso_combat_cov <- sva::ComBat_seq(psoriasis_data, 
-                                  batch = psoriasis_cli[["GSE"]], 
-                                  group = psoriasis_cli[["lesional"]])
-pso_combat_normalized <- edger_normalize(pso_combat_cov)
+pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
+pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
+pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
+pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
 ```
 
-### Batch visualization after correction
+The RWR-FGSEA method also requires a gene-network, since it uses random walk with 
+restart to generate gene statistics for gene set enrichment analysis. We can use 
+networks based on biological databases such as protein protein interactions (PPI) 
+or we can generate a co-expression network from the gene-expression data. 
 
-As expected, the batches become more mixed after correction: 
+COPS has a built-in function to retrieve PPIs STRINGdb and process the network 
+into suitable form:
 
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-require(ggplot2)
-COPS::pca_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["GSE"]], 
-              "study id") + scale_color_brewer(palette = "Set3")
+```{r}
+ppi_net <- COPS::getHumanPPIfromSTRINGdb(gene_id_mart_column = "ensembl_gene_id")
 ```
 
-In addition, the lesional samples separate nicely from the nonlesional and 
-healthy control samples.
+Internally, COPS defines a set of maximally dysregulated genes for each sample. 
+These are used as seeds for the random walk to discover associated genes and to 
+generate gene statistics for FGSEA. This is not a trivial task, but in practice 
+simple strategies like selecting the genes with highest expression in each sample 
+yield reasonable results. <code>RWRFGSEA</code> can do this automatically given an 
+expression matrix as input. Another possibility to select gene seeds is to use 
+non-parametric gene statistics similarly to GSVA, which can be achieved by using 
+<code>rwr_ecdf=TRUE</code>. The options to this method are quite extensive and 
+are explained on the help-page (<code>?RWRFGSEA</code>) in more detail.
 
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-require(ggplot2)
-COPS::pca_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["lesional"]], 
-              "sample type")
-```
+For this vignette we want to consider pathway transformation as an alternative 
+to dimensionality reduction. Since the number of considered pathways is still 
+reasonably high at 171, we choose to utilize spearman correlation distance and 
+divisive hierarchical clustering. 
 
-The difference becomes even more obvious by using UMAP. 
-
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-require(ggplot2)
+```{r}
 set.seed(0)
-COPS::umap_viz(t(log2(pso_combat_normalized+1)), psoriasis_cli[["lesional"]], 
-               "sample type")
+lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
+pso_degs <- COPS::psoriasis_degs_example
+res_rwrfgsea <- COPS::COPS(log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
+                           parallel = 6, nruns = 2, nfolds = 5, 
+                           pathway_enrichment_method = "RWRFGSEA", 
+                           gene_network = ppi_net, 
+                           rwr_seed_size = 50, 
+                           gene_set_list = pw_list, 
+                           dimred_methods = c("none"), 
+                           cluster_methods = c("diana"), 
+                           distance_metric = "correlation", 
+                           n_clusters = 2:6,
+                           association_data = COPS::psoriasis_clinical_example[["lesional"]])
 ```
 
-### Batch effect metrics
+### Result data structures
 
-Our purpose is to discover subtypes of psoriasis in the gene-expression profiles 
-of patient skin samples affected by the disease, i.e. the lesional samples. 
-Therefore it is important that the batch effect within the affected subset is 
-small enough to be negligible in clustering analysis. After the correction it 
-is difficult to determine visually: 
+The <code>COPS</code>-function runs and aggregates the outputs from each step 
+and returns a named list of the following objects that contain results for all 
+runs, folds and method settings:
+* <code>clusters</code> data.frame defining clusters
+* <code>internal_metrics</code> data.frame of internal metrics
+* <code>stability</code> data.frame of stability scores
+* <code>survival</code> data.frame of survival analysis results
+* <code>modules</code> data.frame of gene module association scores
+* <code>association</code> data.frame of association results to variables of interest
+* <code>cluster_sizes</code> data.frame giving the sizes of clusters
 
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-require(ggplot2)
-lesional_id <- psoriasis_cli[["GSM"]][psoriasis_cli[["lesional"]] == "lesional"]
-COPS::pca_viz(t(log2(pso_combat_normalized[,lesional_id]+1)),
-              psoriasis_cli[lesional_id, "GSE"], 
-              "study id") + scale_color_brewer(palette = "Set3")
-```
+### Ranking results
 
-Dispersion Separability Criterion is used by TCGA batch viewer. In their 
-guidance they suggest 0.5 as a threshold for concern. 
+To summarise the results into one data.frame we can use the 
+<code>scoring</code> function that takes the list of results and 
+returns a table with one line per input data and <code>COPS</code> setting. 
+The <code>wsum</code> argument is used to define a composite metric comprised of 
+multiple metrics for ranking the results. By default, the metrics are summarised 
+across CV folds (mean and sd), but this can be disabled by setting 
+<code>summarise=FALSE</code>:
 
 ```{r}
-cat(paste0("DSC before correction: ", 
-           COPS::DSC(log2(psoriasis_data_normalized[,lesional_id]+1), 
-                     psoriasis_cli[lesional_id,"GSE"])))
-cat("\n")
-cat(paste0("DSC after  correction: ", 
-           COPS::DSC(log2(pso_combat_normalized[,lesional_id]+1), 
-                     psoriasis_cli[lesional_id,"GSE"])))
+scores_rwrfgsea <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
+                                              Silhouette - GSE.nmi,
+                                  significance_level = 0.05)
 ```
 
-Clearly, ComBat was necessary and effective. 
-The DSC is a bit high for batch corrected data, but probably will not affect 
-clustering too much. Another way to measure batch effect is by using the 
-silhouette scores calculated with respect to the batch. Generally the average 
-silhouette should be under 0 for randomly labeled data (0 batch effect), but the 
-expected value depends on the dataset. 
+This returns a list containing the whole summarised table in the element "all", 
+and only the line corresponding to the best result (according to wsum) in "best". 
 
-```{r, out.width="100%", fig.width = 8, fig.height = 6}
-norm_dist <- dist(t(log2(pso_combat_normalized[,lesional_id]+1)))
-norm_silh <- cluster::silhouette(as.numeric(factor(psoriasis_cli[lesional_id,"GSE"])), norm_dist)
-hist(norm_silh[,"sil_width"])
+```{r}
+scores_rwrfgsea$all[,c("Approach", "Embedding", "Clustering", "k", "Silhouette", "ClusteringStabilityJaccard", "GSE.nmi")]
 ```
+
+## Comparing different methods
+
+For benchmarking clustering algorithms, one of the most common metrics is the 
+concordance of the grouping result with ground truth labels. 
+However, in the context of bioinformatics there are many different aspects 
+could be used to assess the usefulness of clustering results, including 
+associations to clinical variables, survival, clustering stability and 
+mechanistic relevance. 
+
+### Clustering stability
+
+A key clustering metric that is often omitted, is the clustering stability 
+which <code>COPS</code> estimates by using cross-validation. To be clear, the 
+validation folds are not used for clustering or unsupervised dimensionality 
+reduction, the purpose of CV is just to re-sample the original data efficiently. 
+Compared to bootstrapping, CV does not duplicate any data points which could 
+yield more accurate estimates of metrics within the folds. The downside is that 
+clustering data size is decreased within the folds which can affect results and 
+tends to affect metric values, especially those based on statistical tests. 
+
+Clustering stability, i.e., the grouping similarity within training folds, in 
+<code>COPS</code> is calculated with respect to a reference clustering results 
+obtained with identical settings on the full dataset. Three different indices 
+are used, namely the Jaccard index, adjusted Rand index and normalized mutual 
+information. Using repeated cross-fold validation is recommended to obtain 
+credible estimates for expected metric values and their variance. 
+
+### Module score
+
+The module score (https://doi.org/10.1093/bib/bbab314) is based on the 
+association of clusters to gene meta-features. These meta-features can computed 
+as part of WGCNA (module eigen-genes) for example. 
+
+The score is defined as: 
+$$
+\text{score} = E\left[\frac{\min{(1,\mathbf{S^{+})}}+\min{(1,\mathbf{S^{-})}}}{\mathbf{S^{+}} + \mathbf{S^{-}}}\right]
+$$
+where
+$$
+\mathbf{S^\pm_{i}} = \sum_j{\delta^\pm\left(\rho(\mathbf{e}^{(i)}, \mathbf{c}^{(j)})\right)}
+$$
+where $\rho$ corresponds to spearman correlation, $\mathbf{e}^{(i)}$ corresponds to the $i^{th}$ column of the WGCNA eigen-gene matrix, $\mathbf{c}^{(j)}$ corresponds to the $j^{th}$ cluster indicator variable and   
+$$
+\delta^{-}(x) = \begin{cases}
+    1 & \mbox{if } x \leq -\alpha \\
+    0 & \mbox{otherwise}
+\end{cases}
+$$
+$$
+\delta^{+}(x) = \begin{cases}
+        1 & \mbox{if } x \geq \alpha \\
+        0 & \mbox{otherwise}
+    \end{cases}
+$$
+where $\alpha$ is a parameter that defines a threshold for counting correlations. 
+The fraction is undefined when the denominator is zero which occurs when no clusters are strongly correlated to an eigen-gene, in which case we assign a score of $\beta$. 
+When $\beta$ is close to zero, clustering results that do not exhibit differential expression between clusters in each gene module are penalized. 
+
+In the <code>gene_module_score</code>-function $\alpha$ corresponds to the 
+argument <code>module_cor_threshold </code> while $\beta$ corresponds to the 
+argument <code>module_nan.substitute</code>. 
+
+### Survival relevance evaluation
+
+Typically, Kaplan-Meier estimates and the log-rank test are used to compare 
+survival between two groups. This strategy is easy to understand and visualize. 
+However, using the KM curves can be misleading as it does not account for any 
+covariates such as age and cancer stage which are crucial for understanding the 
+prognosis of a patient. 
+
+In <code>COPS</code>, we provide an alternative strategy for estimating the 
+significance of a survival difference between groups by using the Cox proportional 
+hazards model. With a likelihood-ratio test we can compare a baseline model of 
+only covariates to an augmented model that also has clustering information. 
+The survival related functionalities of <code>COPS</code> are discussed in 
+detail in the multi-omic cancer clustering analysis vignette. 
+
+### Pairwise metric plots
+
+One of the main purposes of COPS it to provide tools for comparing clustering 
+results from multiple perspectives. To do multi-objective evaluation we can 
+plot the results in pair-wise metric plots. In case different objectives are in 
+conflict, the related metrics may exhibit trade-offs given that the included 
+clustering strategies adequately explore these trade-offs. The solutions that 
+are on the edges of the distribution in each scatter plot may be Pareto optimal, 
+and are worth exploring further. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Clustering analysis
 
@@ -175,7 +457,8 @@ most of the variance present. To check the amount of variance we can use any of
 a multitude of options in R and we prefer FactomineR. 
 
 ```{r}
-res_pca <- FactoMineR::PCA(t(log2(pso_combat_normalized+1)), scale.unit = FALSE, ncp = 10, graph = FALSE)
+res_pca <- FactoMineR::PCA(t(log2(COPS::psoriasis_rnaseq_corrected+1)), 
+                           scale.unit = FALSE, ncp = 10, graph = FALSE)
 res_pca$eig[1:20,]
 ```
 
@@ -207,29 +490,43 @@ vignette we are doing a simple comparison of methods and therefore will be using
 the latter strategy. 
 
 ```{r}
-mrna_dist <- dist(t(log2(pso_combat_normalized[,lesional_id]+1)))
+mrna_dist <- dist(t(log2(COPS::psoriasis_rnaseq_corrected[,lesional_id]+1)))
 ```
 
 ```{r}
-res <- COPS::COPS(log2(pso_combat_normalized[,lesional_id]+1), 
+set.seed(0)
+res <- COPS::COPS(log2(COPS::psoriasis_rnaseq_corrected[,lesional_id]+1), 
                   parallel = 6, nruns = 2, nfolds = 5, 
                   dimred_methods = c("pca"), 
                   pca_dims = c(2:10),
                   cluster_methods = c("diana", "kmeans"), 
-                  metric = "euclidean", 
+                  distance_metric = "euclidean", 
                   n_clusters = 2:6,
-                  association_data = psoriasis_cli[lesional_id,],
+                  association_data = COPS::psoriasis_clinical_example[["lesional"]],
+                  internal_metrics = c("Silhouette", "S_Dbw"))
+```
+
+```{r}
+set.seed(0)
+res <- COPS::COPS(log2(COPS::psoriasis_rnaseq_corrected[,lesional_id]+1), 
+                  parallel = 6, nruns = 2, nfolds = 5, 
+                  dimred_methods = c("pca"), 
+                  pca_dims = c(2:10),
+                  cluster_methods = c("diana", "kmeans"), 
+                  distance_metric = "euclidean", 
+                  n_clusters = 2:6,
+                  association_data = COPS::psoriasis_clinical_example[["lesional"]],
                   silhouette_dissimilarity = mrna_dist)
 ```
 
 The pipeline return a list of various analysis intermediaries such as the 
 embeddings (e.g., principal components computed on subsets of data), 
 the clusters and the appropriate clustering metrics. To summarise the results 
-into one data.frame we can use the clusteval_scoring function:
+into one data.frame we can use the scoring function:
 
 ```{r}
-scores <- COPS::clusteval_scoring(res, wsum = ClusteringStabilityJaccard + 
-                                              Silhouette - GSE.nmi,
+scores <- COPS::scoring(res, wsum = ClusteringStabilityJaccard + 
+                                              silhouette - GSE.nmi,
                                   significance_level = 0.05)
 ```
 
@@ -277,8 +574,8 @@ clustering results by using gene_module_score. Since this can take a while, we
 will just use the 1000 highest variance genes. 
 
 ```{r}
-top_var <- nrow(pso_combat_normalized) - rank(apply(log2(pso_combat_normalized + 1), 1, var))
-gene_correlation <- cor(t(pso_combat_normalized[top_var < 1000,]), method =  "spearman")
+top_var <- nrow(COPS::psoriasis_rnaseq_corrected) - rank(apply(log2(COPS::psoriasis_rnaseq_corrected + 1), 1, var))
+gene_correlation <- cor(t(COPS::psoriasis_rnaseq_corrected[top_var < 1000,]), method =  "spearman")
 ```
 
 ```{r, eval = FALSE}
@@ -304,7 +601,7 @@ geneTree <- flashClust::flashClust(as.dist(1 - TOM), method="average")
 # Use adptive branch pruning to get gene clustering result
 dynamicMods <- dynamicTreeCut::cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 20)
 # Calculate eigen-genes from expression data and modules
-MEList <- WGCNA::moduleEigengenes(t(log2(pso_combat_normalized[top_var < 1000,]+1)[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
+MEList <- WGCNA::moduleEigengenes(t(log2(COPS::psoriasis_rnaseq_corrected[top_var < 1000,]+1)[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
 MEs <- MEList$eigengenes
 ```
 
@@ -326,7 +623,7 @@ gm_scores <- COPS::module_evaluation(res$clusters, module_eigs = MEs,
 We can redo the summaries with the module scores included. 
 ```{r}
 res$modules <- gm_scores
-scores <- COPS::clusteval_scoring(res, wsum = ClusteringStabilityJaccard + 
+scores <- COPS::scoring(res, wsum = ClusteringStabilityJaccard + 
                                               Silhouette - GSE.nmi,
                                   significance_level = 0.05)
 ```
@@ -342,98 +639,7 @@ COPS::pareto_plot(scores$all[scores$all[["Smallest_cluster_size"]] >= 10,],
 
 ### Pathway based clustering approaches
 
-COPS offers a few high performance pathway based clustering approaches that can 
-be used for large datasets while also utilizing resampling for evaluation. 
-Specifically, COPS can use GSVA, DiffRank or RWR-FGSEA to transform gene-expression 
-profiles into pathway activity profiles. 
 
-To download pathway gene sets we prefer to use MSigDB which combines many sources 
-of pathway annotations. To keep the runtime short we will only use KEGG and filter 
-the pathways based on size. 
-
-```{r}
-pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
-pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
-pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
-pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
-```
-
-The RWR-FGSEA method also requires a gene-network, since it uses random walk with 
-restart to generate gene statistics for gene set enrichment analysis. We can use 
-networks based on biological databases such as protein protein interactions (PPI) 
-or we can generate a co-expression network from the gene-expression data. For this 
-we can again use WGCNA, but this time we will use an unweighted network which tend 
-to perform better with RWR than weighted networks. To keep the runtime short we 
-again only consider the 1000 highest variance genes, but in general all genes 
-should be included, since the purpose of RWR is to extend a set of separately 
-identified dysregulated genes to genes that are guilty by association which are 
-otherwise missed by e.g. differential expression analysis. 
-
-```{r}
-top_var <- nrow(pso_combat_normalized) - rank(apply(log2(pso_combat_normalized + 1), 1, var))
-gene_correlation <- cor(t(pso_combat_normalized[top_var < 1000,]), method =  "spearman")
-```
-
-WGCNA has a helper function to identify a correlation cutoff that optimizes the 
-scale-free topology of the unweighted network:
-
-```{r, eval = FALSE}
-# NOT RUN
-# The pickSoftThreshold on version 1.71 of WGCNA has some issues for me. 
-# This code runs, but starts debug mode in RStudio. 
-WGCNA::disableWGCNAThreads()
-scale_free_stats <- WGCNA::pickHardThreshold(abs(gene_correlation), 
-                                             dataIsExpr = FALSE, 
-                                             cutVector = seq(0.5, 0.95, by = 0.05))
-plot(scale_free_stats$fitIndices$Cut, scale_free_stats$fitIndices$SFT.R.sq)
-plot(scale_free_stats$fitIndices$Cut, scale_free_stats$fitIndices$mean.k.)
-```
-
-```{r}
-gcn <- WGCNA::signumAdjacencyFunction(gene_correlation, threshold = 0.75)
-gcn <- igraph::graph_from_adjacency_matrix(gcn, mode = "undirected", weighted = NULL)
-gcn_components <- igraph::components(gcn)
-# remove all isolated genes
-gcn <- igraph::delete_vertices(gcn, gcn_components$csize[gcn_components$membership] == 1)
-```
-
-Now we only need to define a set of maximally dysregulated genes for each sample. 
-These are used as seeds for the random walk to discover associated genes and to 
-generate gene statistics for FGSEA. This is not a trivial task, but in practice 
-simple strategies like selecting the genes with highest expression in each sample 
-yield reasonable results. COPS::RWRFGSEA can do this automatically given an 
-expression matrix as input. For this vignette we want to consider pathway 
-transformation as an alternative to dimensionality reduction. Since the number of 
-considered pathways is still reasonably high at 171, we choose to utilize spearman 
-correlation distance and hierarchical clustering. 
-
-In order to run within the cross-validated evaluation framework, we can use the 
-COPS pipeline:
-
-```{r}
-res_rwrfgsea <- COPS::COPS(log2(pso_combat_normalized[,lesional_id]+1), 
-                           parallel = 6, nruns = 2, nfolds = 5, 
-                           pathway_enrichment_method = "RWRFGSEA", 
-                           gene_network = gcn, 
-                           rwr_seed_size = 25, 
-                           gene_set_list = pw_list, 
-                           dimred_methods = c("none"), 
-                           cluster_methods = c("diana"), 
-                           metric = "correlation", 
-                           n_clusters = 2:6,
-                           association_data = psoriasis_cli[lesional_id,],
-                           silhouette_dissimilarity = mrna_dist,
-                           module_eigs = MEs,
-                           module_cor_threshold = 0.3,
-                           module_nan.substitute = 0)
-```
-
-
-```{r}
-scores_rwrfgsea <- COPS::clusteval_scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
-                                              Silhouette - GSE.nmi,
-                                  significance_level = 0.05)
-```
 
 In order to compare the scores, we can just combine the two data.frames containing 
 all scores using rbind: 
@@ -461,11 +667,11 @@ For visualizing the spread of metrics, we cab use boxplots after reorganizing th
 scores without summarising them with the mean:
 
 ```{r}
-scores_dist <- COPS::clusteval_scoring(res, wsum = ClusteringStabilityJaccard + 
+scores_dist <- COPS::scoring(res, wsum = ClusteringStabilityJaccard + 
                                                    Silhouette - GSE.nmi,
                                        significance_level = 0.05, 
                                        summarise = FALSE)
-scores_rwrfgsea_dist <- COPS::clusteval_scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
+scores_rwrfgsea_dist <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
                                                                      Silhouette - GSE.nmi,
                                                 significance_level = 0.05, 
                                                 summarise = FALSE)
@@ -496,6 +702,48 @@ ggplot(scores_combined,
               axis.title.x = element_blank()) + 
         guides(fill = guide_legend(ncol = 3, title.position = "top"))
 ```
+
+
+## Batch effect considerations
+
+### Pre-clustering batch effect metrics
+
+Our purpose is to discover subtypes of psoriasis in the gene-expression profiles 
+of patient skin samples affected by the disease, i.e. the lesional samples. 
+Therefore it is important that the batch effect within the affected subset is 
+small enough to be negligible in clustering analysis. 
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| function               | Description                               |
+|------------------------|-------------------------------------------|
+| DSC                    | Dispersion Separability Criterion         |
+| embedding_associations | Calculates several batch effect \         |
+|                        | indices including DSC, silhouette and \   |
+|                        | regression based for multiple categories\ |
+|                        | with one function call.                   |
+"
+cat(tabl)
+```
+
+Dispersion Separability Criterion is used by TCGA batch viewer. In their 
+guidance they suggest 0.5 as a threshold for concern. 
+
+```{r}
+lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
+study_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSE"]]
+cat(paste0("DSC before correction: ", 
+           COPS::DSC(log2(COPS::psoriasis_rnaseq_normalized[,lesional_id]+1), 
+                     study_id)))
+cat("\n")
+cat(paste0("DSC after  correction: ", 
+           COPS::DSC(log2(COPS::psoriasis_rnaseq_corrected[,lesional_id]+1), 
+                     study_id)))
+```
+
+Clearly, batch correction (using sva::ComBat_seq) was necessary and effective. 
+The DSC is a bit high for batch corrected data, but probably will not affect 
+clustering too much. 
 
 ## Session info
 

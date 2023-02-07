@@ -9,9 +9,8 @@
 #' \item "tsne" - t-distributed stochastic neighbor embedding
 #' \item "umap" - Uniform Manifold Approximation and Projection for Dimension Reduction
 #' }
-#' By default also appends original data to outputs.
 #'
-#' @param dat Data matrix, features on columns and samples on rows.
+#' @param x Data matrix, features on columns and samples on rows.
 #' @param dimred_methods Vector of method names, see details for options.
 #' @param output_dimensions Vector of dimensionalities to compute using each applicable method.
 #' @param pca_dims PCA specific output dimensions.
@@ -27,22 +26,19 @@
 #' @importFrom FactoMineR PCA
 #' @importFrom Rtsne Rtsne
 #' @importFrom uwot umap
-dim_reduction_suite <- function(dat,
-                                dimred_methods = c("pca", "umap"), 
-                                output_dimensions = NULL, 
-                                pca_dims = c(2),
-                                umap_dims = c(2),
-                                tsne_perplexities = c(45),
-                                tsne_pca = TRUE, 
-                                umap_neighbors = 20,
-                                initial_dims = 50,
-                                ...) {
-  # TODO: redirect extra arguments
-  # eargs <- list(...)
-
+dimensionality_reduction <- function(x,
+                                     dimred_methods = c("pca", "umap"), 
+                                     output_dimensions = NULL, 
+                                     pca_dims = c(2),
+                                     umap_dims = c(2),
+                                     tsne_perplexities = c(45),
+                                     tsne_pca = TRUE, 
+                                     umap_neighbors = 20,
+                                     initial_dims = 50,
+                                     ...) {
   out <- list()
   if ("none" %in% dimred_methods) {
-    out$original <- dat
+    out[["none"]] <- x
     dimred_methods <- dimred_methods[dimred_methods != "none"]
   }
   
@@ -60,12 +56,12 @@ dim_reduction_suite <- function(dat,
     } else if (m == "tsne") {
       # Rtsne throws error if perplexity is too high compared to data size 
       # We can remove the offending values (possibly yielding 0 t-SNE based reductions)
-      dims <- tsne_perplexities[3 * tsne_perplexities < nrow(dat) - 1]
+      dims <- tsne_perplexities[3 * tsne_perplexities < nrow(x) - 1]
     } else {
       warning(paste("Unsupported method:", m))
       dims <- c()
     }
-    if (m == "pca") pca_temp <- FactoMineR::PCA(dat,
+    if (m == "pca") pca_temp <- FactoMineR::PCA(x,
                                                 scale.unit = FALSE,
                                                 ncp = max(dims),
                                                 graph = FALSE)
@@ -75,32 +71,32 @@ dim_reduction_suite <- function(dat,
         temp <- pca_temp$ind$coord[,1:d]
         colnames(temp) <- paste0("dim", 1:d)
       } else if (m == "tsne") {
-        if (3 * d > dim(dat)[1] - 1) stop("t-SNE perplexity is too high.")
+        if (3 * d > dim(x)[1] - 1) stop("t-SNE perplexity is too high.")
         if (tsne_pca) {
-          tsne_pca_temp <- FactoMineR::PCA(dat, scale.unit = FALSE, ncp = min(c(initial_dims, dim(dat))), graph = FALSE)
+          tsne_pca_temp <- FactoMineR::PCA(x, scale.unit = FALSE, ncp = min(c(initial_dims, dim(x))), graph = FALSE)
           tsne_input <- tsne_pca_temp$ind$coord
         } else {
-          tsne_input <- dat
+          tsne_input <- x
         }
         temp <- Rtsne::Rtsne(tsne_input,
                              dims = 2,
                              perplexity = d,
-                             #initial_dims = min(100, dim(dat)[2]),
+                             #initial_dims = min(100, dim(x)[2]),
                              check_duplicates = FALSE,
                              pca = FALSE,
                              partial_pca = FALSE,
                              verbose = FALSE)$Y
         colnames(temp) <- paste0("dim", 1:2)
-        #rownames(temp) <- colnames(dat)
+        #rownames(temp) <- colnames(x)
       } else if (m == "umap") {
-        temp <- uwot::umap(dat,
+        temp <- uwot::umap(x,
                            n_neighbors = umap_neighbors,
                            n_components = d,
-                           pca = min(c(initial_dims, dim(dat))),
+                           pca = min(c(initial_dims, dim(x))),
                            verbose = FALSE,
                            init = "normlaplacian")
         colnames(temp) <- paste0("dim", 1:d)
-        #rownames(temp) <- colnames(dat)
+        #rownames(temp) <- colnames(x)
       } else {
         # never run
         temp <- NA
@@ -113,10 +109,10 @@ dim_reduction_suite <- function(dat,
 
 #' Dimensionality reduction on cross-validated data sets
 #'
-#' @param dat_list A list of data.tables.
+#' @param dat_list A list of data.frames or data.tables.
 #' @param cv_index A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.
 #' @param cv_split_data Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.
-#' @param ... Extra arguments are passed to \code{\link{dim_reduction_suite}}.
+#' @param ... Extra arguments are passed to \code{\link{dimensionality_reduction}}.
 #'
 #' @return list of data sets
 #' @export
@@ -151,10 +147,10 @@ cv_dimred <- function(dat_list,
   
   out <- tryCatch(foreach(i = temp_list, 
                  .combine = c,
-                 .export = c("dim_reduction_suite"), #"dat_list"),
+                 .export = c("dimensionality_reduction"), #"dat_list"),
                  .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
     sel <- grep("^dim[0-9]+$", colnames(i))
-    dr_temp <- dim_reduction_suite(i[,sel], ...)
+    dr_temp <- dimensionality_reduction(i[,sel], ...)
     dr_temp <- lapply(dr_temp, function(x) cbind(i[,-sel], as.data.frame(x)))
     dr_temp
   }, finally = close_parallel_cluster(parallel_clust))

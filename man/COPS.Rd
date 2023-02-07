@@ -16,6 +16,9 @@ COPS(
   pathway_enrichment_method = "none",
   multi_omic_methods = NULL,
   vertical_parallelization = FALSE,
+  internal_metrics = NULL,
+  silhouette_dissimilarity = NULL,
+  pre_compute_silhouette_dissimilarity = TRUE,
   ...
 )
 }
@@ -42,6 +45,12 @@ COPS(
 
 \item{vertical_parallelization}{(Experimental) if set, all pipeline steps are evaluated in succession within each fold (instead of evaluating each step for all folds before moving on). Always true for multi-view methods.}
 
+\item{internal_metrics}{Internal metric names passed to \code{\link[clusterCrit]{intCriteria}}. This will slow the pipeline down considerably.}
+
+\item{silhouette_dissimilarity}{Dissimilarity matrix to use for computing silhouette indices.}
+
+\item{pre_compute_silhouette_dissimilarity}{If \code{silhouette_dissimilarity=NULL}, it will be calculated automatically by default.}
+
 \item{...}{Extra arguments are passed to pipeline components where appropriate.}
 }
 \value{
@@ -60,8 +69,8 @@ method given different settings and input data sets.
 \description{
 Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
 \code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, 
-\code{\link{stability_eval}}, \code{\link{survival_evaluation}}, 
-\code{\link{module_evaluation}} and \code{\link{association_analysis_cv}} 
+\code{\link{stability_eval}}, \code{\link{cv_survival_evaluation}}, 
+\code{\link{cv_module_evaluation}} and \code{\link{cv_association_analysis}} 
 to conveniently and comprehensively test clustering algorithms on a given set of input data.
 }
 \details{
@@ -79,7 +88,7 @@ association_data = ad_studies,
 parallel = 2, nruns = 2, nfolds = 5, 
 dimred_methods = c("pca", "umap", "tsne"), 
 cluster_methods = c("hierarchical", "kmeans"), 
-metric = "euclidean", 
+distance_metric = "euclidean", 
 n_clusters = 2:4)
 
 # Clustering (CL)
@@ -88,7 +97,7 @@ association_data = ad_studies,
 parallel = 2, nruns = 2, nfolds = 5, 
 dimred_methods = c("none"), 
 cluster_methods = c("hierarchical"), 
-metric = "correlation", 
+distance_metric = "correlation", 
 n_clusters = 2:4)
 
 # Biological knowledge integration and clustering (BK-CL)
@@ -100,7 +109,7 @@ gs_subcats = "CP:KEGG",
 parallel = 2, nruns = 2, nfolds = 5, 
 dimred_methods = c("none"), 
 cluster_methods = c("hierarchical"), 
-metric = "correlation", 
+distance_metric = "correlation", 
 n_clusters = 2:4)
 
 }

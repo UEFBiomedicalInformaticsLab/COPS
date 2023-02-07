@@ -5,10 +5,11 @@
 \title{Retrieve human protein-protein interaction network from STRINGdb.}
 \usage{
 getHumanPPIfromSTRINGdb(
-  gene_ids,
+  gene_ids = NULL,
   cutoff = 700,
   directed = FALSE,
-  version = "11"
+  version = "11",
+  gene_id_mart_column = "hgnc_symbol"
 )
 }
 \arguments{

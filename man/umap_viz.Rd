@@ -15,9 +15,6 @@ umap_viz(data, category, category_label, umap_neighbors = 20)
 
 \item{umap_neighbors}{}
 }
-\value{
-
-}
 \description{
 Data visualization using UMAP
 }

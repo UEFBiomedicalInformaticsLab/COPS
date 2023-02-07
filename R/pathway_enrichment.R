@@ -1,8 +1,8 @@
 #' Transform a gene-level data matrix into path-level information
 #' 
-#' This is a utility function which wraps several methods to extract pathway-based features from gene expression data
+#' This is a utility function which wraps several methods to extract pathway-based features from gene feature data
 #' 
-#' @param expr a numeric matrix representing gene expression profiles. Genes on the rows and samples on the columns.
+#' @param x a numeric matrix representing gene features profiles. Genes on the rows and samples on the columns.
 #' @param enrichment_method options: "DiffRank", "GSVA", "RWRFGSEA"
 #' @param gene_set_list list of gene sets (character vectors) corresponding to pathway annotations or gene sets, 
 #'   if \code{NULL} gene sets are retrieved with \code{\link[msigdbr]{msigdbr}}.
@@ -11,7 +11,7 @@
 #' @param max_size a numeric value indicating the maximum size of gene sets included
 #' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #' @param verbose controls verbosity
-#' @param gene_key_expr if \code{is.null(gene_set_list)} and \code{expr} rownames are not gene symbols, this specifies the column name in 
+#' @param gene_key_x if \code{is.null(gene_set_list)} and \code{x} rownames are not gene symbols, this specifies the column name in 
 #'   \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} to translate pathway gene symbols to. The default value results in gene symbol based gene 
 #'   sets when \code{is.null(gene_set_list)}. 
 #' @param gsva_kcdf distribution name for \code{\link[GSVA]{gsva}} empirical probability distribution kernel.
@@ -27,21 +27,21 @@
 #' 
 #' ## GSVA example
 #' ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-#'                              parallel = 2, gene_key_expr = "ENSEMBL", 
+#'                              parallel = 2, gene_key_x = "ENSEMBL", 
 #'                              gs_subcats = "CP:KEGG")
 #' # batch-wise
 #' ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
 #'                              batch_label_pw = ad_studies$GSE, parallel = 2, 
-#'                              gene_key_expr = "ENSEMBL", gs_subcats = "CP:KEGG")
+#'                              gene_key_x = "ENSEMBL", gs_subcats = "CP:KEGG")
 #' 
 #' ## DiffRank example with batch-wise enrichment
 #' ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-#'                                  parallel = 2, gene_key_expr = "ENSEMBL", 
+#'                                  parallel = 2, gene_key_x = "ENSEMBL", 
 #'                                  gs_subcats = "CP:KEGG")
 #' # batch-wise
 #' ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
 #'                                  batch_label_pw = ad_studies$GSE, 
-#'                                  parallel = 2, gene_key_expr = "ENSEMBL", 
+#'                                  parallel = 2, gene_key_x = "ENSEMBL", 
 #'                                  gs_subcats = "CP:KEGG")
 #' 
 #' ## RWRFGSEA example
@@ -63,7 +63,7 @@
 #' @importFrom dplyr filter
 #' @importFrom msigdbr msigdbr
 #' @importFrom GSVA gsva
-genes_to_pathways <- function(expr, 
+genes_to_pathways <- function(x, 
                               enrichment_method = "GSVA",
                               gene_set_list = NULL,
                               batch_label_pw = NULL, 
@@ -71,27 +71,27 @@ genes_to_pathways <- function(expr,
                               max_size = 200, 
                               parallel = 1,
                               verbose = FALSE,
-                              gene_key_expr = "SYMBOL",
+                              gene_key_x = "SYMBOL",
                               gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
                               gsva_kcdf = "Gaussian",
                               ...
 ) {
-  #expr <- t(expr)
+  #x <- t(x)
   if (is.null(gene_set_list)) {
     # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
     db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
     db_annots <- dplyr::filter(db_annots, grepl(paste0("^", paste(gs_subcats, collapse = "$|^"), "$"), gs_subcat))
     
-    if (gene_key_expr != "SYMBOL") {
+    if (gene_key_x != "SYMBOL") {
       db_annots$gene_id <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
                                                                                db_annots$human_gene_symbol, 
-                                                                               column = gene_key_expr, 
+                                                                               column = gene_key_x, 
                                                                                keytype = "SYMBOL")))
     } else {
       db_annots$gene_id <- db_annots$human_gene_symbol
     }
     
-    gene_set_list <- lapply(split(db_annots, db_annots$gs_name), function(x) x$gene_id)
+    gene_set_list <- lapply(split(db_annots, db_annots$gs_name), function(a) a$gene_id)
   }
   
   gene_set_list <- gene_set_list[which(sapply(gene_set_list, length) <= max_size & sapply(gene_set_list, length) >= min_size)]
@@ -104,7 +104,7 @@ genes_to_pathways <- function(expr,
     if (any(table(batch_label_pw) < 2)) {
       stop("Batch-wise pathway enrichment failed, all batches must have at least 2 samples.")
     }
-    batch_dat_list <- lapply(unique(batch_label_pw), function(x) expr[, which(x == as.character(batch_label_pw)), drop = FALSE])
+    batch_dat_list <- lapply(unique(batch_label_pw), function(a) x[, which(a == as.character(batch_label_pw)), drop = FALSE])
     
     # Apply the specified enrichment methods
     if (enrichment_method == "GSVA") {
@@ -122,22 +122,22 @@ genes_to_pathways <- function(expr,
   } else {
     # Regular enrichment analysis
     if (enrichment_method == "GSVA") {
-      enriched_dat <- suppressWarnings(GSVA::gsva(expr, gset.idx.list = gene_set_list, mx.diff = TRUE, 
+      enriched_dat <- suppressWarnings(GSVA::gsva(x, gset.idx.list = gene_set_list, mx.diff = TRUE, 
                                                   verbose = verbose, parallel.sz = parallel, 
                                                   kcdf = gsva_kcdf,
                                                   min.sz = min_size, max.sz = max_size))#, rnaseq = rnaseq)) # later version for rnaseq?
     } else if (enrichment_method == "DiffRank") {
-      enriched_dat <- COPS::DiffRank(expr, gene_set_list, parallel)
+      enriched_dat <- COPS::DiffRank(x, gene_set_list, parallel)
     } else if (enrichment_method == "RWRFGSEA") {
-      enriched_dat <- RWRFGSEA(expr, gene_set_list = gene_set_list, parallel = parallel, verbose = verbose, ...)
+      enriched_dat <- RWRFGSEA(x, gene_set_list = gene_set_list, parallel = parallel, verbose = verbose, ...)
     } else {
       stop(paste("Unsupported pathway enrichment method:", enrichment_method))
     }
   }
   
-  gs_category <- sapply(strsplit(rownames(enriched_dat), "_"), function(x) x[[1]])
+  gs_category <- sapply(strsplit(rownames(enriched_dat), "_"), function(a) a[[1]])
   
-  out <- lapply(unique(gs_category), function(x) enriched_dat[gs_category == x,])
+  out <- lapply(unique(gs_category), function(a) enriched_dat[gs_category == a,])
   names(out) <- unique(gs_category) # converted to dat_name by cv_dimred
   
   # Format output
@@ -182,7 +182,7 @@ cv_pathway_enrichment <- function(dat_list,
     temp <- merge(dat_list[[datname]], temp, by = "id")
     temp <- split(temp, by = c("run", "fold"))
     temp <- lapply(temp, as.data.frame)
-    temp <- lapply(temp, function(x) list(expr = x, gene_ids = gene_id_list[[i]]))
+    temp <- lapply(temp, function(x) list(dat = x, gene_ids = gene_id_list[[i]]))
     temp_list <- c(temp_list, temp)
   }
   
@@ -192,8 +192,8 @@ cv_pathway_enrichment <- function(dat_list,
                  .combine = c,
                  .export = c("genes_to_pathways"), #"dat_list"),
                  .packages = c("GSVA", "fgsea", "dnet", "msigdbr", "AnnotationDbi", "org.Hs.eg.db")) %dopar% {
-                   sel <- grep("^dim[0-9]+$", colnames(i$expr))
-                   temp <- i$expr[, sel]
+                   sel <- grep("^dim[0-9]+$", colnames(i$dat))
+                   temp <- i$dat[, sel]
                    colnames(temp) <- i$gene_ids
                    # Parallel = 1 for subprocesses
                    pw_temp <- genes_to_pathways(t(temp), parallel = 1, ...)
@@ -202,7 +202,7 @@ cv_pathway_enrichment <- function(dat_list,
                      temp2 <- as.data.frame(t(x))
                      if (ncol(temp2)>0) {
                        colnames(temp2) <- paste0("dim", 1:ncol(temp2)) # replace pw names with dimX for compatibility
-                       return(cbind(i$expr[,-sel], temp2))
+                       return(cbind(i$dat[,-sel], temp2))
                      } else {
                        return(data.frame())
                      }
@@ -222,19 +222,19 @@ cv_pathway_enrichment <- function(dat_list,
 
 #' @describeIn genes_to_pathways DiffRank by Wang et al. BMC Medical Genomics 2019
 #' 
-#' @param expr gene expression matrix, samples on columns and genes on rows
-#' @param gene_set_list list of gene sets with gene names that correspond to rows in \strong{expr}
+#' @param x gene feature matrix, samples on columns and genes on rows.
+#' @param gene_set_list list of gene sets with gene names that correspond to rows in \strong{x}
 #' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #' 
 #' @return 
 #' @export
-DiffRank <- function(expr, 
+DiffRank <- function(x, 
                      gene_set_list, 
                      parallel = 1) {
-  ranks <- apply(expr, 2, function(x) order(order(x)))
-  out <- matrix(NA, length(gene_set_list), ncol(expr))
+  ranks <- apply(x, 2, function(a) order(order(a)))
+  out <- matrix(NA, length(gene_set_list), ncol(x))
   rownames(out) <- names(gene_set_list)
-  colnames(out) <- colnames(expr)
+  colnames(out) <- colnames(x)
   
   parallel_clust <- setup_parallelization(parallel)
   
@@ -243,13 +243,13 @@ DiffRank <- function(expr,
                 .export = c(),
                 .multicombine = TRUE,
                 .maxcombine = max(length(gene_set_list), 2)) %dopar% {
-    ind <- which(rownames(expr) %in% i)
+    ind <- which(rownames(x) %in% i)
     # Compare mean ranks of pw genes vs non-pw genes
     apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
   }, finally = close_parallel_cluster(parallel_clust))
   
   rownames(out) <- names(gene_set_list)
-  out <- out[!apply(out, 1, function(x) all(is.na(x))),]
+  out <- out[!apply(out, 1, function(a) all(is.na(a))),]
   
   return(out)
   #return(list(KEGG_DiffRank = out[grep("^KEGG", rownames(out)),], 

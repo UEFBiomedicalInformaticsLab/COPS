@@ -4,12 +4,12 @@
 \alias{cluster_associations}
 \title{Association analysis for clustering results}
 \usage{
-cluster_associations(clust, association_data)
+cluster_associations(clusters, association_data)
 }
 \arguments{
-\item{clust}{data.frame with columns id and cluster.}
+\item{clusters}{data.frame with columns id and cluster.}
 
-\item{association_data}{data.frame with association variables, rownames should match with id in \code{clust}.}
+\item{association_data}{data.frame with association variables, rownames should match with id in \code{clusters}.}
 }
 \value{
 A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 

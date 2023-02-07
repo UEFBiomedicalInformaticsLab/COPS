@@ -15,9 +15,6 @@ kernel_kmeans(K, n_k, n_initializations = 100, parallel = 1, ...)
 
 \item{...}{}
 }
-\value{
-
-}
 \description{
 K-means++ with set number of iterations.
 }

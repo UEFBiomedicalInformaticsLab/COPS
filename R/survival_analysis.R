@@ -40,7 +40,7 @@ survival_preprocess <- function(event_data,
 #' @param clusters A data.frame or data.table containing clustering information.
 #' @param survival_time_col Name of the column in \code{event_data} that contains survival time. 
 #' @param survival_event_col Name of the column in \code{event_data} that contains event indicators.
-#' @param survival_covariate_names Nme of covariate columns. 
+#' @param survival_covariate_names Names of covariate columns in \code{event_data}. 
 #' @param row_id Name of column in \code{event_data} that matches sample IDs in \code{clusters}.
 #' @param by Vector of column names that identify a single clustering result in \code{clusters}.
 #' @param ... Extra arguments are ignored.
@@ -49,7 +49,7 @@ survival_preprocess <- function(event_data,
 #' @export
 #' 
 #' @importFrom survival Surv coxph
-survival_evaluation <- function(event_data, 
+cv_survival_evaluation <- function(event_data, 
                                 clusters, 
                                 survival_time_col = "time", 
                                 survival_event_col = "event", 
@@ -99,7 +99,7 @@ survival_evaluation <- function(event_data,
                      }
                      model0 <- survival::coxph(as.formula(model_formula0), data = temp)
                      res <- anova(model, model0, test="LRT")
-                     out_i$cluster_significance <- res[["P(>|Chi|)"]][2]
+                     out_i$cluster_significance <- res[["P(>|Chi|)"]][2] # always the same in LRT?
                      ci <- survival::concordance(model)
                      out_i$concordance_index <- ci[["concordance"]]
                    }

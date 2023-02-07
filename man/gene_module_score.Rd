@@ -5,14 +5,14 @@
 \title{Gene module score}
 \usage{
 gene_module_score(
-  clust,
+  x,
   module_eigs,
   module_cor_threshold = 0.3,
   module_nan.substitute = 0
 )
 }
 \arguments{
-\item{clust}{A \code{data.frame} with columns "id" and "cluster".}
+\item{x}{A \code{data.frame} with columns "id" and "cluster".}
 
 \item{module_eigs}{Gene module eigen-genes for each sample (samples x modules).}
 
@@ -50,7 +50,7 @@ batch_label = ad_studies,
 parallel = 2, nruns = 2, nfolds = 5, 
 dimred_methods = c("pca", "umap", "tsne"), 
 cluster_methods = c("hierarchical", "kmeans"), 
-metric = "euclidean", 
+distance_metric = "euclidean", 
 n_clusters = 2:4, 
 module_eigs = MEs)
 

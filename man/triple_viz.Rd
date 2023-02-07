@@ -24,9 +24,6 @@ triple_viz(
 
 \item{umap_neighbors}{}
 }
-\value{
-
-}
 \description{
 Data visualization using PCA, t-SNE and UMAP
 }

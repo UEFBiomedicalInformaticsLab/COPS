@@ -35,8 +35,6 @@ PIK_from_networks(x, networks, normalized_laplacian = TRUE, parallel = 1, ...)
 \value{
 kernel matrix
 
-
-
 list of undirected igraph objects
 
 list of kernel matrices
@@ -46,10 +44,10 @@ Pathway induced kernel (Manica et al. 2019)
 }
 \section{Functions}{
 \itemize{
-\item \code{PIK_KEGG}: Use KEGG pathways to form pathway induced kernels
+\item \code{PIK_KEGG()}: Use KEGG pathways to form pathway induced kernels
 
-\item \code{KEGG_networks}: Download KEGG pathway graphs
+\item \code{KEGG_networks()}: Download KEGG pathway graphs
 
-\item \code{PIK_from_networks}: Pathway induced kernel from networks
+\item \code{PIK_from_networks()}: Pathway induced kernel from networks
+
 }}
-

@@ -21,9 +21,6 @@ clustering_dissimilarity_from_data(
 
 \item{...}{}
 }
-\value{
-
-}
 \description{
 Dissimilarity matrix
 }

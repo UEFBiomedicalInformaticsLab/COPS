@@ -9,6 +9,7 @@ cv_clusteval(
   parallel = 1,
   by = c("datname", "drname", "run", "fold"),
   silhouette_dissimilarity = NULL,
+  dat_list = NULL,
   ...
 )
 }
@@ -20,6 +21,8 @@ cv_clusteval(
 \item{by}{variables to split input data by}
 
 \item{silhouette_dissimilarity}{dissimilarity matrix used for silhouette evaluation}
+
+\item{dat_list}{list of input data matrices used for calculating clustering indices}
 
 \item{...}{extra arguments are passed through to \code{\link{clustering_dissimilarity_from_data}}, \code{\link{clustering_analysis}} and \code{\link{clustering_metrics}}}
 }

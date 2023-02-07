@@ -38,10 +38,6 @@ weighted_linear_kernel(x, weights)
 \item{weights}{feature weights}
 }
 \value{
-
-
-
-
 kernel matrix
 }
 \description{
@@ -49,8 +45,8 @@ PAMOGK (Tepeli et al. 2021)
 }
 \section{Functions}{
 \itemize{
-\item \code{node_betweenness_parallel}: Parallel computation of node betweenness
+\item \code{node_betweenness_parallel()}: Parallel computation of node betweenness
 
-\item \code{weighted_linear_kernel}: Weighted linear kernel
+\item \code{weighted_linear_kernel()}: Weighted linear kernel
+
 }}
-

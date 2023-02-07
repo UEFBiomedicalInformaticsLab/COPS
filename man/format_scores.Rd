@@ -7,10 +7,7 @@
 format_scores(x)
 }
 \arguments{
-\item{x}{a \code{data.frame} of scores}
-}
-\value{
-
+\item{x}{scores from COPS pipeline}
 }
 \description{
 Renames internal method and score names to something more understandable.

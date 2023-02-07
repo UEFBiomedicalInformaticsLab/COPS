@@ -26,9 +26,6 @@ plot_similarity_matrix(
 
 \item{title}{plot title}
 }
-\value{
-
-}
 \description{
 Order using hierarchical clustering
 }

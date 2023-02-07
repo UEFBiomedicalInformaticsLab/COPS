@@ -103,11 +103,11 @@ The default behaviour
 }
 \section{Functions}{
 \itemize{
-\item \code{rwr_wrapper}: Transforms gene-expression values into gene-network node-affinity values
+\item \code{rwr_wrapper()}: Transforms gene-expression values into gene-network node-affinity values
 
-\item \code{fgsea_wrapper}: Wrapper for fast pre-ranked gene set enrichment analysis (\code{\link[fgsea]{fgseaSimple}})
+\item \code{fgsea_wrapper()}: Wrapper for fast pre-ranked gene set enrichment analysis (\code{\link[fgsea]{fgseaSimple}})
+
 }}
-
 \examples{
 library(parallel)
 library(COPS)

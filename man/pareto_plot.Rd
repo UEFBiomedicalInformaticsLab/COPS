@@ -9,10 +9,11 @@ pareto_plot(
   plot_palette = pals::watlington(16),
   metrics = c("TrainStabilityJaccard", "Silhouette", "Smallest_cluster_size"),
   metrics_scale = rep("identity", length(metrics)),
-  color_var = "drname",
-  shape_var = "m",
+  color_var = "Transform",
+  shape_var = "Clustering",
   size_var = "k",
-  size_range = c(2, 6)
+  size_range = c(2, 6),
+  color_scale = ggplot2::scale_color_manual(values = plot_palette)
 )
 }
 \arguments{
@@ -27,9 +28,6 @@ pareto_plot(
 \item{shape_var}{}
 
 \item{size_var}{}
-}
-\value{
-
 }
 \description{
 Pairwise plots for visual Pareto based multi-objective optimization

@@ -185,9 +185,6 @@ Required for pathway kernels.}
 
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} when using MOFA.}
 }
-\value{
-
-}
 \description{
 Multi-omic clustering via multi-view clustering or integration
 }

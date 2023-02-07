@@ -14,7 +14,7 @@ expressionToRWFeatures(
   pw_max.size = 200,
   dat_gene_key = "SYMBOL",
   gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"),
-  directed_ppi = TRUE,
+  directed_ppi = FALSE,
   ...
 )
 }

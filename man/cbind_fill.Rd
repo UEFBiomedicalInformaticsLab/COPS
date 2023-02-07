@@ -11,9 +11,6 @@ cbind_fill(a, b)
 
 \item{b}{}
 }
-\value{
-
-}
 \description{
 Cbind modification which fills missing rows with NA using base R functions
 }

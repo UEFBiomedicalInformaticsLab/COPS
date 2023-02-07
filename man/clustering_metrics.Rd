@@ -11,6 +11,7 @@ clustering_metrics(
   dissimilarity = NULL,
   cluster_size_table = TRUE,
   silhouette_min_cluster_size = 0,
+  internal_metrics = NULL,
   ...
 )
 }
@@ -26,6 +27,8 @@ clustering_metrics(
 \item{cluster_size_table}{return cluster sizes if \code{TRUE}.}
 
 \item{silhouette_min_cluster_size}{proportional cluster size threshold for merging into nearest neighbours' cluster for silhouette computation.}
+
+\item{internal_metrics}{Internal metric names passed to \code{\link[clusterCrit]{intCriteria}}. This will slow the pipeline down considerably.}
 
 \item{...}{extra arguments are passed to \code{\link{clustering_dissimilarity_from_data}}}
 }

@@ -15,9 +15,6 @@ univariate_group_diff_tests(dat, group, remove_zero_var = TRUE, parallel = 1)
 
 \item{parallel}{number of threads}
 }
-\value{
-
-}
 \description{
 Computes various statistics for molecular differences between groups.
 }

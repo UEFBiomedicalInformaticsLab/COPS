@@ -14,13 +14,13 @@ cv_dimred(
 )
 }
 \arguments{
-\item{dat_list}{A list of data.tables.}
+\item{dat_list}{A list of data.frames or data.tables.}
 
 \item{cv_index}{A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.}
 
 \item{cv_split_data}{Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.}
 
-\item{...}{Extra arguments are passed to \code{\link{dim_reduction_suite}}.}
+\item{...}{Extra arguments are passed to \code{\link{dimensionality_reduction}}.}
 }
 \value{
 list of data sets

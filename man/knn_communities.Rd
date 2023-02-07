@@ -13,9 +13,6 @@ knn_communities(dat, k = 30, jaccard_kernel = TRUE)
 
 \item{jaccard_kernel}{}
 }
-\value{
-
-}
 \description{
 Title
 }
