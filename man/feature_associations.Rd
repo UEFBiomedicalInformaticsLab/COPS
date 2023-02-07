@@ -7,13 +7,13 @@
 feature_associations(x, class, n_pc_max = 10, ...)
 }
 \arguments{
+\item{x}{data matrix, samples on columns}
+
 \item{class}{vector, data.frame or list where columns are categorical variables}
 
 \item{n_pc_max}{maximum number of principal components to analyze}
 
 \item{...}{extra arguments are ignored}
-
-\item{dat}{data matrix, samples on columns}
 }
 \value{
 Returns a \code{list} containing the following objects: 

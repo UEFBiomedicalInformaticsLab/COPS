@@ -18,7 +18,7 @@ cv_module_evaluation(
 
 \item{parallel}{Number of parallel threads.}
 
-\item{...}{Extra arguments are ignored.}
+\item{...}{Extra arguments are passed to \code{\link{gene_module_score}}.}
 }
 \description{
 Runs \code{\link{gene_module_score}} in parallel.

@@ -58,3 +58,15 @@
 #' 
 #' @keywords datasets
 "psoriasis_rnaseq_corrected"
+#' Meta-gene features for psoriasis expression data
+#' 
+#' WGCNA module eigen-genes for psoriasis RNA-Seq data
+#' 
+#' @docType data
+#' 
+#' @usage data(psoriasis_example_MEs)
+#' 
+#' @format An object of class \code{matrix}
+#' 
+#' @keywords datasets
+"psoriasis_example_MEs"

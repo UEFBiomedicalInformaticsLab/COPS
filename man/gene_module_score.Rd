@@ -8,7 +8,8 @@ gene_module_score(
   x,
   module_eigs,
   module_cor_threshold = 0.3,
-  module_nan.substitute = 0
+  module_nan.substitute = 0,
+  ...
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ gene_module_score(
 \item{module_cor_threshold}{Threshold for counting correlations.}
 
 \item{module_nan.substitute}{Substituted value when dividing by zero when there are no correlated clusters for a module.}
+
+\item{...}{Extra arguments are ignored.}
 }
 \description{
 Metric based on gene module eigen gene correlation

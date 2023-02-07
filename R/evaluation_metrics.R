@@ -284,7 +284,7 @@ stability_eval <- function(clusters,
 #' Three batch effect estimators for numeric features put together. \cr
 #' Can be used for other purposes, e.g., as a multivariate association index. 
 #'
-#' @param dat data matrix, samples on columns
+#' @param x data matrix, samples on columns
 #' @param class vector, data.frame or list where columns are categorical variables
 #' @param n_pc_max maximum number of principal components to analyze
 #' @param ... extra arguments are ignored
@@ -305,7 +305,7 @@ feature_associations <- function(x,
                                  class, 
                                  n_pc_max = 10, 
                                  ...){
-  if (is.null(dim(class))) class <- data.frame(class = as.character(class))
+  if (class(class) != "list" & is.null(dim(class))) class <- data.frame(class = as.character(class))
   class <- lapply(class, as.factor)
   class <- class[sapply(class, function(x) length(levels(x)))>1]
   
@@ -331,7 +331,7 @@ feature_associations <- function(x,
     # Other
     DSC_res[i] <- DSC(x[,!is.na(class[[i]])], class[[i]][!is.na(class[[i]])])
   }
-  if (!is.null(names(class))) names(class) <- 1:length(class)
+  if (is.null(names(class))) names(class) <- 1:length(class)
   out <- data.frame(class = names(class),
                     PC_silhouette = pca_silh,
                     PC_R2_max = sapply(pca_reg, function(a) a[["maxR2"]]), 
@@ -447,6 +447,7 @@ cv_association_analysis <- function(clusters,
 #' @param module_eigs Gene module eigen-genes for each sample (samples x modules).
 #' @param module_cor_threshold Threshold for counting correlations.
 #' @param module_nan.substitute Substituted value when dividing by zero when there are no correlated clusters for a module.
+#' @param ... Extra arguments are ignored.
 #' 
 #' @export
 #' @examples library(COPS)
@@ -483,7 +484,8 @@ cv_association_analysis <- function(clusters,
 gene_module_score <- function(x, 
                               module_eigs, 
                               module_cor_threshold = 0.3, 
-                              module_nan.substitute = 0) {
+                              module_nan.substitute = 0, 
+                              ...) {
   clust_cor <- lapply(as.data.frame(module_eigs[x$id,]), 
                                     function(a) sapply(unique(x$cluster), 
                                                        function(b) cor(a, x$cluster == b)))
@@ -508,7 +510,7 @@ gene_module_score <- function(x,
 #' @param clusters A data.table or data.frame with clustering information. 
 #' @param by Column names that identify a single clustering result.
 #' @param parallel Number of parallel threads.
-#' @param ... Extra arguments are ignored.
+#' @param ... Extra arguments are passed to \code{\link{gene_module_score}}.
 #' 
 #' @return
 #' @export
@@ -526,7 +528,7 @@ cv_module_evaluation <- function(clusters,
                  .packages = c(),
                  .multicombine = TRUE,
                  .maxcombine = max(length(clust_list), 2)) %dopar% {
-                   gm_score <- gene_module_score(clust, module_eigs, module_cor_threshold, module_nan.substitute)
+                   gm_score <- gene_module_score(x = clust, ...)
                    gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
                    gm_score
                  }, finally = close_parallel_cluster(parallel_clust))
