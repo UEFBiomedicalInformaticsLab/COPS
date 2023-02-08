@@ -1,5 +1,5 @@
 ---
-title: "COPS tutorial, multi-cohort gene-expression-driven psoriasis patient stratification"
+title: "Clustering algorithms for Omics-driven Patient Stratification (COPS) - psoriasis multi-cohort RNA-Seq example"
 author: "Teemu Rintala"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
@@ -11,8 +11,20 @@ vignette: >
 
 ## Introduction
 
+Clustering algorithms are a staple exploratory tool in studying omics profiles 
+of patients in order to identify molecular patterns corresponding to groups of 
+patients that indicate different subtypes of disease. Omics data tends to be 
+very high-dimensional, which can be addressed with different strategies. In COPS 
+we have included data-driven strategies based on dimensionality reduction as well 
+as knowledge-driven strategies based on integrating omics data with pathway gene 
+sets and biological networks. Another crucial aspect to consider when trying to 
+identify disease subtypes is the evaluation of the subtype candidates (i.e., 
+patient clusters). The best number of clusters and the best clustering strategy 
+are highly dependent on the dataset and the criteria used to evaluate clustering 
+results. 
+
 While other R-packages such as <code>clValid</code> and <code>clusterCrit</code> 
-provide access to a plethora of metrics to evaluate clustering results, 
+provide access to a plethora of internal metrics to evaluate clustering results, 
 <code>COPS</code> provides a few unique functionalities for omics data in life 
 sciences. First, <code>COPS</code> uses repeated cross-fold validation to assess 
 the stability of clusters and metrics for subsets of the data. Second, 
@@ -23,7 +35,7 @@ using WGCNA for example. Fourth, <code>COPS</code> provides robust test for
 survival differences between clusters while accounting for relevant covariates. 
 
 <code>COPS</code> has been built to parallelise most operations and has been 
-optimized to run relatively efficiently in terms of memory so that most analyses 
+optimised to run relatively efficiently in terms of memory so that most analyses 
 with relatively small datasets (up to 1000 samples) can be run on a personal 
 computer. 
 
@@ -31,7 +43,7 @@ computer.
 ### Installation
 
 ```{r, eval=FALSE}
-# Tested on CentOS Linux 7, R 4.2.0 and Bioconductor 3.15
+# Tested on Rocky Linux 8.7, R 4.2.1 and Bioconductor 3.15
 install.packages("devtools")
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
@@ -355,7 +367,7 @@ Note that with summarise set to FALSE, the function will also return results for
 the reference fold (k+1). Hence, when plotting resampled metrics, the reference 
 should be omitted manually. 
 
-```{r, out.width="100%", fig.width=5, fig.height=4, message=FALSE}
+```{r, dpi=300, out.width="100%", fig.width=5, fig.height=4, message=FALSE}
 require(ggplot2)
 ggplot(scores_rwrfgsea_dist$all[scores_rwrfgsea_dist$all$fold != 6,], 
        aes(x = interaction(Embedding, Clustering),  
@@ -527,7 +539,7 @@ scores_combined <- rbind(scores_dr$all, scores_rwrfgsea$all)
 
 Finally, we can do a comparison by using the <code>pareto_plot</code> function:
 
-```{r, out.width="100%", fig.width = 10, fig.height = 8, message = FALSE}
+```{r, dpi=300, out.width="100%", fig.width = 10, fig.height = 8, message = FALSE}
 p <- COPS::pareto_plot(scores_combined[scores_combined[["Smallest_cluster_size"]] >= 10 &
                                          (scores_combined[["drname"]] %in% paste0("pca", c(2,5,7,10)) |
                                             scores_combined[["Approach"]] == "RWR-FGSEA"),],
