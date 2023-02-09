@@ -612,8 +612,8 @@ the maximum coefficient of determination (R2) between PCs and a linear model
 based on the categories, and the aforementioned DSC. In the absence of batch-effects, 
 the silhouette should be below 0 while DSC should be below 0.5. If the R2 max is 
 close to 1 it means there are PCs that are strongly associate with batches and 
-they should be analysed further, otherwise it might be more sensitive than the 
-other metrics. 
+they should be analysed further. It is worth keeping in mind that the R2 max is 
+more sensitive than the other metrics. 
 
 ```{r}
 feats$associations
