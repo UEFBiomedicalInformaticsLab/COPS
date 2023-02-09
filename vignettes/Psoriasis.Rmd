@@ -240,22 +240,9 @@ activation inference methods are summarised the in table below.
 tabl <- "
 | Method    | Description                     | Reference                                 |
 |-----------|:--------------------------------|:------------------------------------------|
-| GSVA      | Gene Set Variation Analysis \   | https://doi.org/10.1186/1471-2105-14-7    |
-|           | summarises gene-expression \    |                                           |
-|           | at the level of pathways by \   |                                           |
-|           | using non-parametric gene \     |                                           |
-|           | statistics.                     |                                           |
-| DiffRank  | A ranking based approach to \   | https://doi.org/10.1186/s12920-018-0449-4 |
-|           | score pathway activity in \     |                                           |
-|           | individual samples.             |                                           |
-| RWR-FGSEA | Combines Random Walk with \     | https://doi.org/10.1093/bib/bbab314       |
-|           | Restart and Fast Gene Set \     |                                           |
-|           | Enrichment Analysis to first \  |                                           |
-|           | propagate dysregulated gene \   |                                           |
-|           | information through a network \ |                                           |
-|           | to generate gene-statistics \   |                                           |
-|           | which used to identify sample \ |                                           |
-|           | specific pathway enrichment. \  |                                           |
+| GSVA      | Gene Set Variation Analysis summarises gene-expression at the level of pathways by using non-parametric gene statistics. | https://doi.org/10.1186/1471-2105-14-7    |
+| DiffRank  | A ranking based approach to score pathway activity in individual samples.     | https://doi.org/10.1186/s12920-018-0449-4 |
+| RWR-FGSEA | Combines Random Walk with Restart and Fast Gene Set Enrichment Analysis to first propagate dysregulated gene information through a network to generate gene-statistics which used to identify sample specific pathway enrichment.     | https://doi.org/10.1093/bib/bbab314       |
 "
 cat(tabl)
 ```
@@ -568,12 +555,13 @@ stability and module_score while also having the lowest batch NMI.
 
 We have not discussed yet is the pre-processing of input data, which is crucial 
 for obtaining good clustering results. 
-<code>COPS</code> does not provide any tools for processing sequencing data or 
-to perform batch-correction. 
+<code>COPS</code> does not provide tools for processing sequencing data or 
+performing batch-correction and therefore we expect that the input data has 
+already been pre-processed appropriately. For example, RNA-Seq counts should be 
+normalized and variance stabilised, i.e. log-scaled TPM or CPM and DNA-methylation 
+should be given as methylation percentages or M-values. 
 However, <code>COPS</code> does provide tools for assessing batch-effects prior 
 to clustering. 
-Note that the inputs in most cases should correspond to normalized and variance 
-stabilized data: log-scaled TPM/CPM, methylation M-values / percentages, etc..
 
 ### Pre-clustering batch effect metrics
 
