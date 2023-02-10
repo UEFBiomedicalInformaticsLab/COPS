@@ -1,10 +1,10 @@
 #' Multi-omic clustering via multi-view clustering or integration
 #'
-#' @param dat_list_clust List of input \code{data.frame}s for input.
+#' @param dat_list List of input \code{data.frame}s for input.
 #' @param non_data_cols List of \code{data.frame}s that include meta data for 
 #'   each view. At the moment only the first element is used by appending to 
 #'   clustering output. 
-#' @param multi_view_methods Vector of algorithm names to be applied. See details. 
+#' @param multi_omic_methods Vector of algorithm names to be applied. See details. 
 #' @param n_clusters Integer vector of number of clusters to output. 
 #' @param distance_metric Distance metric for clustering factorized data 
 #'   (only for MOFA).
@@ -16,10 +16,30 @@
 #' @param icp_view_types iCluster view types. 
 #'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
 #'   \code{\link[iClusterPlus]{iClusterBayes}}. 
-#' @param icp_bayes_burnin iClusteBayes burn in. 
+#' @param icp_lambda iCluster+ L1 penalty for each view. 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}}.
+#' @param icp_burnin iCluster+ number of MCMC burn in samples for approximating 
+#'   joint distribution of latent variables. 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#' @param icp_draw iCluster+ number of MCMC samples to draw after burn in for 
+#'   approximating joint distribution of latent variables.  
+#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#' @param icp_maxiter iCluster+ maximum number of Newton-Rhapson (EM) iterations. 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#'   \code{\link[iClusterPlus]{iClusterBayes}}. 
+#' @param icp_sdev iCluster+ MCMC random walk standard deviation. 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#' @param icp_eps iCluster+ algorithm convergence threshold. 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#' @param icp_bayes_burnin iClusteBayes number of samples for MCMC burn in. 
 #'   See \code{\link[iClusterPlus]{iClusterBayes}}
-#' @param icp_bayes_draw iClusteBayes draw. See 
-#'   \code{\link[iClusterPlus]{iClusterBayes}}
+#' @param icp_bayes_draw iClusteBayes number of MCMC samples to draw after burn in. 
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}
+#' @param icb_sdev iClusteBayes MCMC random walk standard deviation. 
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}
+#' @param icb_thin iClusteBayes MCMC thinning, only one sample in every icb_thin 
+#'   samples will be used. 
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}
 #' @param nmf_maxiter Maxiter for IntNMF. See 
 #'   \code{\link[IntNMF]{nmf.mnnals}}.
 #' @param nmf_st.count Count stability for IntNMF. 
@@ -143,34 +163,42 @@
 #' @importFrom IntNMF nmf.mnnals
 #' @importFrom MOFA2 create_mofa get_default_data_options get_default_model_options get_default_training_options prepare_mofa run_mofa
 #' @importFrom reticulate use_python
-multi_omic_clustering <- function(dat_list_clust, 
+multi_omic_clustering <- function(dat_list, 
                                   non_data_cols,
-                                  multi_view_methods = "iClusterPlus",
+                                  multi_omic_methods = "iClusterPlus",
                                   n_clusters = 2, 
                                   distance_metric = "euclidean", 
                                   correlation_method = "spearman",
                                   standardize_data = FALSE,
-                                  non_negativity_transform = rep_len("none", length(dat_list_clust)),
-                                  icp_view_types = rep_len("gaussian", length(dat_list_clust)),
-                                  icp_bayes_burnin = 1000,
-                                  icp_bayes_draw = 1200,
+                                  non_negativity_transform = rep_len("none", length(dat_list)),
+                                  icp_view_types = rep_len("gaussian", length(dat_list)),
+                                  icp_lambda = rep(0.03, length(dat_list)),
+                                  icp_burnin = 100,
+                                  icp_draw = 200,
+                                  icp_maxiter = 20, 
+                                  icp_sdev = 0.05,
+                                  icp_eps = 1e-4,
+                                  icb_burnin = 1000,
+                                  icb_draw = 1200,
+                                  icb_sdev = 0.5, 
+                                  icb_thin = 1,
                                   nmf_maxiter = 200,
                                   nmf_st.count = 20,
                                   nmf_n.ini = 30,
                                   nmf_ini.nndsvd = TRUE,
                                   nmf_scaling = "F-ratio",
                                   mofa_scale_views = FALSE,
-                                  mofa_likelihoods = rep_len("gaussian", length(dat_list_clust)), 
+                                  mofa_likelihoods = rep_len("gaussian", length(dat_list)), 
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
                                   mofa_environment = NULL,
                                   mofa_lib_path = NULL,
                                   anf_neighbors = 20,
-                                  kernels = rep_len("linear", length(dat_list_clust)),
+                                  kernels = rep_len("linear", length(dat_list)),
                                   kernels_center = TRUE,
                                   kernels_normalize = TRUE,
                                   kernels_scale_norm = FALSE,
-                                  kernel_gammas = rep_len(0.5, length(dat_list_clust)),
+                                  kernel_gammas = rep_len(0.5, length(dat_list)),
                                   pathway_networks = NULL,
                                   pamogk_restart = 0.7,
                                   kkmeans_maxiter = 100,
@@ -194,32 +222,32 @@ multi_omic_clustering <- function(dat_list_clust,
   if (foldwise_zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
     # in some of the folds. They cause issues and should be removed. 
-    dat_list_clust <- lapply(dat_list_clust, function(x) x[,apply(x, 2, var) > 0])
+    dat_list <- lapply(dat_list, function(x) x[,apply(x, 2, var) > 0])
   }
   if (standardize_data) {
-    dat_list_clust <- lapply(dat_list_clust, scale)
+    dat_list <- lapply(dat_list, scale)
   }
-  if (any(multi_view_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
+  if (any(multi_omic_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     # In fold centering and normalization
-    if (length(kernels_center) != length(dat_list_clust)) {
-      kernels_center <- rep_len(kernels_center, length(dat_list_clust))
+    if (length(kernels_center) != length(dat_list)) {
+      kernels_center <- rep_len(kernels_center, length(dat_list))
     }
-    if (length(kernels_normalize) != length(dat_list_clust)) {
-      kernels_normalize <- rep_len(kernels_normalize, length(dat_list_clust))
+    if (length(kernels_normalize) != length(dat_list)) {
+      kernels_normalize <- rep_len(kernels_normalize, length(dat_list))
     }
-    if (length(kernels_scale_norm) != length(dat_list_clust)) {
-      kernels_scale_norm <- rep_len(kernels_scale_norm, length(dat_list_clust))
+    if (length(kernels_scale_norm) != length(dat_list)) {
+      kernels_scale_norm <- rep_len(kernels_scale_norm, length(dat_list))
     }
   }
   if (data_is_kernels) {
-    multi_omic_kernels <- dat_list_clust
+    multi_omic_kernels <- dat_list
     multi_omic_kernels[kernels_center] <- lapply(multi_omic_kernels[kernels_center],
                                                  center_kernel)
     multi_omic_kernels[kernels_normalize] <- lapply(multi_omic_kernels[kernels_normalize],
                                                     normalize_kernel)
     multi_omic_kernels[kernels_scale_norm] <- lapply(multi_omic_kernels[kernels_scale_norm],
                                                           scale_kernel_norm)
-  } else if (any(multi_view_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
+  } else if (any(multi_omic_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     # Pathway-based kernels need pathway networks
     if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &
         is.null(pathway_networks)) {
@@ -243,38 +271,38 @@ multi_omic_clustering <- function(dat_list_clust,
     }
     # Construct kernels
     multi_omic_kernels <- list()
-    for (i in 1:length(dat_list_clust)) {
+    for (i in 1:length(dat_list)) {
       if (kernels[i] == "linear") {
-        temp <- dat_list_clust[[i]] %*% t(dat_list_clust[[i]])
+        temp <- dat_list[[i]] %*% t(dat_list[[i]])
         if (kernels_center[i]) temp <- center_kernel(temp)
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
         if (kernels_scale_norm[i]) temp <- scale_kernel_norm(temp)
         temp <- list(temp)
-        names(temp) <- names(dat_list_clust)[i]
+        names(temp) <- names(dat_list)[i]
         multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("gaussian", "rbf")) {
-        temp <- exp(- kernel_gammas[i] * as.matrix(dist(dat_list_clust[[i]]))**2)
+        temp <- exp(- kernel_gammas[i] * as.matrix(dist(dat_list[[i]]))**2)
         temp <- list(temp)
-        names(temp) <- names(dat_list_clust)[i]
+        names(temp) <- names(dat_list)[i]
         multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("jaccard", "tanimoto")) {
-        temp <- jaccard_matrix(t(dat_list_clust[[i]]))
+        temp <- jaccard_matrix(t(dat_list[[i]]))
         temp[is.nan(temp)] <- 0
         diag(temp) <- 1
         if (kernels_center[i]) temp <- center_kernel(temp)
         if (kernels_normalize[i]) temp <- normalize_kernel(temp)
         if (kernels_scale_norm[i]) temp <- scale_kernel_norm(temp)
         temp <- list(temp)
-        names(temp) <- names(dat_list_clust)[i]
+        names(temp) <- names(dat_list)[i]
         multi_omic_kernels <- c(multi_omic_kernels, temp)
       } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
-        gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list_clust[[i]])))
-        temp <- dat_list_clust[[i]]
+        gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list[[i]])))
+        temp <- dat_list[[i]]
         colnames(temp) <- gene_id_list[[i]][gene_col_ind]
         if (kernels[i] == "PIK") {
           temp <- scale(temp, scale = TRUE) # z-scores
           temp <- PIK_from_networks(temp, pathway_networks, parallel = mvc_threads)
-          names(temp) <- paste0(names(dat_list_clust)[i], "_", names(temp))
+          names(temp) <- paste0(names(dat_list)[i], "_", names(temp))
           temp <- lapply(temp, as.matrix)
           if (kernels_normalize[i]) {
             temp <- lapply(temp, normalize_kernel)
@@ -285,7 +313,7 @@ multi_omic_clustering <- function(dat_list_clust,
         } else if (kernels[i] == "BWK") {
           temp <- t(temp)
           temp <- lapply(nw_weights, function(w) weighted_linear_kernel(temp, w))
-          names(temp) <- paste0(names(dat_list_clust)[i], "_", names(temp))
+          names(temp) <- paste0(names(dat_list)[i], "_", names(temp))
           temp <- temp[!sapply(temp, is.null)]
           temp <- lapply(temp, as.matrix)
           temp <- temp[which(sapply(temp, function(x) var(as.vector(x))) > 0)]
@@ -354,18 +382,24 @@ multi_omic_clustering <- function(dat_list_clust,
     }
   }
   res <- list()
-  if("iClusterPlus" %in% multi_view_methods) {
-    if (length(dat_list_clust) > 4) stop("iClusterPlus only supports up to four views.")
-    if (length(dat_list_clust) >= 1) dt1 <- dat_list_clust[[1]] else dt1 <- NULL
-    if (length(dat_list_clust) >= 2) dt2 <- dat_list_clust[[2]] else dt2 <- NULL
-    if (length(dat_list_clust) >= 3) dt3 <- dat_list_clust[[3]] else dt3 <- NULL
-    if (length(dat_list_clust) == 4) dt4 <- dat_list_clust[[4]] else dt4 <- NULL
+  if("iClusterPlus" %in% multi_omic_methods) {
+    if (length(dat_list) > 4) stop("iClusterPlus only supports up to four views.")
+    if (length(dat_list) >= 1) dt1 <- dat_list[[1]] else dt1 <- NULL
+    if (length(dat_list) >= 2) dt2 <- dat_list[[2]] else dt2 <- NULL
+    if (length(dat_list) >= 3) dt3 <- dat_list[[3]] else dt3 <- NULL
+    if (length(dat_list) == 4) dt4 <- dat_list[[4]] else dt4 <- NULL
     
     for (k in n_clusters) {
       k_res <- tryCatch({
         temp_res <- iClusterPlus::iClusterPlus(dt1, dt2, dt3, dt4, 
                                                type = icp_view_types,
-                                               K = k-1)
+                                               K = k-1,
+                                               lambda = icp_lambda,
+                                               n.burnin = icp_burnin,
+                                               n.draw = icp_draw,
+                                               maxiter = icp_maxiter, 
+                                               sdev = icp_sdev,
+                                               eps = icp_eps)
         k_res <- data.frame(m = "iClusterPlus", 
                             k = k,
                             cluster = temp_res$clusters)
@@ -375,22 +409,24 @@ multi_omic_clustering <- function(dat_list_clust,
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
-  if("iClusterBayes" %in% multi_view_methods) {
-    if (length(dat_list_clust) > 6) stop("iClusterPlus only supports up to six views.")
-    if (length(dat_list_clust) >= 1) dt1 <- dat_list_clust[[1]] else dt1 <- NULL
-    if (length(dat_list_clust) >= 2) dt2 <- dat_list_clust[[2]] else dt2 <- NULL
-    if (length(dat_list_clust) >= 3) dt3 <- dat_list_clust[[3]] else dt3 <- NULL
-    if (length(dat_list_clust) >= 4) dt4 <- dat_list_clust[[4]] else dt4 <- NULL
-    if (length(dat_list_clust) >= 5) dt5 <- dat_list_clust[[5]] else dt5 <- NULL
-    if (length(dat_list_clust) == 6) dt6 <- dat_list_clust[[6]] else dt6 <- NULL
+  if("iClusterBayes" %in% multi_omic_methods) {
+    if (length(dat_list) > 6) stop("iClusterPlus only supports up to six views.")
+    if (length(dat_list) >= 1) dt1 <- dat_list[[1]] else dt1 <- NULL
+    if (length(dat_list) >= 2) dt2 <- dat_list[[2]] else dt2 <- NULL
+    if (length(dat_list) >= 3) dt3 <- dat_list[[3]] else dt3 <- NULL
+    if (length(dat_list) >= 4) dt4 <- dat_list[[4]] else dt4 <- NULL
+    if (length(dat_list) >= 5) dt5 <- dat_list[[5]] else dt5 <- NULL
+    if (length(dat_list) == 6) dt6 <- dat_list[[6]] else dt6 <- NULL
     
     for (k in n_clusters) {
       k_res <- tryCatch({
         temp_res <- iClusterPlus::iClusterBayes(dt1, dt2, dt3, dt4, dt5, dt6, 
                                                 type = icp_view_types,
                                                 K = k-1,
-                                                n.burnin = icp_bayes_burnin,
-                                                n.draw = icp_bayes_draw)
+                                                n.burnin = icb_burnin,
+                                                n.draw = icb_draw,
+                                                sdev = icb_sdev, 
+                                                thin = icb_thin)
         k_res <- data.frame(m = "iClusterBayes", 
                             k = k,
                             cluster = temp_res$clusters)
@@ -400,35 +436,35 @@ multi_omic_clustering <- function(dat_list_clust,
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
-  if ("IntNMF" %in% multi_view_methods) {
-    dat_list_clust_nmf <- dat_list_clust
-    for (i in 1:length(dat_list_clust_nmf)) {
+  if ("IntNMF" %in% multi_omic_methods) {
+    dat_list_nmf <- dat_list
+    for (i in 1:length(dat_list_nmf)) {
       if (non_negativity_transform[i] == "logistic") {
-        dat_list_clust_nmf[[i]] <- 1/(1 + exp(-dat_list_clust_nmf[[i]]))
+        dat_list_nmf[[i]] <- 1/(1 + exp(-dat_list_nmf[[i]]))
       }
       if (non_negativity_transform[i] == "rank") {
-        dat_list_clust_nmf[[i]] <- apply(dat_list_clust_nmf[[i]], 2, function(x) rank(x) / length(x))
+        dat_list_nmf[[i]] <- apply(dat_list_nmf[[i]], 2, function(x) rank(x) / length(x))
       }
       if (non_negativity_transform[i] == "offset2") {
-        dat_list_clust_nmf[[i]] <- dat_list_clust_nmf[[i]] + 2
+        dat_list_nmf[[i]] <- dat_list_nmf[[i]] + 2
       }
     }
     for (k in n_clusters) {
       k_res <- tryCatch({
         if (nmf_scaling == "F-ratio") {
           # First minmax scale each matrix to [0,1]
-          for (i in 1:length(dat_list_clust_nmf)) {
-            dat_list_clust_nmf[[i]] <- dat_list_clust_nmf[[i]] - min(dat_list_clust_nmf[[i]])
-            dat_list_clust_nmf[[i]] <- dat_list_clust_nmf[[i]] / max(dat_list_clust_nmf[[i]])
+          for (i in 1:length(dat_list_nmf)) {
+            dat_list_nmf[[i]] <- dat_list_nmf[[i]] - min(dat_list_nmf[[i]])
+            dat_list_nmf[[i]] <- dat_list_nmf[[i]] / max(dat_list_nmf[[i]])
           }
-          #nmf_view_weights <- sapply(dat_list_clust_nmf, function(x) mean(sqrt(apply(x^2, 1, sum))))
-          nmf_view_weights <- sapply(dat_list_clust_nmf, Matrix::norm, type = "F")
+          #nmf_view_weights <- sapply(dat_list_nmf, function(x) mean(sqrt(apply(x^2, 1, sum))))
+          nmf_view_weights <- sapply(dat_list_nmf, Matrix::norm, type = "F")
           nmf_view_weights <- max(nmf_view_weights) / nmf_view_weights
         } else {
-          nmf_view_weights <- 1 / sapply(dat_list_clust_nmf, max)
+          nmf_view_weights <- 1 / sapply(dat_list_nmf, max)
         }
         
-        temp_res <- nmf.mnnals(dat_list_clust_nmf, 
+        temp_res <- nmf.mnnals(dat_list_nmf, 
                                k = k, 
                                maxiter = nmf_maxiter,
                                st.count = nmf_st.count,
@@ -444,7 +480,7 @@ multi_omic_clustering <- function(dat_list_clust,
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
-  if ("MOFA2" %in% multi_view_methods) {
+  if ("MOFA2" %in% multi_omic_methods) {
     temp_res <- tryCatch({
       Sys.setenv(OMP_NUM_THREADS=mvc_threads)
       Sys.setenv(MKL_NUM_THREADS=mvc_threads)
@@ -457,7 +493,7 @@ multi_omic_clustering <- function(dat_list_clust,
         reticulate::use_virtualenv(mofa_environment)
       }
       
-      mofa_obj <- MOFA2::create_mofa(lapply(dat_list_clust, t))
+      mofa_obj <- MOFA2::create_mofa(lapply(dat_list, t))
       data_opts <- MOFA2::get_default_data_options(mofa_obj)
       data_opts$scale_views <- mofa_scale_views
       model_opts <- MOFA2::get_default_model_options(mofa_obj)
@@ -494,9 +530,9 @@ multi_omic_clustering <- function(dat_list_clust,
     }, error = function(e) {warning(e); return(NULL)})
     if(!is.null(temp_res)) if(nrow(temp_res) > 1) res <- c(res, list(temp_res))
   }
-  if ("ANF" %in% multi_view_methods) {
-    #aff_list <- lapply(dat_list_clust, knn_g, k = ann_knn, jaccard_kernel = ann_jk)
-    aff_dist <- lapply(dat_list_clust, dist)
+  if ("ANF" %in% multi_omic_methods) {
+    #aff_list <- lapply(dat_list, knn_g, k = ann_knn, jaccard_kernel = ann_jk)
+    aff_dist <- lapply(dat_list, dist)
     aff_dist <- lapply(aff_dist, as.matrix)
     aff_list <- lapply(aff_dist, ANF::affinity_matrix, k = anf_neighbors)
     aff_mat <- ANF::ANF(aff_list, K = anf_neighbors)
@@ -507,7 +543,7 @@ multi_omic_clustering <- function(dat_list_clust,
       res <- c(res, list(k_res))
     }
   }
-  if ("kkmeans" %in% multi_view_methods) {
+  if ("kkmeans" %in% multi_omic_methods) {
     # Average kernel
     multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
     approximation <- eigen(multi_omic_kernels, symmetric = TRUE)$vectors
@@ -524,7 +560,7 @@ multi_omic_clustering <- function(dat_list_clust,
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
-  if ("kkmeanspp" %in% multi_view_methods) {
+  if ("kkmeanspp" %in% multi_omic_methods) {
     # Average kernel
     multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
     for (k in n_clusters) {
@@ -540,7 +576,7 @@ multi_omic_clustering <- function(dat_list_clust,
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
     }
   }
-  if ("mkkm_mr" %in% multi_view_methods) {
+  if ("mkkm_mr" %in% multi_omic_methods) {
     if (is.null(extra_output)) extra_output <- list()
     if (is.null(extra_output$mkkm_mr_weights)) extra_output$mkkm_mr_weights <- data.frame()
     for (k in n_clusters) {
@@ -585,7 +621,7 @@ multi_omic_clustering <- function(dat_list_clust,
       }
     }
   }
-  if ("ECMC" %in% multi_view_methods) {
+  if ("ECMC" %in% multi_omic_methods) {
     for (k in n_clusters) {
       k_res <- tryCatch({
         # Find consensus kernels

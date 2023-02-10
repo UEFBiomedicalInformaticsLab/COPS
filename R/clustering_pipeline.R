@@ -333,7 +333,7 @@ vertical_pipeline <- function(dat_list,
       # Since we are running different methods in parallel we take the first result only
       temp_args <- c(list(dat_list_clust = dat_i, 
                           non_data_cols = non_data_cols, 
-                          multi_view_methods = mvc,
+                          multi_omic_methods = mvc,
                           data_is_kernels = data_is_kernels),
                      f_args)
       clust_i <- do.call(multi_omic_clustering, temp_args)

@@ -5,34 +5,42 @@
 \title{Multi-omic clustering via multi-view clustering or integration}
 \usage{
 multi_omic_clustering(
-  dat_list_clust,
+  dat_list,
   non_data_cols,
-  multi_view_methods = "iClusterPlus",
+  multi_omic_methods = "iClusterPlus",
   n_clusters = 2,
   distance_metric = "euclidean",
   correlation_method = "spearman",
   standardize_data = FALSE,
-  non_negativity_transform = rep_len("none", length(dat_list_clust)),
-  icp_view_types = rep_len("gaussian", length(dat_list_clust)),
-  icp_bayes_burnin = 1000,
-  icp_bayes_draw = 1200,
+  non_negativity_transform = rep_len("none", length(dat_list)),
+  icp_view_types = rep_len("gaussian", length(dat_list)),
+  icp_lambda = rep(0.03, length(dat_list)),
+  icp_burnin = 100,
+  icp_draw = 200,
+  icp_maxiter = 20,
+  icp_sdev = 0.05,
+  icp_eps = 1e-04,
+  icb_burnin = 1000,
+  icb_draw = 1200,
+  icb_sdev = 0.5,
+  icb_thin = 1,
   nmf_maxiter = 200,
   nmf_st.count = 20,
   nmf_n.ini = 30,
   nmf_ini.nndsvd = TRUE,
   nmf_scaling = "F-ratio",
   mofa_scale_views = FALSE,
-  mofa_likelihoods = rep_len("gaussian", length(dat_list_clust)),
+  mofa_likelihoods = rep_len("gaussian", length(dat_list)),
   mofa_convergence_mode = "medium",
   mofa_maxiter = 1000,
   mofa_environment = NULL,
   mofa_lib_path = NULL,
   anf_neighbors = 20,
-  kernels = rep_len("linear", length(dat_list_clust)),
+  kernels = rep_len("linear", length(dat_list)),
   kernels_center = TRUE,
   kernels_normalize = TRUE,
   kernels_scale_norm = FALSE,
-  kernel_gammas = rep_len(0.5, length(dat_list_clust)),
+  kernel_gammas = rep_len(0.5, length(dat_list)),
   pathway_networks = NULL,
   pamogk_restart = 0.7,
   kkmeans_maxiter = 100,
@@ -55,13 +63,13 @@ multi_omic_clustering(
 )
 }
 \arguments{
-\item{dat_list_clust}{List of input \code{data.frame}s for input.}
+\item{dat_list}{List of input \code{data.frame}s for input.}
 
 \item{non_data_cols}{List of \code{data.frame}s that include meta data for 
 each view. At the moment only the first element is used by appending to 
 clustering output.}
 
-\item{multi_view_methods}{Vector of algorithm names to be applied. See details.}
+\item{multi_omic_methods}{Vector of algorithm names to be applied. See details.}
 
 \item{n_clusters}{Integer vector of number of clusters to output.}
 
@@ -80,11 +88,33 @@ See details below.}
 See \code{\link[iClusterPlus]{iClusterPlus}} or 
 \code{\link[iClusterPlus]{iClusterBayes}}.}
 
-\item{icp_bayes_burnin}{iClusteBayes burn in. 
+\item{icp_lambda}{iCluster+ L1 penalty for each view. 
+See \code{\link[iClusterPlus]{iClusterPlus}}.}
+
+\item{icp_burnin}{iCluster+ number of MCMC burn in samples for approximating 
+joint distribution of latent variables. 
+See \code{\link[iClusterPlus]{iClusterPlus}} or}
+
+\item{icp_draw}{iCluster+ number of MCMC samples to draw after burn in for 
+approximating joint distribution of latent variables.  
+See \code{\link[iClusterPlus]{iClusterPlus}} or}
+
+\item{icp_maxiter}{iCluster+ maximum number of Newton-Rhapson (EM) iterations. 
+See \code{\link[iClusterPlus]{iClusterPlus}} or 
+\code{\link[iClusterPlus]{iClusterBayes}}.}
+
+\item{icp_sdev}{iCluster+ MCMC random walk standard deviation. 
+See \code{\link[iClusterPlus]{iClusterPlus}} or}
+
+\item{icp_eps}{iCluster+ algorithm convergence threshold. 
+See \code{\link[iClusterPlus]{iClusterPlus}} or}
+
+\item{icb_sdev}{iClusteBayes MCMC random walk standard deviation. 
 See \code{\link[iClusterPlus]{iClusterBayes}}}
 
-\item{icp_bayes_draw}{iClusteBayes draw. See 
-\code{\link[iClusterPlus]{iClusterBayes}}}
+\item{icb_thin}{iClusteBayes MCMC thinning, only one sample in every icb_thin 
+samples will be used. 
+See \code{\link[iClusterPlus]{iClusterBayes}}}
 
 \item{nmf_maxiter}{Maxiter for IntNMF. See 
 \code{\link[IntNMF]{nmf.mnnals}}.}
@@ -184,6 +214,12 @@ pipeline standardized feature names ("dim1", "dim2", ...) to names on the list.
 Required for pathway kernels.}
 
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} when using MOFA.}
+
+\item{icp_bayes_burnin}{iClusteBayes number of samples for MCMC burn in. 
+See \code{\link[iClusterPlus]{iClusterBayes}}}
+
+\item{icp_bayes_draw}{iClusteBayes number of MCMC samples to draw after burn in. 
+See \code{\link[iClusterPlus]{iClusterBayes}}}
 }
 \description{
 Multi-omic clustering via multi-view clustering or integration

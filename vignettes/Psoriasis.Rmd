@@ -575,10 +575,7 @@ tabl <- "
 | function               | Description                               |
 |------------------------|-------------------------------------------|
 | DSC                    | Dispersion Separability Criterion         |
-| feature_associations   | Calculates several batch effect \         |
-|                        | indices including DSC, silhouette and \   |
-|                        | regression based for multiple categories\ |
-|                        | with one function call.                   |
+| feature_associations   | Calculates several batch effect indices including DSC, silhouette and regression based for multiple categories with one function call. |
 "
 cat(tabl)
 ```
