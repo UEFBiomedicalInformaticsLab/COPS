@@ -109,6 +109,12 @@ See \code{\link[iClusterPlus]{iClusterPlus}} or}
 \item{icp_eps}{iCluster+ algorithm convergence threshold. 
 See \code{\link[iClusterPlus]{iClusterPlus}} or}
 
+\item{icb_burnin}{iClusteBayes number of samples for MCMC burn in. 
+See \code{\link[iClusterPlus]{iClusterBayes}}}
+
+\item{icb_draw}{iClusteBayes number of MCMC samples to draw after burn in. 
+See \code{\link[iClusterPlus]{iClusterBayes}}}
+
 \item{icb_sdev}{iClusteBayes MCMC random walk standard deviation. 
 See \code{\link[iClusterPlus]{iClusterBayes}}}
 
@@ -214,12 +220,6 @@ pipeline standardized feature names ("dim1", "dim2", ...) to names on the list.
 Required for pathway kernels.}
 
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} when using MOFA.}
-
-\item{icp_bayes_burnin}{iClusteBayes number of samples for MCMC burn in. 
-See \code{\link[iClusterPlus]{iClusterBayes}}}
-
-\item{icp_bayes_draw}{iClusteBayes number of MCMC samples to draw after burn in. 
-See \code{\link[iClusterPlus]{iClusterBayes}}}
 }
 \description{
 Multi-omic clustering via multi-view clustering or integration

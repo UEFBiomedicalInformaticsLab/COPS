@@ -1,9 +1,9 @@
 #' Multi-omic clustering via multi-view clustering or integration
 #'
 #' @param dat_list List of input \code{data.frame}s for input.
-#' @param non_data_cols List of \code{data.frame}s that include meta data for 
-#'   each view. At the moment only the first element is used by appending to 
-#'   clustering output. 
+#' @param meta_data A single \code{data.frame} or a list that includes meta data for 
+#'   each view. If a list is provided, at the moment only the first element is 
+#'   used (by appending to clustering output). 
 #' @param multi_omic_methods Vector of algorithm names to be applied. See details. 
 #' @param n_clusters Integer vector of number of clusters to output. 
 #' @param distance_metric Distance metric for clustering factorized data 
@@ -13,33 +13,33 @@
 #' @param standardize_data If set, standardizes data before clustering. 
 #' @param non_negativity_transform Vector of transformation names for IntNMF. 
 #'   See details below. 
-#' @param icp_view_types iCluster view types. 
-#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
-#'   \code{\link[iClusterPlus]{iClusterBayes}}. 
+#' @param view_distributions A vector specifying the distribution to use for each view. 
+#'   Used by iCluster+, iClusterBayes and MOFA2. 
+#'   Options are "gaussian", "bernoulli" and "poisson". 
 #' @param icp_lambda iCluster+ L1 penalty for each view. 
 #'   See \code{\link[iClusterPlus]{iClusterPlus}}.
 #' @param icp_burnin iCluster+ number of MCMC burn in samples for approximating 
 #'   joint distribution of latent variables. 
-#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}}.
 #' @param icp_draw iCluster+ number of MCMC samples to draw after burn in for 
 #'   approximating joint distribution of latent variables.  
-#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}}.
 #' @param icp_maxiter iCluster+ maximum number of Newton-Rhapson (EM) iterations. 
-#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}}.
 #'   \code{\link[iClusterPlus]{iClusterBayes}}. 
 #' @param icp_sdev iCluster+ MCMC random walk standard deviation. 
-#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
+#'   See \code{\link[iClusterPlus]{iClusterPlus}}.
 #' @param icp_eps iCluster+ algorithm convergence threshold. 
-#'   See \code{\link[iClusterPlus]{iClusterPlus}} or 
-#' @param icp_bayes_burnin iClusteBayes number of samples for MCMC burn in. 
-#'   See \code{\link[iClusterPlus]{iClusterBayes}}
-#' @param icp_bayes_draw iClusteBayes number of MCMC samples to draw after burn in. 
-#'   See \code{\link[iClusterPlus]{iClusterBayes}}
+#'   See \code{\link[iClusterPlus]{iClusterPlus}}.
+#' @param icb_burnin iClusteBayes number of samples for MCMC burn in. 
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}.
+#' @param icb_draw iClusteBayes number of MCMC samples to draw after burn in. 
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}.
 #' @param icb_sdev iClusteBayes MCMC random walk standard deviation. 
-#'   See \code{\link[iClusterPlus]{iClusterBayes}}
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}.
 #' @param icb_thin iClusteBayes MCMC thinning, only one sample in every icb_thin 
 #'   samples will be used. 
-#'   See \code{\link[iClusterPlus]{iClusterBayes}}
+#'   See \code{\link[iClusterPlus]{iClusterBayes}}.
 #' @param nmf_maxiter Maxiter for IntNMF. See 
 #'   \code{\link[IntNMF]{nmf.mnnals}}.
 #' @param nmf_st.count Count stability for IntNMF. 
@@ -48,12 +48,8 @@
 #'   See \code{\link[IntNMF]{nmf.mnnals}}.
 #' @param nmf_ini.nndsvd If set, IntNMF uses NNDSVD for initialization. 
 #'   See \code{\link[IntNMF]{nmf.mnnals}}.
-#' @param nmf_scaling Determines how views are scaled. Defaults to Frobenius norm
-#'   ratio when compared as in Chalise et al. 2017.
-#' @param mofa_scale_views MOFA scaling. 
-#'   See \code{\link[MOFA2]{get_default_data_options}}.
-#' @param mofa_likelihoods MOFA likelihoods. 
-#'   See \code{\link[MOFA2]{get_default_model_options}}.
+#' @param nmf_scaling Omic weights that are used for scaling. Defaults to the 
+#'   Frobenius norm ratio similarly to Chalise et al. 2017.
 #' @param mofa_convergence_mode MOFA convergence threshold. 
 #'   See \code{\link[MOFA2]{get_default_training_options}}.
 #' @param mofa_maxiter MOFA maximum iterations. 
@@ -93,9 +89,9 @@
 #'   obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
 #'     kernel k-means. 
 #' @param data_is_kernels If set, input data is assumed to be kernel matrices. 
-#'   Otherwise kernels are computed based on input data based on the 
+#'   Otherwise kernels are computed based on input data and the 
 #'   \code{kernels} parameter. 
-#' @param foldwise_zero_var_removal If set, removes all zero variance features 
+#' @param zero_var_removal If set, removes all zero variance features 
 #'   from the data. It is called fold-wise, because this is assumed to be run 
 #'   inside CV. 
 #' @param mvc_threads Number of threads to use for supported operations. 
@@ -110,8 +106,8 @@
 #' Supported methods:
 #' \itemize{
 #'   \item "ANF" - Affinity Network Fusion \code{\link[ANF]{ANF}}
-#'   \item "iClusterPlus" - \code{\link[iClusterPlus]{iClusterPlus}}.
-#'   \item "iClusterBayes" -  code{\link[iClusterPlus]{iClusterBayes}}.
+#'   \item "iClusterPlus" or "iCluster+" - \code{\link[iClusterPlus]{iClusterPlus}}. Supports only up to 4 views. 
+#'   \item "iClusterBayes" -  code{\link[iClusterPlus]{iClusterBayes}}. Supports only up to 6 views
 #'   \item "IntNMF" - Integrative Non-negative Matrix Factorization 
 #'     \code{\link[IntNMF]{nmf.mnnals}}.
 #'   \item "kkmeans" - kernel k-means initialized on spectral approximation, 
@@ -164,14 +160,14 @@
 #' @importFrom MOFA2 create_mofa get_default_data_options get_default_model_options get_default_training_options prepare_mofa run_mofa
 #' @importFrom reticulate use_python
 multi_omic_clustering <- function(dat_list, 
-                                  non_data_cols,
+                                  meta_data = NULL,
                                   multi_omic_methods = "iClusterPlus",
                                   n_clusters = 2, 
                                   distance_metric = "euclidean", 
                                   correlation_method = "spearman",
                                   standardize_data = FALSE,
                                   non_negativity_transform = rep_len("none", length(dat_list)),
-                                  icp_view_types = rep_len("gaussian", length(dat_list)),
+                                  view_distributions = rep_len("gaussian", length(dat_list)),
                                   icp_lambda = rep(0.03, length(dat_list)),
                                   icp_burnin = 100,
                                   icp_draw = 200,
@@ -187,8 +183,6 @@ multi_omic_clustering <- function(dat_list,
                                   nmf_n.ini = 30,
                                   nmf_ini.nndsvd = TRUE,
                                   nmf_scaling = "F-ratio",
-                                  mofa_scale_views = FALSE,
-                                  mofa_likelihoods = rep_len("gaussian", length(dat_list)), 
                                   mofa_convergence_mode = "medium",
                                   mofa_maxiter = 1000,
                                   mofa_environment = NULL,
@@ -214,12 +208,14 @@ multi_omic_clustering <- function(dat_list,
                                   ecmc_solver = "MOSEK",
                                   ecmc_mkkm_mr = TRUE, 
                                   data_is_kernels = FALSE, 
-                                  foldwise_zero_var_removal = TRUE,
+                                  zero_var_removal = TRUE,
                                   mvc_threads = 1,
                                   gene_id_list = NULL,
                                   ...) {
+  if (is.null(meta_data)) meta_data <- data.frame(id = rownames(dat_list[[1]]))
+  if ("data.frame" %in% class(meta_data)) meta_data <- list(meta_data)
   extra_output <- NULL # For returning things like view weights
-  if (foldwise_zero_var_removal & !data_is_kernels) {
+  if (zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
     # in some of the folds. They cause issues and should be removed. 
     dat_list <- lapply(dat_list, function(x) x[,apply(x, 2, var) > 0])
@@ -382,7 +378,12 @@ multi_omic_clustering <- function(dat_list,
     }
   }
   res <- list()
-  if("iClusterPlus" %in% multi_omic_methods) {
+  if(any(c("iClusterPlus", "iClusterBayes") %in% multi_omic_methods)) {
+    icp_view_types <- view_distributions
+    icp_view_types[icp_view_types == "bernoulli"] <- "binomial"
+  }
+  
+  if(any(c("iCluster+", "iClusterPlus") %in% multi_omic_methods)) {
     if (length(dat_list) > 4) stop("iClusterPlus only supports up to four views.")
     if (length(dat_list) >= 1) dt1 <- dat_list[[1]] else dt1 <- NULL
     if (length(dat_list) >= 2) dt2 <- dat_list[[2]] else dt2 <- NULL
@@ -403,7 +404,7 @@ multi_omic_clustering <- function(dat_list,
         k_res <- data.frame(m = "iClusterPlus", 
                             k = k,
                             cluster = temp_res$clusters)
-        if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], k_res)
+        if (ncol(meta_data[[1]]) > 0) k_res <- cbind(meta_data[[1]], k_res)
         k_res
       }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -430,7 +431,7 @@ multi_omic_clustering <- function(dat_list,
         k_res <- data.frame(m = "iClusterBayes", 
                             k = k,
                             cluster = temp_res$clusters)
-        if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], k_res)
+        if (ncol(meta_data[[1]]) > 0) k_res <- cbind(meta_data[[1]], k_res)
         k_res
       }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -474,7 +475,7 @@ multi_omic_clustering <- function(dat_list,
         k_res <- data.frame(m = "IntNMF", 
                             k = k,
                             cluster = temp_res$clusters)
-        if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], k_res)
+        if (ncol(meta_data[[1]]) > 0) k_res <- cbind(meta_data[[1]], k_res)
         k_res
         }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -495,10 +496,9 @@ multi_omic_clustering <- function(dat_list,
       
       mofa_obj <- MOFA2::create_mofa(lapply(dat_list, t))
       data_opts <- MOFA2::get_default_data_options(mofa_obj)
-      data_opts$scale_views <- mofa_scale_views
       model_opts <- MOFA2::get_default_model_options(mofa_obj)
       mofa_view_names <- names(model_opts$likelihoods)
-      model_opts$likelihoods <- mofa_likelihoods
+      model_opts$likelihoods <- view_distributions
       names(model_opts$likelihoods) <- mofa_view_names
       train_opts <- MOFA2::get_default_training_options(mofa_obj)
       train_opts$convergence_mode <- mofa_convergence_mode
@@ -521,7 +521,7 @@ multi_omic_clustering <- function(dat_list,
       mofa_embedding$drname <- "MOFA2"
       
       mofa_diss <- clustering_dissimilarity_from_data(mofa_embedding, distance_metric, correlation_method)
-      if (ncol(non_data_cols[[1]]) > 0) mofa_embedding <- cbind(mofa_embedding, non_data_cols[[1]])
+      if (ncol(meta_data[[1]]) > 0) mofa_embedding <- cbind(mofa_embedding, meta_data[[1]])
       mofa_cops_clust <- clustering_analysis(mofa_embedding, 
                                              n_clusters = n_clusters,
                                              clustering_dissimilarity = mofa_diss,
@@ -539,7 +539,7 @@ multi_omic_clustering <- function(dat_list,
     for (k in n_clusters) {
       temp_res <- ANF::spectral_clustering(aff_mat, k)
       temp_res <- data.frame(m = "ANF", k = k, cluster = temp_res)
-      if (ncol(non_data_cols[[1]]) > 0) k_res <- cbind(non_data_cols[[1]], temp_res)
+      if (ncol(meta_data[[1]]) > 0) k_res <- cbind(meta_data[[1]], temp_res)
       res <- c(res, list(k_res))
     }
   }
@@ -554,7 +554,7 @@ multi_omic_clustering <- function(dat_list,
                                             init = apply(approximation[,1:k], 1, which.max), 
                                             maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeans", k = k, cluster = temp_res$clusters)
-        if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+        if (ncol(meta_data[[1]]) > 0) temp_res <- cbind(meta_data[[1]], temp_res)
         temp_res
       }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -570,7 +570,7 @@ multi_omic_clustering <- function(dat_list,
                                   n_initializations = kkmeans_n_init, 
                                   maxiter = kkmeans_maxiter)
         temp_res <- data.frame(m = "kkmeanspp", k = k, cluster = temp_res$clusters)
-        if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+        if (ncol(meta_data[[1]]) > 0) temp_res <- cbind(meta_data[[1]], temp_res)
         temp_res
       }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -614,7 +614,7 @@ multi_omic_clustering <- function(dat_list,
                                                                                ":", 
                                                                                optimal_kernel$mu, 
                                                                                collapse = ";")))
-          if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+          if (ncol(meta_data[[1]]) > 0) temp_res <- cbind(meta_data[[1]], temp_res)
           temp_res
         }, error = function(e) {warning(e); return(NULL)})
         if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
@@ -670,7 +670,7 @@ multi_omic_clustering <- function(dat_list,
         }
         temp_res <- data.frame(m = "ecmc", k = k, cluster = temp_res$clusters, 
                                kernel_mix = paste(optimal_kernel$mu, collapse = ";"))
-        if (ncol(non_data_cols[[1]]) > 0) temp_res <- cbind(non_data_cols[[1]], temp_res)
+        if (ncol(meta_data[[1]]) > 0) temp_res <- cbind(meta_data[[1]], temp_res)
         temp_res
       }, error = function(e) {warning(e); return(NULL)})
       if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
