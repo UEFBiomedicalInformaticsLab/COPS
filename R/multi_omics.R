@@ -83,8 +83,6 @@
 #' @param ecmc_b Regularization parameter for \code{\link{ECMC}}.
 #' @param ecmc_eps Convergence threshold for \code{\link{ECMC}}.
 #' @param ecmc_maxiter Maximum number of iterations for \code{\link{ECMC}}.
-#' @param ecmc_solver SDP solver for \code{\link{ECMC}}. Set to either "MOSEK" 
-#'   or "CVXR". 
 #' @param ecmc_mkkm_mr If set, uses \code{\link{mkkm_mr}} on consensus kernels 
 #'   obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
 #'     kernel k-means. 
@@ -98,6 +96,8 @@
 #' @param gene_id_list List of gene/feature names for each view. If set, matches 
 #'   pipeline standardized feature names ("dim1", "dim2", ...) to names on the list. 
 #'   Required for pathway kernels. 
+#' @param preprocess_data If the input data has already been processed by the 
+#'   \code{\link{COPS}}-pipeline, this should be disabled. 
 #' @param ... Arguments are passed to \code{\link{clustering_analysis}} when using MOFA. 
 #'
 #' @return
@@ -205,15 +205,36 @@ multi_omic_clustering <- function(dat_list,
                                   ecmc_b = 1, 
                                   ecmc_eps = 1e-6,
                                   ecmc_maxiter = 100,
-                                  ecmc_solver = "MOSEK",
                                   ecmc_mkkm_mr = TRUE, 
                                   data_is_kernels = FALSE, 
                                   zero_var_removal = TRUE,
                                   mvc_threads = 1,
                                   gene_id_list = NULL,
+                                  preprocess_data = TRUE, 
                                   ...) {
-  if (is.null(meta_data)) meta_data <- data.frame(id = rownames(dat_list[[1]]))
-  if ("data.frame" %in% class(meta_data)) meta_data <- list(meta_data)
+  if (preprocess_data) {
+    dat_processed <- data_preprocess(dat_list)
+    dat_list <- dat_processed[["dat_list"]]
+    gene_id_list <- dat_processed[["gene_id_list"]]
+    
+    meta_data <- list()
+    for (j in 1:length(dat_list)) {
+      sel <- grep("^dim[0-9]+$", colnames(dat_list[[j]]))
+      
+      if (data_is_kernels & length(sel) > nrow(dat_list[[j]])) {
+        stop("Input kernels are not square!")
+      }
+      if ("data.table" %in% class(dat_list[[j]])) {
+        meta_data[[j]] <- dat_list[[j]][,-..sel]
+      } else {
+        meta_data[[j]] <- dat_list[[j]][,-sel]
+      }
+      dat_list[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[,sel])
+    }
+  } else {
+    if (is.null(meta_data)) meta_data <- data.frame(id = rownames(dat_list[[1]]))
+    if ("data.frame" %in% class(meta_data)) meta_data <- list(meta_data)
+  }
   extra_output <- NULL # For returning things like view weights
   if (zero_var_removal & !data_is_kernels) {
     # Rare binary features such as some somatic mutations could end up missing 
@@ -678,5 +699,6 @@ multi_omic_clustering <- function(dat_list,
   }
   out <- plyr::rbind.fill(res)
   if (!is.null(extra_output)) attributes(out)$extra_output <- extra_output
+  attributes(out)$multi_omic = TRUE # used for formatting
   return(out)
 }

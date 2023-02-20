@@ -83,9 +83,9 @@ heatmap_annotations <- function(annotations,
 #' 
 #' Generate a heatmap with annotations.
 #'
-#' @param expr expression matrix, samples on columns
-#' @param variable_list list of annotation variables
-#' @param gene_names optional character vector matching to a subset of \code{expr} rownames
+#' @param dat feature matrix or list of matrices, samples on columns
+#' @param variable_list list of column annotation variables
+#' @param feature_names optional character vector matching to a subset of \code{dat} rownames
 #' @param center whether to apply row-wise center, passed to \link[base]{scale} 
 #' @param scale whether to apply row-wise scaling, passed to \link[base]{scale} 
 #' @param show_column_names whether to include colnames (sample names)
@@ -100,36 +100,39 @@ heatmap_annotations <- function(annotations,
 #'
 #' @importFrom ComplexHeatmap Heatmap %v%
 #' @importFrom circlize colorRamp2
-heatmap_annotated <- function(expr, variable_list = list(), gene_names = NULL,
+heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
                               center = TRUE, scale = FALSE, 
                               show_column_names = FALSE, 
                               show_row_names = TRUE,
                               show_column_dend = FALSE,
                               show_row_dend = FALSE,
                               row_names_side = "left", ...) {
+  if (!"list" %in% class(dat)) dat <- list(dat)
   if (length(variable_list) > 0) {
     col_annots <- heatmap_annotations(variable_list)
     heatmap_list <- list(col_annots)
   } else {
     heatmap_list <- list()
   }
-  if (!is.null(gene_names)) expr <- expr[gene_names,]
-  if (center | scale) expr <- t(scale(t(expr), center = center, scale = scale))
-  col_expr <- circlize::colorRamp2(c(min(expr), mean(expr), max(expr)), c("blue", "white", "red"))
-  heatmap_list <- c(heatmap_list, 
-                    list(ComplexHeatmap::Heatmap(expr, 
-                                                 show_column_names = show_column_names, 
-                                                 show_row_names = show_row_names,
-                                                 show_column_dend = show_column_dend,
-                                                 show_row_dend = show_row_dend,
-                                                 row_names_side = row_names_side,
-                                                 col = col_expr,
-                                                 ...)))
+  for (i in 1:length(dat)) {
+    if (!is.null(feature_names)) dat[[i]] <- dat[[i]][intersect(feature_names, rownames(dat[[i]])),]
+    if (center | scale) dat[[i]] <- t(scale(t(dat[[i]]), center = center, scale = scale))
+    col_dat <- circlize::colorRamp2(c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]])), c("blue", "white", "red"))
+    heatmap_list <- c(heatmap_list, 
+                      list(ComplexHeatmap::Heatmap(dat[[i]], 
+                                                   show_column_names = show_column_names, 
+                                                   show_row_names = show_row_names,
+                                                   show_column_dend = show_column_dend,
+                                                   show_row_dend = show_row_dend,
+                                                   row_names_side = row_names_side,
+                                                   col = col_dat,
+                                                   ...)))
+  }
   heatmap_combined <- Reduce(ComplexHeatmap::`%v%`, heatmap_list)
   return(heatmap_combined)
 }
 
-#' Univariate group difference tests
+#' Univariate group difference tests for feature selection
 #' 
 #' Computes various statistics for molecular differences between groups. 
 #'
@@ -141,7 +144,7 @@ heatmap_annotated <- function(expr, variable_list = list(), gene_names = NULL,
 #' @return
 #' @export
 #' @importFrom caret nearZeroVar
-univariate_group_diff_tests <- function(dat, group, remove_zero_var = TRUE, parallel = 1) {
+univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1) {
   dat <- t(dat)
   if (remove_zero_var) {
     zv <- caret::nearZeroVar(dat)

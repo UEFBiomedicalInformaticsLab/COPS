@@ -9,7 +9,7 @@ cv_survival_evaluation(
   clusters,
   survival_time_col = "time",
   survival_event_col = "event",
-  survival_covariate_names = c("age", "stage"),
+  survival_covariate_names = NULL,
   row_id = "ID",
   by = c("run", "fold", "datname", "drname", "k", "m"),
   parallel = 1,

@@ -1,0 +1,410 @@
+---
+title: "COPS - multi-omic TCGA breast cancer patient stratification"
+author: "Teemu Rintala and Vittorio Fortino"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{COPS tutorial, psoriasis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Introduction
+
+The molecular processes underlying genes, their expression and the resulting 
+phenotypes manifest as different measurable features. Transcriptomics concerns 
+the expression of gene-transcripts in the form of RNA, epigenomics concerns 
+multiple aspects that affect transcription, such as DNA-methylation, genomics 
+concerns the DNA sequence and in cancer especially its mutations, metabolomics 
+concerns metabolites and so on. Each measurable aspect requires specialised 
+equipment and protocols to obtain observations of each feature, but together 
+they form a more complete characterisation of the molecular state of the sample 
+compared to individual omics. Integrating data from multiple views is a problem 
+that can be addressed with multi-view machine learning approaches and in fact, 
+there already exist many multi-omic integration and analysis tools. 
+For patient stratification the most relevant tools are joint dimensionality 
+reduction methods and multi-view clustering methods. 
+
+In this vignette we will go over how <code>COPS</code> can be used to run multi-
+view clustering analysis within the same evaluation framework introduced in the 
+multi-cohort clustering vignette based on a single view (i.e., RNA-Seq data). 
+As an example we will use the TCGA breast cancer dataset which consists of 
+approximately 700 patients.
+
+## Multi-view clustering function
+
+The <code>multi_omic_clustering</code>-function works as a fixed interface to 
+several clustering methods and can be used to run several methods sequentially 
+on the same dataset. On the other hand, <code>COPS</code> can be used to run 
+CV folds and multiple methods in parallel. However, due to the computational 
+requirements it may not be practical for some datasets. In such cases, it is 
+possible to manually separate and distribute computations for each method and 
+CV fold. 
+
+### Provided methods
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Method         | R-package    | Description                               | Reference  |
+|----------------|--------------|-------------------------------------------|------------|
+| iClusterPlus   | iClusterPlus | A Bayesian latent-variable model based clustering approach that generates cluster assignment based on joint inference across data types. Uses a modified Monte Carlo Newton-Raphson algorithm for optimization. Maximum number of views: 4. | https://doi.org/10.1073/pnas.1208949110  |
+| iClusterBayes  | iClusterPlus | A Bayesian latent-variable model based clustering approach that generates cluster assignment based on joint inference across data types. Uses Bayesian inference and the Metropolis-Hastings algorithm to sample from the latent variable posterior distribution. Maximum number of views: 6. | https://doi.org/10.1093/biostatistics/kxx017 |
+| IntNMF | IntNMF | An integrative approach for disease subtype classification based on non-negative matrix factorization. | https://doi.org/10.1371/journal.pone.0176278 |
+| MOFA2          | MOFA2 | Reconstructs a low-dimensional representation of the data using computationally efficient variational inference. Used for joint dimensionality reduction after which COPS applies single-view clustering algorithms implemented in the clustering_analysis-function. | https://doi.org/10.1186/s13059-020-02015-1 |
+| ANF            | ANF | Based on  patient affinity networks that are calculated for each omic data type and fused into one network that is used for spectral clustering.  | https://doi.org/10.1016/j.ymeth.2018.05.020 |
+| kkmeans        | COPS | Kernelized k-means implemented by COPS. Can use spectral approximation to initialize or use the global k-means algorithm to find global optimum. |     |
+| kkmeanspp      | COPS | Kernelized k-means++ implemented by COPS. Uses random initializations similar to k-means++. | |
+| mkkm_mr        | COPS | Multiple Kernel K-Means with Matrix-induced Regularization calculates optimal weights for summing kernels such that redundancy is lowered while diversity of the selected kernels is increased.  | https://doi.org/10.1609/aaai.v30i1.10249 |
+| ECMC           | COPS | Multi-view clustering with enhanced consensus is a multiple kernel method that aims to decompose the kernels corresponding to each view into a consensus and a disagreement kernel. The consensus kernel alignment between views is optimised and the combined kernel can be clustered with kernelised k-means. | https://doi.org/10.1186/s12920-017-0306-x |
+"
+cat(tabl)
+```
+
+
+
+
+### Function signature
+
+* <code>dat_list</code> : List of input data.frames for input.
+* <code>meta_data</code>	: A data.frame or a list that includes meta data for each view. Used to append CV details in the <code>COPS</code> pipeline. If it is not set, the metadata will still contain "id" which corresponds to the rownames of the first input. 
+* <code>multi_view_methods</code>	: Vector of algorithm names to be applied. Available options are listed in the table above.
+* <code>n_clusters</code> : Integer vector of the number of clusters to compute. 
+* <code>distance_metric</code>	: Distance metric for clustering factorized data (only applicable to MOFA).
+* <code>correlation_method</code> : Correlation method for distance_metric, if applicable. 
+* <code>standardize_data</code> : If set, each input feature is standardized to unit variance before clustering.
+* <code>non_negativity_transform</code> : Vector of transformation method names for IntNMF to apply on each input. Options are: "logistic", "rank" or "offset2", non-matching inputs result in no transformation. NMF requires non-negative inputs, hence transorming the data may be necessary. 
+* <code>view_distributions</code> : A vector specifying the distribution to use for each view. Used by iCluster+, iClusterBayes and MOFA2. Options are "gaussian", "bernoulli" and "poisson". 
+* <code>icp_lambda</code> : iCluster+ L1 penalty for each view. 
+* <code>icp_burnin</code> : iCluster+ number of MCMC burn in samples for approximating joint distribution of latent variables. 
+* <code>icp_draw</code> : iCluster+ number of MCMC samples to draw after burn in for approximating joint distribution of latent variables. 
+* <code>icp_maxiter</code>	: iCluster+ maximum number of Newton-Rhapson (EM) iterations. 
+* <code>icp_sdev</code> : iCluster+ MCMC random walk standard deviation. 
+* <code>icp_eps</code>	: iCluster+ algorithm convergence threshold. 
+* <code>icb_burnin</code> : iClusteBayes number of samples for MCMC burn in. 
+* <code>icb_draw</code> : iClusteBayes number of MCMC samples to draw after burn in. 
+* <code>icb_sdev</code> : iClusteBayes MCMC random walk standard deviation. 
+* <code>icb_thin</code> : iClusteBayes MCMC thinning, only one sample in every icb_thin samples will be used. 
+* <code>nmf_maxiter</code>	: Maximum number of iterations for IntNMF. 
+* <code>nmf_st.count</code> : Count stability for IntNMF. 
+* <code>nmf_n.ini</code>	: Number of initializations for IntNMF. 
+* <code>nmf_ini.nndsvd</code> : By default, IntNMF uses NNDSVD for initialization. It can be disabled, but is strongly recommended. 
+* <code>nmf_scaling</code>	: Determines how views are scaled for IntNMF. By default, the Frobenius norm ratio is used for scaling. A string other than the default will result in division by maximum value for each input. 
+* <code>mofa_convergence_mode</code>	: MOFA convergence threshold. Options: "fast" (0.0005%), "medium" (0.00005%) or "slow" (0.000005%) deltaELBO change.
+* <code>mofa_maxiter</code> : Maximum number of iterations for MOFA. 
+* <code>mofa_environment</code> : If set, uses the specified Python environment (with mofapy). Defaults to a <code>basilisk</code> environment managed by R.
+* <code>mofa_lib_path</code>	: Path to libpython. May be required if using non-default <code>mofa_environment</code>.
+* <code>anf_neighbors</code>	: Number of neighbours to use in knn-graph for ANF.
+* <code>kernels</code>	: Character vector of kernel names to use for each view. Options: 
+    + "linear" - Linear kernel based on standard dot product.
+    + "gaussian", "rbf" - Gaussian kernel, a.k.a. radial basis function.
+    + "jaccard", "tanimoto" - Kernel based on Jaccard index. Used for binary features.
+    + "BWK" - Betweenness Weighted Kernel. 
+    + "PAMOGK" - PAthway Multi-Omics Graph Kernel. 
+    + "PIK" - Pathway Induced Kernel. 
+* <code>kernels_center</code> : Logical vector specifying which kernels should be centered. 
+* <code>kernels_normalize</code>	: Logical vector specifying which kernels should be normalized.
+* <code>kernels_scale_norm</code> : Logical vector specifying which kernels should be scaled to unit F-norm. 
+* <code>kernel_gammas</code>	: Numeric vector specifying gamma for the Gaussian/RBF kernel: $e^{-\gamma\|\mathbf{x - x_i}\|_2}$.
+* <code>pathway_networks</code> : List of <code>igraph</code> objects containing pathway networks. Required for pathway kernels.
+* <code>pamogk_restart</code> : Restart probability for PAMOGK RWR. 
+* <code>kkmeans_maxiter</code> : Maximum number of iterations for kernel k-means.
+* <code>kkmeans_n_init</code> : Number of initializations for kernel k-means.
+* <code>mkkm_mr_lambda</code> : Regularization parameter for <code>mkkm_mr</code>. If it is a vector, <code>mkkm_mr</code> will be run for each element in the vector. 
+* <code>mkkm_mr_tolerance</code>	: Convergence threshold for <code>mkkm_mr</code>.
+* <code>mkkm_mr_initialization</code> : If <code>TRUE</code>, uses <code>mkkm_mr</code> result to initialize kernel k-means, otherwise runs kernel k-means++ on combined kernel.
+* <code>mkkm_mr_mosek</code>	: If <code>TRUE</code>, uses Rmosek for convex optimization instead of CVXR for <code>mkkm_mr</code>.
+* <code>ecmc_a</code> : Regularization parameter alpha for <code>ECMC</code>. Higher values should "encourage" higher consensus.
+* <code>ecmc_b</code> : Regularization parameter beta for <code>ECMC</code> Higher values should penalize disagreement more. 
+* <code>ecmc_eps</code> : Convergence threshold for <code>ECMC</code>
+* <code>ecmc_maxiter</code> : Maximum number of iterations for <code>ECMC</code>
+* <code>ecmc_mkkm_mr</code> : If <code>TRUE</code>, uses <code>mkkm_mr</code> on consensus kernels obtained from <code>ECMC</code>. Otherwise uses the average kernel and kernel k-means.
+* <code>data_is_kernels</code>	: If <code>TRUE</code>, input data is assumed to be kernel matrices. Otherwise kernels are computed based on input data and the given <code>kernels</code>.
+* <code>zero_var_removal</code>	: If <code>TRUE</code>, removes all zero variance features from the data. 
+* <code>mvc_threads</code>	: Number of threads to use for supported operations.
+
+### Pathway based multi-omic integration methods
+
+<code>COPS</code> includes three kernel-based methods for pathway-based 
+multi-omics integration. Technically, it is also possible to use the single-view 
+pathway feature extraction methods and then apply a data-driven approach for 
+multi-omic integration. The kernel-based options are 1) "BWK" which is briefly 
+described below, 2) "PAMOGK" (https://doi.org/10.1093/bioinformatics/btaa655)
+uses z-scores to select dysregulated genes, random walk with restart (RWR) to 
+expand the dysregulated gene set and shortest paths in each pathway networks to 
+compute and summarize multiple pathway kernels for each omic, and 3) "PIK" 
+(https://doi.org/10.1038/s41540-019-0086-3) uses pathway network adjacency 
+matrices (specifically normalized Laplacians) to define edge-based pathway kernels. 
+
+These methods generate one kernel for each pathway and input omic which are then 
+integrated by a multiple-kernel learning (MKL) approach. <code>COPS</code> has 
+three possible implementations for combining kernels for clustering analysis. 
+The simplest is the average kernel which is theoretically equivalent to 
+concatenating the features. Then there is the Multiple Kernel K-Means with Matrix-
+induced Regularization (https://doi.org/10.1609/aaai.v30i1.10249) which learns 
+optimal weights for summing the kernels and penalises redundancy between kernels. 
+And finally, the multi-view enhanced consensus clustering which identifies and 
+optimises consensus patterns between the input kernels before clustering. Note 
+that to use thse methods, it is necessary to install either <code>Rmosek</code> 
+or <code>CVXR</code>. 
+
+### Betweenness weighted kernel
+
+The betweenness weighted kernel (BWK) is a simplification of PAMOGK, that  
+weighs features based on the degree of of their corresponding node in a given 
+pathway network:
+$$
+k_G(\mathbf{x},\mathbf{x'}) = \left\langle \mathbf{\sqrt{g_G} \odot x,\sqrt{g_G} \odot x'} \right\rangle
+$$
+where $g_G$ is a vector of node betweenness centralities in $G$ that match the 
+features of $\mathbf{x}$ and $\odot$ is the element-wise product of two vectors.
+
+This kernel is faster to compute than the PAMOGK, and similarly integrates 
+pathway network information with gene-based data. 
+
+## Example
+
+As mentioned in the introduction we will analyse the TCGA breast cancer dataset. 
+<code>COPS</code> includes a subset of this dataset including gene-expression, 
+DNA-methylation and Copy Number Variants. The DNA-methylation has been summarized 
+for each gene so that the features can be mapped to genes for pathway-based 
+methods. 
+
+For datasets of this size the methods can take a long time to finish, hence we 
+will only demonstrate a direct application of the <code>multi_omic_clustering</code> 
+function to run the analysis once on the full dataset. As is the case with other 
+functions in the <code>COPS</code> pipeline, this function can be called within 
+the complete evaluation framework including stability analysis with resampled 
+data (via cross-fold validation). 
+
+
+```{r, message=FALSE, warning=FALSE}
+pipeline_start <- Sys.time()
+set.seed(0)
+mopw_clusters <- COPS::multi_omic_clustering(
+  dat_list = COPS::brca_multi_omics, 
+  parallel = 1, 
+  multi_omic_methods = "mkkm_mr", 
+  kernels_center = TRUE,
+  kernels_normalize = TRUE,
+  mkkm_mr_mosek = FALSE,
+  mkkm_mr_lambda = 1, 
+  kernels = rep("BWK", length(dat$omics)),
+  pathway_networks = pathway_networks,
+  mvc_threads = 6,
+  n_clusters = 2:8)
+print(paste("Finished clustering in", COPS:::time_taken_string(pipeline_start)))
+```
+
+### Internal evaluation
+
+The internal metrics can be computed with respect to each view and <code>COPS</code> 
+automatically evaluates the Silhouette for each view separately. However, we can 
+also run it manually, although doing so may require some post-processing for 
+readability. 
+
+```{r}
+omics_d <- list()
+omics_s <- list()
+for (o in names(dat$omics)) {
+  omics_d[[o]] <- COPS::clustering_dissimilarity_from_data(t(dat$omics[[o]]))
+  omics_s[[o]] <- COPS::clustering_metrics(mopw_clusters, 
+                                           dissimilarity = omics_d[[o]])$metrics
+  omics_s[[o]]$metric <- paste0(o, "_", omics_s[[o]]$metric)
+  omics_s[[o]] <- reshape2::dcast(omics_s[[o]], k + m ~ metric, value.var = "value")
+}
+omics_s <- Reduce(plyr::join, omics_s)
+```
+
+```{r}
+omics_s
+```
+
+For comparison, we can run the same method with standard linear kernels and let 
+<code>COPS</code> perform internal evaluations:
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(0)
+molk_res <- COPS::COPS(
+  dat = dat$omics, 
+  nruns = 2,
+  nfolds = 5,
+  parallel = 6, 
+  multi_omic_methods = "mkkm_mr", 
+  kernels_center = TRUE,
+  kernels_normalize = TRUE,
+  mkkm_mr_mosek = FALSE,
+  mkkm_mr_lambda = 1, 
+  kernels = rep("linear", length(dat$omics)),
+  mvc_threads = 6,
+  n_clusters = 2:8)
+```
+
+```{r, message=FALSE, warning=FALSE}
+molk_scores <- COPS::scoring(molk_res, wsum = 1)
+```
+
+```{r, message=FALSE, warning=FALSE}
+molk_scores$all
+```
+
+We can see that the silhouette scores in the original spaces are quite low for 
+both linear kernels and the pathway kernels, albeit the former are slightly higher. 
+In breast cancer the basal-like subtype tends to separate very well, so two 
+clusters is expected to have the best cohesion and separation. The pathway-
+kernels also weight features differently from the euclidean distance used to 
+calculate the silhouettes, so it is expected to yield worse results in this 
+regard. But the pathway-kernels can highlight more relevant genes in terms of 
+impact which can be evaluated in terms of survival differences between clusters, 
+for example. 
+
+## Survival analysis
+
+To download processed TCGA clinical data, we can use the TCGAbiolinks-package. 
+```{r}
+clinical_data <- TCGAbiolinks::TCGAquery_subtype("BRCA")
+```
+
+The <code>cv_survival_evaluation</code> expects a data.frame that contains the 
+time and an event indicator. Depending on the clinical data format, it may be 
+necessary to pre-process the survival data. In this case the times for event 
+and event-free individuals are in different columns. We can use the 
+<code>survival_preprocess</code> to reformat this data. The event also may have 
+to be converted to TRUE/FALSE. TCGA also has some very long follow-up times, 
+we can trim these by setting a cutoff. 
+
+```{r}
+surv_data <- COPS::survival_preprocess(event_data = clinical_data, 
+                                       event_time_name = "days_to_death",
+                                       follow_up_time_name = "days_to_last_followup",
+                                       event_field_name = "vital_status",
+                                       event_name = "Dead",
+                                       event_time_cutoff = 3000)
+```
+
+After preprocessing survival data we can call <code>cv_survival_evaluation</code> 
+with the clustering result and event data. It may be necessary to translate the 
+sample IDs used in the omics data into patient IDs. Note that missing survival 
+data is automatically omitted in the evaluation. <code>COPS</code> fits two 
+Cox proportional hazard models one with cluster indicators and one without and 
+performs a likelihood-ratio test (LRT) to assess whether the difference between clusters 
+is significant while allowing the Cox model to account for other critical variables 
+such as age or cancer stage. The function retuns a data.frame summarising the 
+LRT p-value and survival concordance index for each result. 
+
+```{r}
+mopw_clusters_surv <- mopw_clusters
+mopw_clusters_surv[["id"]] <- gsub("-[0-9]+[A-Z]+$", "", mopw_clusters_surv[["id"]])
+mopw_surv_res <- COPS::cv_survival_evaluation(event_data = surv_data, 
+                                              clusters = mopw_clusters_surv,
+                                              survival_time_col = "time",
+                                              survival_event_col = "event", 
+                                              survival_covariate_names = c("age_at_initial_pathologic_diagnosis", 
+                                                                           "pathologic_stage"),
+                                              row_id = "patient")
+```
+
+```{r}
+mopw_surv_res
+```
+
+When used within the <code>COPS</code>-pipeline the returned object will be 
+included in the returned list under the key "survival". The <code>scoring</code>-
+function can then be used to generate summaries of cross-validated results 
+similarly to other metrics discussed in the Psoriasis-vignette. 
+
+```{r}
+molk_clusters_surv <- molk_res$clusters
+molk_clusters_surv[["id"]] <- gsub("-[0-9]+[A-Z]+$", "", molk_clusters_surv[["id"]])
+molk_surv_res <- COPS::cv_survival_evaluation(event_data = surv_data, 
+                                              clusters = molk_clusters_surv,
+                                              survival_time_col = "time",
+                                              survival_event_col = "event", 
+                                              survival_covariate_names = c("age_at_initial_pathologic_diagnosis", 
+                                                                           "pathologic_stage"),
+                                              row_id = "patient")
+```
+
+```{r}
+molk_res$survival <- molk_surv_res
+molk_scores <- COPS::scoring(molk_res, wsum = 1, significance_level = 0.05)
+```
+
+```{r}
+molk_scores$all[,c("m", "k", "SurvivalLRtestRR", "SurvivalConcordance")]
+```
+
+Based on the likelihood-ratio test it seems that the data-driven clusters are 
+not consistently significant predictors of survival. From the stability results 
+we saw that cluster sizes greater than 3 had average stability lower than 0.8 
+and variations in results between subsamples of data can explain the rejection 
+rate. The pathway result showed slightly higher concordance index for the first 
+few clusters, but the analysis should be repeated using subsamples within the 
+full COPS framework to be fair. 
+
+## Characterization
+
+The next step after selecting the best result based on metrics is the visualisation 
+and characterization of the groups. <code>COPS</code> provides a handful of tools 
+to help select informative features and visualize them. For instance, 
+<code>univariate_features</code> runs several test for differences between 
+clusters for each feature. 
+
+```{r}
+mopw_features <- list()
+for (i in names(COPS::brca_multi_omics)) {
+  mopw_features[[i]] <- COPS::univariate_features(COPS::brca_multi_omics[[i]], 
+                                                  mopw_clusters[mopw_clusters[["k"]] == 3, 
+                                                                "cluster"], # same order as input rows
+                                                  parallel = 6)
+}
+```
+
+This gives us lists of various statistical test results and statistics. We can 
+for example use the signal-to-noise-ratio to select interesting features:
+
+```{r}
+mopw_features_selected <- list()
+for (i in names(COPS::brca_multi_omics)) {
+  mopw_features_selected[[i]] <- which(apply(abs(mopw_features[[i]][["snr"]]) > 0.75, 1, any))
+}
+```
+
+Then, for visualizing we need to create a list of matrices containing only the 
+relevant features.
+
+```{r}
+mopw_dat_selected <- list()
+for (i in names(COPS::brca_multi_omics)) {
+  if (length(mopw_features_selected[[i]]) > 0) {
+    mopw_dat_selected[[i]] <- COPS::brca_multi_omics[[i]][mopw_features_selected[[i]],]
+    rownames(mopw_dat_selected[[i]]) <- paste0(i, "_", rownames(mopw_dat_selected[[i]]))
+  }
+}
+```
+
+For annotating columns we can use the clinical information that we downloaded 
+above. Annotations need to be a data.frame with rows matching the columns of the 
+omics data. 
+
+```{r}
+# We need to extract the patient IDs from the sample IDs again
+p_id <- gsub("-[0-9]+[A-Z]+$", "", colnames(COPS::brca_multi_omics$mrna))
+hm_annotations <- clinical_data[match(p_id, clinical_data[["patient"]]),
+                                c("age_at_initial_pathologic_diagnosis",
+                                  "pathologic_stage", "BRCA_Subtype_PAM50")]
+colnames(hm_annotations) <- c("age","stage", "PAM50")
+hm_annotations[["cluster"]] <- mopw_clusters[mopw_clusters[["k"]] == 3, "cluster"]
+```
+
+```{r, dpi=300, out.width="100%", fig.width=16, fig.height=16}
+COPS::heatmap_annotated(mopw_dat_selected, hm_annotations, scale = TRUE,
+                        column_split = hm_annotations[["cluster"]])
+```
+
+## Session info
+
+```{r}
+sessionInfo()
+```
+
+

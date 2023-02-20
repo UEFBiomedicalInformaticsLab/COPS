@@ -15,8 +15,6 @@ ECMC(x, a, b, eps = 1e-06, n_threads = FALSE, solver = "MOSEK", maxiter = 5)
 
 \item{eps}{stopping threshold for mean difference in solution}
 
-\item{solver}{only MOSEK for now}
-
 \item{maxiter}{maximum number of iterations before terminating}
 
 \item{parallel}{number of threads for optimization}

@@ -5,9 +5,9 @@
 \title{Annotated heatmap}
 \usage{
 heatmap_annotated(
-  expr,
+  dat,
   variable_list = list(),
-  gene_names = NULL,
+  feature_names = NULL,
   center = TRUE,
   scale = FALSE,
   show_column_names = FALSE,
@@ -19,11 +19,11 @@ heatmap_annotated(
 )
 }
 \arguments{
-\item{expr}{expression matrix, samples on columns}
+\item{dat}{feature matrix or list of matrices, samples on columns}
 
-\item{variable_list}{list of annotation variables}
+\item{variable_list}{list of column annotation variables}
 
-\item{gene_names}{optional character vector matching to a subset of \code{expr} rownames}
+\item{feature_names}{optional character vector matching to a subset of \code{dat} rownames}
 
 \item{center}{whether to apply row-wise center, passed to \link[base]{scale}}
 

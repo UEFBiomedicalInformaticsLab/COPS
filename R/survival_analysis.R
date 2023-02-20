@@ -53,7 +53,7 @@ cv_survival_evaluation <- function(event_data,
                                 clusters, 
                                 survival_time_col = "time", 
                                 survival_event_col = "event", 
-                                survival_covariate_names = c("age", "stage"),
+                                survival_covariate_names = NULL,
                                 row_id = "ID", 
                                 by = c("run", "fold", "datname", "drname", "k", "m"), 
                                 parallel = 1, 
@@ -99,7 +99,7 @@ cv_survival_evaluation <- function(event_data,
                      }
                      model0 <- survival::coxph(as.formula(model_formula0), data = temp)
                      res <- anova(model, model0, test="LRT")
-                     out_i$cluster_significance <- res[["P(>|Chi|)"]][2] # always the same in LRT?
+                     out_i$cluster_significance <- res[["Pr(>|Chi|)"]][2]
                      ci <- survival::concordance(model)
                      out_i$concordance_index <- ci[["concordance"]]
                    }

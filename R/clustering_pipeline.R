@@ -108,6 +108,7 @@ COPS <- function(dat,
                              multi_omic_methods = multi_omic_methods, 
                              parallel = parallel,
                              gene_id_list = dat$gene_id_list,
+                             verbose = verbose, 
                              ...)
     return(out)
   }
@@ -257,6 +258,7 @@ COPS <- function(dat,
 #' @param parallel 
 #' @param data_is_kernels 
 #' @param silhouette_dissimilarities 
+#' @param by
 #' @param ... 
 #'
 #' @return
@@ -270,6 +272,8 @@ vertical_pipeline <- function(dat_list,
                               parallel = 1, 
                               data_is_kernels = FALSE, 
                               silhouette_dissimilarities = NULL,
+                              by = c("run", "fold", "m", "k", "mkkm_mr_lambda"), 
+                              verbose = TRUE, 
                               ...) {
   if (length(multi_omic_methods) > 0) {
     cv_index <- multi_view_cv_fold(dat_list = dat_list, nfolds = nfolds, nruns = nruns, ...)
@@ -284,6 +288,8 @@ vertical_pipeline <- function(dat_list,
     
     f_args <- list(...)
     
+    mvc_start <- Sys.time()
+    if(verbose) print("Starting multi-omic clustering and evaluation ..."); flush.console()
     parallel_clust <- setup_parallelization(parallel)
     out <- tryCatch(foreach(i = 1:length(cv_index_split), 
                     .combine = cfun, 
@@ -331,10 +337,11 @@ vertical_pipeline <- function(dat_list,
       # 1) multi-view clustering
       # 2) multi-view integration/embedding + clustering
       # Since we are running different methods in parallel we take the first result only
-      temp_args <- c(list(dat_list_clust = dat_i, 
-                          non_data_cols = non_data_cols, 
+      temp_args <- c(list(dat_list = dat_i, 
+                          meta_data = non_data_cols, 
                           multi_omic_methods = mvc,
-                          data_is_kernels = data_is_kernels),
+                          data_is_kernels = data_is_kernels, 
+                          preprocess_data = FALSE),
                      f_args)
       clust_i <- do.call(multi_omic_clustering, temp_args)
       
@@ -349,7 +356,7 @@ vertical_pipeline <- function(dat_list,
           silh_i[[j]] <- clustering_metrics(clust_i, 
                                             dat = NULL, 
                                             by = by,
-                                            clustering_dissimilarity = silhouette_dissimilarities[[j]], 
+                                            dissimilarity = silhouette_dissimilarities[[j]], 
                                             cluster_size_table = FALSE, 
                                             silhouette_min_cluster_size = 0.0,
                                             distance_metric = "euclidean")$metrics
@@ -359,9 +366,9 @@ vertical_pipeline <- function(dat_list,
       } else {
         for (j in 1:length(dat_i)) {
           silh_i[[j]] <- clustering_metrics(clust_i, 
-                                            dat = as.data.frame(dat_i[[j]]), 
+                                            dat = data.frame(dat_i[[j]], non_data_cols[[j]]), 
                                             by = by,
-                                            clustering_dissimilarity = NULL, 
+                                            dissimilarity = NULL, 
                                             cluster_size_table = FALSE, 
                                             silhouette_min_cluster_size = 0.0,
                                             distance_metric = "euclidean")$metrics
@@ -408,11 +415,18 @@ vertical_pipeline <- function(dat_list,
       out_i
     }, finally = close_parallel_cluster(parallel_clust))
     out$clusters <- data.table::setDT(out$clusters)
+    if(verbose) print(paste("Finished multi-omic clustering and evaluation in",
+                            time_taken_string(mvc_start))); flush.console()
     
     # Clustering stability evaluation
+    stability_test_start <- Sys.time()
+    if(verbose) print("Starting clustering stability analysis ..."); flush.console()
     out$stability <- stability_eval(out$clusters, 
                                     by = by[!by %in% "fold"], 
                                     parallel = parallel)
+    if(verbose) print(paste("Finished clustering stability analysis in",
+                            time_taken_string(stability_test_start))); flush.console()
+    attributes(out)$multi_omic <- TRUE
     return(out)
   } else {
     stop("Not implemented.")
@@ -439,9 +453,10 @@ embarrassingly_parallel_pipeline <- function(dat_list,
     # 1) multi-view clustering
     # 2) multi-view integration/embedding + clustering
     clust_i <- multi_omic_clustering(dat_list_clust = dat_i$dat_i,
-                                     non_data_cols = dat_i$non_data_cols, 
+                                     meta_data = dat_i$non_data_cols, 
                                      multi_view_methods = multi_omic_methods,
-                                     data_is_kernels = data_is_kernels,
+                                     data_is_kernels = data_is_kernels, 
+                                     preprocess_data = FALSE,
                                      ...)
     
     # Clustering metrics 
@@ -679,19 +694,17 @@ scoring <- function(res,
   
   # Survival likelihood ratio test
   if (!is.null(res$survival)) {
+    by_surv <- by[by %in% colnames(res$survival)]
     if (summarise) {
-      # TODO: p-value like handling, c-index easier?
-      warning("Currently summary of survival p-values is not implemented.")
-      survival <- res$survival[res$survival[["fold"]] %in% non_reference_fold,]
-      colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
-      
+      survival <- plyr::ddply(res$survival[res$survival[["fold"]] %in% non_reference_fold,], 
+                              by_surv, 
+                              function(x) data.frame(survival_lrt_rr = mean(x[["cluster_significance"]] < significance_level, na.rm = TRUE), 
+                                                     concordance_index = mean(x[["concordance_index"]], na.rm = TRUE)))
+    } else {
+      # This can break if by does not uniquely identify each row
+      survival <- res$survival[res$survival[["fold"]] %in% non_reference_fold, 
+                               c(by_surv, c("cluster_significance", "concordance_index"))]
     }
-    #by_survival <- by[by %in% colnames(res$survival)]
-    #survival <- plyr::ddply(res$survival, 
-    #                        by_survival, 
-    #                        function(x) data.frame(SurvivalPValue = mean(x$cluster_significance, na.rm = TRUE)))
-    survival <- res$survival[res$survival[["fold"]] %in% non_reference_fold,]
-    colnames(survival)[colnames(survival) == "cluster_significance"] <- "SurvivalPValue"
   } else {
     survival <- NULL
   }
@@ -708,16 +721,20 @@ scoring <- function(res,
   
   # Variable association tests
   if (!is.null(res$association)) {
+    by_association <- by[by %in% colnames(res$association)]
     if (summarise) {
       assoc_string <- "\\.nmi$|\\.ari$"
+      association <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
+                                 by_association, 
+                                 function(x) as.data.frame(lapply(x[grepl(assoc_string, colnames(x))], mean, na.rm = TRUE)))
     } else {
       assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
+      # This can break if by does not uniquely identify each row
+      association <- res$association[res$association[["fold"]] %in% non_reference_fold,
+                                     c(by_association, colnames(x)[grepl(assoc_string, colnames(x))])]
     }
-    by_association <- by[by %in% colnames(res$association)]
-    association <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
-                               by_association, 
-                               function(x) as.data.frame(lapply(x[grepl(assoc_string, colnames(x))], mean, na.rm = TRUE)))
     if (summarise) {
+      # Calculate rejection rates for statistical tests
       association_rr <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
                                     by_association, 
                                     function(x) as.data.frame(lapply(x[grepl("\\.p$", colnames(x))], function(x) mean(x < significance_level, na.rm = TRUE))))
@@ -781,7 +798,8 @@ scoring <- function(res,
                                          type = "full"), 
                 out[!sapply(out, is.null)])
   if(format_names) {
-    out <- format_scores(out)
+    if (is.null(attributes(res)$multi_omic)) attributes(res)$multi_omic <- FALSE
+    out <- format_scores(out, multi_omic = attributes(res)$multi_omic)
   }
   
   # Scoring

@@ -325,7 +325,7 @@ mkkm_mr_mu_opt_cvxr <- function(Z, M, lambda, parallel = 0) {
   objective <- CVXR::Minimize(CVXR::quad_form(mu, 0.5 * (2 * Z + lambda * M)))
   constraints <- list(CVXR::sum_entries(mu) == 1, mu >= 0)
   problem <- CVXR::Problem(objective, constraints)
-  solution <- CVXR::solve(problem, parallel = parallel, solver = "ECOS")
+  solution <- CVXR::solve(problem, parallel = parallel, solver = "SCS")
   mu_sol <- solution$getValue(mu)
   return(mu_sol)
 }

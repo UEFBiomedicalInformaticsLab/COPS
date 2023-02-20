@@ -14,6 +14,8 @@ vertical_pipeline(
   parallel = 1,
   data_is_kernels = FALSE,
   silhouette_dissimilarities = NULL,
+  by = c("run", "fold", "m", "k", "mkkm_mr_lambda"),
+  verbose = TRUE,
   ...
 )
 }

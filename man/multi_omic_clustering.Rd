@@ -6,14 +6,14 @@
 \usage{
 multi_omic_clustering(
   dat_list,
-  non_data_cols,
+  meta_data = NULL,
   multi_omic_methods = "iClusterPlus",
   n_clusters = 2,
   distance_metric = "euclidean",
   correlation_method = "spearman",
   standardize_data = FALSE,
   non_negativity_transform = rep_len("none", length(dat_list)),
-  icp_view_types = rep_len("gaussian", length(dat_list)),
+  view_distributions = rep_len("gaussian", length(dat_list)),
   icp_lambda = rep(0.03, length(dat_list)),
   icp_burnin = 100,
   icp_draw = 200,
@@ -29,8 +29,6 @@ multi_omic_clustering(
   nmf_n.ini = 30,
   nmf_ini.nndsvd = TRUE,
   nmf_scaling = "F-ratio",
-  mofa_scale_views = FALSE,
-  mofa_likelihoods = rep_len("gaussian", length(dat_list)),
   mofa_convergence_mode = "medium",
   mofa_maxiter = 1000,
   mofa_environment = NULL,
@@ -53,21 +51,21 @@ multi_omic_clustering(
   ecmc_b = 1,
   ecmc_eps = 1e-06,
   ecmc_maxiter = 100,
-  ecmc_solver = "MOSEK",
   ecmc_mkkm_mr = TRUE,
   data_is_kernels = FALSE,
-  foldwise_zero_var_removal = TRUE,
+  zero_var_removal = TRUE,
   mvc_threads = 1,
   gene_id_list = NULL,
+  preprocess_data = TRUE,
   ...
 )
 }
 \arguments{
 \item{dat_list}{List of input \code{data.frame}s for input.}
 
-\item{non_data_cols}{List of \code{data.frame}s that include meta data for 
-each view. At the moment only the first element is used by appending to 
-clustering output.}
+\item{meta_data}{A single \code{data.frame} or a list that includes meta data for 
+each view. If a list is provided, at the moment only the first element is 
+used (by appending to clustering output).}
 
 \item{multi_omic_methods}{Vector of algorithm names to be applied. See details.}
 
@@ -84,43 +82,43 @@ if applicable.}
 \item{non_negativity_transform}{Vector of transformation names for IntNMF. 
 See details below.}
 
-\item{icp_view_types}{iCluster view types. 
-See \code{\link[iClusterPlus]{iClusterPlus}} or 
-\code{\link[iClusterPlus]{iClusterBayes}}.}
+\item{view_distributions}{A vector specifying the distribution to use for each view. 
+Used by iCluster+, iClusterBayes and MOFA2. 
+Options are "gaussian", "bernoulli" and "poisson".}
 
 \item{icp_lambda}{iCluster+ L1 penalty for each view. 
 See \code{\link[iClusterPlus]{iClusterPlus}}.}
 
 \item{icp_burnin}{iCluster+ number of MCMC burn in samples for approximating 
 joint distribution of latent variables. 
-See \code{\link[iClusterPlus]{iClusterPlus}} or}
+See \code{\link[iClusterPlus]{iClusterPlus}}.}
 
 \item{icp_draw}{iCluster+ number of MCMC samples to draw after burn in for 
 approximating joint distribution of latent variables.  
-See \code{\link[iClusterPlus]{iClusterPlus}} or}
+See \code{\link[iClusterPlus]{iClusterPlus}}.}
 
 \item{icp_maxiter}{iCluster+ maximum number of Newton-Rhapson (EM) iterations. 
-See \code{\link[iClusterPlus]{iClusterPlus}} or 
+See \code{\link[iClusterPlus]{iClusterPlus}}.
 \code{\link[iClusterPlus]{iClusterBayes}}.}
 
 \item{icp_sdev}{iCluster+ MCMC random walk standard deviation. 
-See \code{\link[iClusterPlus]{iClusterPlus}} or}
+See \code{\link[iClusterPlus]{iClusterPlus}}.}
 
 \item{icp_eps}{iCluster+ algorithm convergence threshold. 
-See \code{\link[iClusterPlus]{iClusterPlus}} or}
+See \code{\link[iClusterPlus]{iClusterPlus}}.}
 
 \item{icb_burnin}{iClusteBayes number of samples for MCMC burn in. 
-See \code{\link[iClusterPlus]{iClusterBayes}}}
+See \code{\link[iClusterPlus]{iClusterBayes}}.}
 
 \item{icb_draw}{iClusteBayes number of MCMC samples to draw after burn in. 
-See \code{\link[iClusterPlus]{iClusterBayes}}}
+See \code{\link[iClusterPlus]{iClusterBayes}}.}
 
 \item{icb_sdev}{iClusteBayes MCMC random walk standard deviation. 
-See \code{\link[iClusterPlus]{iClusterBayes}}}
+See \code{\link[iClusterPlus]{iClusterBayes}}.}
 
 \item{icb_thin}{iClusteBayes MCMC thinning, only one sample in every icb_thin 
 samples will be used. 
-See \code{\link[iClusterPlus]{iClusterBayes}}}
+See \code{\link[iClusterPlus]{iClusterBayes}}.}
 
 \item{nmf_maxiter}{Maxiter for IntNMF. See 
 \code{\link[IntNMF]{nmf.mnnals}}.}
@@ -134,14 +132,8 @@ See \code{\link[IntNMF]{nmf.mnnals}}.}
 \item{nmf_ini.nndsvd}{If set, IntNMF uses NNDSVD for initialization. 
 See \code{\link[IntNMF]{nmf.mnnals}}.}
 
-\item{nmf_scaling}{Determines how views are scaled. Defaults to Frobenius norm
-ratio when compared as in Chalise et al. 2017.}
-
-\item{mofa_scale_views}{MOFA scaling. 
-See \code{\link[MOFA2]{get_default_data_options}}.}
-
-\item{mofa_likelihoods}{MOFA likelihoods. 
-See \code{\link[MOFA2]{get_default_model_options}}.}
+\item{nmf_scaling}{Omic weights that are used for scaling. Defaults to the 
+Frobenius norm ratio similarly to Chalise et al. 2017.}
 
 \item{mofa_convergence_mode}{MOFA convergence threshold. 
 See \code{\link[MOFA2]{get_default_training_options}}.}
@@ -198,18 +190,15 @@ instead of \code{CVXR} for \code{\link{mkkm_mr}}.}
 
 \item{ecmc_maxiter}{Maximum number of iterations for \code{\link{ECMC}}.}
 
-\item{ecmc_solver}{SDP solver for \code{\link{ECMC}}. Set to either "MOSEK" 
-or "CVXR".}
-
 \item{ecmc_mkkm_mr}{If set, uses \code{\link{mkkm_mr}} on consensus kernels 
 obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
   kernel k-means.}
 
 \item{data_is_kernels}{If set, input data is assumed to be kernel matrices. 
-Otherwise kernels are computed based on input data based on the 
+Otherwise kernels are computed based on input data and the 
 \code{kernels} parameter.}
 
-\item{foldwise_zero_var_removal}{If set, removes all zero variance features 
+\item{zero_var_removal}{If set, removes all zero variance features 
 from the data. It is called fold-wise, because this is assumed to be run 
 inside CV.}
 
@@ -218,6 +207,9 @@ inside CV.}
 \item{gene_id_list}{List of gene/feature names for each view. If set, matches 
 pipeline standardized feature names ("dim1", "dim2", ...) to names on the list. 
 Required for pathway kernels.}
+
+\item{preprocess_data}{If the input data has already been processed by the 
+\code{\link{COPS}}-pipeline, this should be disabled.}
 
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} when using MOFA.}
 }
@@ -228,8 +220,8 @@ Multi-omic clustering via multi-view clustering or integration
 Supported methods:
 \itemize{
   \item "ANF" - Affinity Network Fusion \code{\link[ANF]{ANF}}
-  \item "iClusterPlus" - \code{\link[iClusterPlus]{iClusterPlus}}.
-  \item "iClusterBayes" -  code{\link[iClusterPlus]{iClusterBayes}}.
+  \item "iClusterPlus" or "iCluster+" - \code{\link[iClusterPlus]{iClusterPlus}}. Supports only up to 4 views. 
+  \item "iClusterBayes" -  code{\link[iClusterPlus]{iClusterBayes}}. Supports only up to 6 views
   \item "IntNMF" - Integrative Non-negative Matrix Factorization 
     \code{\link[IntNMF]{nmf.mnnals}}.
   \item "kkmeans" - kernel k-means initialized on spectral approximation, 
