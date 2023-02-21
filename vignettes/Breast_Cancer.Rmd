@@ -4,7 +4,7 @@ author: "Teemu Rintala and Vittorio Fortino"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{COPS tutorial, psoriasis}
+  %\VignetteIndexEntry{COPS - multi-omic TCGA breast cancer patient stratification example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
