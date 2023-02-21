@@ -188,7 +188,7 @@ mopw_clusters <- COPS::multi_omic_clustering(
   kernels_normalize = TRUE,
   mkkm_mr_mosek = FALSE,
   mkkm_mr_lambda = 1, 
-  kernels = rep("BWK", length(dat$omics)),
+  kernels = rep("BWK", length(COPS::brca_multi_omics)),
   pathway_networks = pathway_networks,
   mvc_threads = 6,
   n_clusters = 2:8)
@@ -205,8 +205,8 @@ readability.
 ```{r}
 omics_d <- list()
 omics_s <- list()
-for (o in names(dat$omics)) {
-  omics_d[[o]] <- COPS::clustering_dissimilarity_from_data(t(dat$omics[[o]]))
+for (o in names(COPS::brca_multi_omics)) {
+  omics_d[[o]] <- COPS::clustering_dissimilarity_from_data(t(COPS::brca_multi_omics[[o]]))
   omics_s[[o]] <- COPS::clustering_metrics(mopw_clusters, 
                                            dissimilarity = omics_d[[o]])$metrics
   omics_s[[o]]$metric <- paste0(o, "_", omics_s[[o]]$metric)
@@ -225,7 +225,7 @@ For comparison, we can run the same method with standard linear kernels and let
 ```{r, message=FALSE, warning=FALSE}
 set.seed(0)
 molk_res <- COPS::COPS(
-  dat = dat$omics, 
+  dat = COPS::brca_multi_omics, 
   nruns = 2,
   nfolds = 5,
   parallel = 6, 
@@ -234,7 +234,7 @@ molk_res <- COPS::COPS(
   kernels_normalize = TRUE,
   mkkm_mr_mosek = FALSE,
   mkkm_mr_lambda = 1, 
-  kernels = rep("linear", length(dat$omics)),
+  kernels = rep("linear", length(COPS::brca_multi_omics)),
   mvc_threads = 6,
   n_clusters = 2:8)
 ```
