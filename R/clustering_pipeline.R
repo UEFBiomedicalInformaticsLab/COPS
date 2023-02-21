@@ -702,7 +702,7 @@ scoring <- function(res,
                                                      concordance_index = mean(x[["concordance_index"]], na.rm = TRUE)))
     } else {
       # This can break if by does not uniquely identify each row
-      survival <- res$survival[res$survival[["fold"]] %in% non_reference_fold, 
+      survival <- as.data.frame(res$survival)[res$survival[["fold"]] %in% non_reference_fold, 
                                c(by_surv, c("cluster_significance", "concordance_index"))]
     }
   } else {
@@ -730,7 +730,7 @@ scoring <- function(res,
     } else {
       assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
       # This can break if by does not uniquely identify each row
-      association <- res$association[res$association[["fold"]] %in% non_reference_fold,
+      association <- as.data.frame(res$association)[res$association[["fold"]] %in% non_reference_fold,
                                      c(by_association, colnames(res$association)[grepl(assoc_string, colnames(res$association))])]
     }
     if (summarise) {
