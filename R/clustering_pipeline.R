@@ -731,7 +731,7 @@ scoring <- function(res,
       assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
       # This can break if by does not uniquely identify each row
       association <- res$association[res$association[["fold"]] %in% non_reference_fold,
-                                     c(by_association, colnames(x)[grepl(assoc_string, colnames(x))])]
+                                     c(by_association, colnames(res$association)[grepl(assoc_string, colnames(res$association))])]
     }
     if (summarise) {
       # Calculate rejection rates for statistical tests
@@ -818,11 +818,11 @@ scoring <- function(res,
   return(out)
 }
 
-#' @describeIn clusteval_scoring Retrieves best clustering from CV results based on scores. 
+#' @describeIn scoring Retrieves best clustering from CV results based on scores. 
 #' In practice retrieves reference fold result from first run matching the best results. 
 #' 
 #' @param res result from \code{\link{COPS}}
-#' @param scores scores from \code{\link{clusteval_scoring}}
+#' @param scores scores from \code{\link{scoring}}
 #' 
 #' @export
 get_best_result <- function(res,
