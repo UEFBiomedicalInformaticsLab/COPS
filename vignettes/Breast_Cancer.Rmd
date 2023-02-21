@@ -189,7 +189,7 @@ mopw_clusters <- COPS::multi_omic_clustering(
   mkkm_mr_mosek = FALSE,
   mkkm_mr_lambda = 1, 
   kernels = rep("BWK", length(COPS::brca_multi_omics)),
-  pathway_networks = pathway_networks,
+  pathway_networks = COPS::pathway_networks,
   mvc_threads = 6,
   n_clusters = 2:8)
 print(paste("Finished clustering in", COPS:::time_taken_string(pipeline_start)))
