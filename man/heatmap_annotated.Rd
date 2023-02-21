@@ -15,6 +15,7 @@ heatmap_annotated(
   show_column_dend = FALSE,
   show_row_dend = FALSE,
   row_names_side = "left",
+  legend_names = NULL,
   ...
 )
 }
@@ -38,6 +39,8 @@ heatmap_annotated(
 \item{show_row_dend}{whether to include row dendrogram}
 
 \item{row_names_side}{where row names should be located}
+
+\item{legend_names}{names to use for \code{dat} color legends}
 
 \item{...}{other arguments passed to \link[ComplexHeatmap]{Heatmap}}
 }

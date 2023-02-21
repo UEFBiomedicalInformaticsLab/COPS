@@ -93,6 +93,7 @@ heatmap_annotations <- function(annotations,
 #' @param show_column_dend whether to include column dendrogram
 #' @param show_row_dend whether to include row dendrogram
 #' @param row_names_side where row names should be located
+#' @param legend_names names to use for \code{dat} color legends
 #' @param ... other arguments passed to \link[ComplexHeatmap]{Heatmap} 
 #'
 #' @return \code{\link[ComplexHeatmap]{`HeatmapList-class`}}
@@ -106,7 +107,9 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
                               show_row_names = TRUE,
                               show_column_dend = FALSE,
                               show_row_dend = FALSE,
-                              row_names_side = "left", ...) {
+                              row_names_side = "left", 
+                              legend_names = NULL, 
+                              ...) {
   if (!"list" %in% class(dat)) dat <- list(dat)
   if (length(variable_list) > 0) {
     col_annots <- heatmap_annotations(variable_list)
@@ -114,12 +117,15 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
   } else {
     heatmap_list <- list()
   }
+  if (is.null(legend_names)) legend_names <- names(dat)
+  if (is.null(legend_names)) legend_names <- paste0("input", 1:length(dat))
   for (i in 1:length(dat)) {
     if (!is.null(feature_names)) dat[[i]] <- dat[[i]][intersect(feature_names, rownames(dat[[i]])),]
     if (center | scale) dat[[i]] <- t(scale(t(dat[[i]]), center = center, scale = scale))
     col_dat <- circlize::colorRamp2(c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]])), c("blue", "white", "red"))
     heatmap_list <- c(heatmap_list, 
                       list(ComplexHeatmap::Heatmap(dat[[i]], 
+                                                   name = legend_names[i],
                                                    show_column_names = show_column_names, 
                                                    show_row_names = show_row_names,
                                                    show_column_dend = show_column_dend,

@@ -1,6 +1,6 @@
 ---
 title: "Clustering algorithms for Omics-driven Patient Stratification (COPS) - psoriasis multi-cohort RNA-Seq example"
-author: "Teemu Rintala"
+author: "Teemu Rintala and Vittorio Fortino"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >

@@ -1,5 +1,5 @@
 ---
-title: "COPS - multi-omic TCGA breast cancer patient stratification"
+title: "COPS - multi-omic TCGA breast cancer patient stratification example"
 author: "Teemu Rintala and Vittorio Fortino"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
@@ -282,14 +282,21 @@ surv_data <- COPS::survival_preprocess(event_data = clinical_data,
 ```
 
 After preprocessing survival data we can call <code>cv_survival_evaluation</code> 
-with the clustering result and event data. It may be necessary to translate the 
-sample IDs used in the omics data into patient IDs. Note that missing survival 
-data is automatically omitted in the evaluation. <code>COPS</code> fits two 
-Cox proportional hazard models one with cluster indicators and one without and 
+with the clustering result (<code>clusters</code>) and event information 
+(<code>event_data</code>). The time and event columns can be named in the 
+<code>survival_time_col</code> and <code>survival_event_col</code> arguments. 
+The <code>event_data</code>-argument should also contain 
+an id-column (named in the <code>row_id</code>-argument) that is used to match 
+column names of the omics data to the event data. It may be necessary to translate 
+the sample ids used in the omics data into patient ids. Note that missing survival 
+data is automatically omitted in the evaluation. <code>cv_survival_evaluation</code> 
+fits two Cox proportional hazard models one with cluster indicators and one without and 
 performs a likelihood-ratio test (LRT) to assess whether the difference between clusters 
 is significant while allowing the Cox model to account for other critical variables 
-such as age or cancer stage. The function retuns a data.frame summarising the 
-LRT p-value and survival concordance index for each result. 
+such as age or cancer stage. Covariates must be included in <code>event_data</code> 
+and can be named in the <code>survival_covariate_names</code>-argument. 
+The function retuns a data.frame with the LRT p-value and Harrell's concordance 
+index for each result. 
 
 ```{r}
 mopw_clusters_surv <- mopw_clusters
@@ -365,7 +372,7 @@ for example use the signal-to-noise-ratio to select interesting features:
 ```{r}
 mopw_features_selected <- list()
 for (i in names(COPS::brca_multi_omics)) {
-  mopw_features_selected[[i]] <- which(apply(abs(mopw_features[[i]][["snr"]]) > 0.75, 1, any))
+  mopw_features_selected[[i]] <- names(which(apply(abs(mopw_features[[i]][["snr"]]) > 0.75, 1, any)))
 }
 ```
 
@@ -396,8 +403,18 @@ colnames(hm_annotations) <- c("age","stage", "PAM50")
 hm_annotations[["cluster"]] <- mopw_clusters[mopw_clusters[["k"]] == 3, "cluster"]
 ```
 
+The <code>heatmap_annotated</code> wraps <code>ComplexHeatmap::Heatmap</code> 
+to conveniently visualize clustering results from one or more omics. The selected 
+features could be given in the <code>feature_names</code> argument, but it can 
+be easier to modify the input data manually (e.g., renaming the features). 
+By default, the omics data are centered but not scaled to unit variance. The 
+output is highly customisable, since all extra arguments are passed to 
+<code>ComplexHeatmap::Heatmap</code>. 
+
 ```{r, dpi=300, out.width="100%", fig.width=16, fig.height=16}
-COPS::heatmap_annotated(mopw_dat_selected, hm_annotations, scale = TRUE,
+COPS::heatmap_annotated(mopw_dat_selected, 
+                        hm_annotations, 
+                        scale = TRUE,
                         column_split = hm_annotations[["cluster"]])
 ```
 
