@@ -3,6 +3,7 @@
 \name{clusteval_scoring}
 \alias{clusteval_scoring}
 \alias{scoring}
+\alias{get_best_result}
 \title{Scoring of dimensionality reduction and clustering pipeline output}
 \usage{
 clusteval_scoring(...)
@@ -15,11 +16,13 @@ scoring(
   summarise = TRUE,
   format_names = TRUE
 )
+
+get_best_result(res, scores)
 }
 \arguments{
 \item{...}{}
 
-\item{res}{\code{\link{COPS}} output}
+\item{res}{result from \code{\link{COPS}}}
 
 \item{by}{character vector containing column names to group analysis by}
 
@@ -32,6 +35,8 @@ By default the metrics are averaged across runs and folds.}
 
 \item{format_names}{If TRUE, formats internally used method names etc. to more 
 user friendly names.}
+
+\item{scores}{scores from \code{\link{scoring}}}
 }
 \value{
 Returns a \code{list} containing a \code{data.frame} \code{$all} of all scores and
@@ -53,6 +58,9 @@ Metrics are renamed for convenience:
 \section{Functions}{
 \itemize{
 \item \code{clusteval_scoring()}: Alias for scoring
+
+\item \code{get_best_result()}: Retrieves best clustering from CV results based on scores. 
+In practice retrieves reference fold result from first run matching the best results.
 
 }}
 \examples{

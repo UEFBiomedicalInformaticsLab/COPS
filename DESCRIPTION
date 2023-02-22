@@ -1,7 +1,7 @@
 Package: COPS
 Type: Package
 Title: Clustering algorithms for Omics-driven Patient Stratification
-Version: 0.3.0
+Version: 1.0.0
 Author: Teemu Rintala, Vittorio Fortino
 Maintainer: Teemu Rintala <teemu.rintala@uef.fi>
 Description: Clustering algorithms for Omics-driven Patient Stratification provides 
@@ -13,9 +13,15 @@ Imports:
     AnnotationDbi,
     aricode,
     biomaRt,
+    caret,
+    circlize,
     cluster,
+    clusterCrit,
     ClusterR,
     clusteval,
+    ComplexHeatmap,
+    cowplot,
+    CVXR,
     data.table,
     dnet,
     doParallel,
@@ -25,20 +31,24 @@ Imports:
     flashClust,
     foreach,
     ggplot2,
+    gridExtra,
     GSVA,
     httr,
     iClusterPlus,
     igraph,
     IntNMF,
     jsonlite,
+    kBET,
     Matrix,
     mclust,
     MOFA2,
     msigdbr,
     org.Hs.eg.db,
+    pals,
     parallel,
     plyr,
     scales,
+    RColorBrewer,
     reshape2,
     reticulate,
     ROntoTools,
@@ -48,11 +58,8 @@ Imports:
     survival,
     uwot
 Suggests:
-    caret,
     curatedTCGAData,
-    CVXR,
     dynamicTreeCut,
-    kBET,
     knitr,
     markdown,
     rmarkdown,

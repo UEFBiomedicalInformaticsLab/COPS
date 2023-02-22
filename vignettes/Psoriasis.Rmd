@@ -337,17 +337,19 @@ This returns a list containing the whole summarised table in the element "all",
 and only the line corresponding to the best result (according to wsum) in "best". 
 
 ```{r}
-scores_rwrfgsea$all[,c("Approach", "Embedding", "Clustering", "k", "Silhouette", "ClusteringStabilityJaccard", "GSE.nmi")]
+scores_rwrfgsea$all[,c("Approach", "Embedding", "Clustering", "k", "Silhouette", 
+                       "ClusteringStabilityJaccard", "GSE.nmi")]
 ```
 
 For visualising the spread of metrics, we can use boxplots after reorganising the 
 scores without summary:
 
 ```{r}
-scores_rwrfgsea_dist <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
-                                                                     Silhouette - GSE.nmi,
-                                                significance_level = 0.05, 
-                                                summarise = FALSE)
+scores_rwrfgsea_dist <- COPS::scoring(res_rwrfgsea, 
+                                      wsum = ClusteringStabilityJaccard + 
+                                                 Silhouette - GSE.nmi,
+                                      significance_level = 0.05, 
+                                      summarise = FALSE)
 ```
 
 Note that with summarise set to FALSE, the function will also return results for 
@@ -408,7 +410,7 @@ can affect results and tends to affect metric values, especially those based on
 statistical tests. 
 
 Clustering stability, i.e., the grouping similarity within training folds, in 
-<code>COPS</code> is calculated with respect to a reference clustering results 
+<code>COPS</code> is calculated with respect to a reference clustering result 
 obtained with identical settings on the full dataset. Three different indices 
 are used, namely the Jaccard index, adjusted Rand index and normalized mutual 
 information. 
@@ -553,19 +555,22 @@ stability and module_score while also having the lowest batch NMI.
 
 ## Batch effects and data preparation
 
-We have not discussed yet is the pre-processing of input data, which is crucial 
-for obtaining good clustering results. 
-<code>COPS</code> does not provide tools for processing sequencing data or 
-performing batch-correction and therefore we expect that the input data has 
-already been pre-processed appropriately. For example, RNA-Seq counts should be 
+Up to this point we have not discussed the pre-processing of input data, 
+which is crucial for obtaining good clustering results. Firstly, we expect 
+the input data to be pre-processed appropriately. For example, RNA-Seq counts should be 
 normalized and variance stabilised, i.e. log-scaled TPM or CPM and DNA-methylation 
-should be given as methylation percentages or M-values. 
+should be given as methylation percentages or M-values. Secondly, feature selection is 
+an important factor for obtaining relevant results, although not always necessary. 
+Finally, if present, effects related to known batches should be corrected by 
+using the appropriate tools (such as ComBat). <code>COPS</code> does not provide 
+tools for processing sequencing data or performing batch-correction. 
 However, <code>COPS</code> does provide tools for assessing batch-effects prior 
 to clustering. 
 
 ### Pre-clustering batch effect metrics
 
-Our purpose is to discover subtypes of psoriasis in the gene-expression profiles 
+In this example, our purpose is to discover subtypes of psoriasis in the 
+gene-expression profiles 
 of patient skin samples affected by the disease, i.e. the lesional samples. 
 Therefore it is important that the batch effect within the affected subset is 
 small enough to be negligible in clustering analysis. 
@@ -581,7 +586,7 @@ cat(tabl)
 ```
 
 Dispersion Separability Criterion is used by TCGA batch viewer. In their 
-guidance they suggest 0.5 as a threshold for concern. 
+guidance they suggest 0.5 as a threshold for some concern. 
 
 ```{r}
 lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
