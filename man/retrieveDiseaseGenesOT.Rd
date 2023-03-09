@@ -13,7 +13,7 @@ retrieveDiseaseGenesOT(diseases, fields)
 Check the Open Target platforms for more details.}
 }
 \value{
-a data frame including disease-gene association found for each specified data type.
+a \code{data.frame} including disease-gene association found for each specified data type.
 }
 \description{
 Utility function to extract relevant disease-gene associations

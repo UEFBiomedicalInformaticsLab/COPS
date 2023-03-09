@@ -512,7 +512,7 @@ gene_module_score <- function(x,
 #' @param parallel Number of parallel threads.
 #' @param ... Extra arguments are passed to \code{\link{gene_module_score}}.
 #' 
-#' @return
+#' @return \code{data.table}
 #' @export
 cv_module_evaluation <- function(clusters, 
                               by = c("run", "fold", "datname", "drname", "k", "m"), 

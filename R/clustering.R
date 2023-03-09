@@ -293,7 +293,7 @@ temp_function <- function(x) {
 #' @param correlation_method 
 #' @param ... 
 #'
-#' @return
+#' @return \code{dist}-object
 #' @export
 clustering_dissimilarity_from_data <- function(x, 
                                                distance_metric = "euclidean", 

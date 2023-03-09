@@ -100,7 +100,7 @@
 #'   \code{\link{COPS}}-pipeline, this should be disabled. 
 #' @param ... Arguments are passed to \code{\link{clustering_analysis}} when using MOFA. 
 #'
-#' @return
+#' @return \code{data.frame} of clustering results
 #' 
 #' @details
 #' Supported methods:

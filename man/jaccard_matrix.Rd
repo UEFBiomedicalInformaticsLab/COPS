@@ -9,6 +9,9 @@ jaccard_matrix(x)
 \arguments{
 \item{x}{indicator or binary feature matrix}
 }
+\value{
+\code{matrix}
+}
 \description{
 Jaccard index between indicator matrix columns
 }

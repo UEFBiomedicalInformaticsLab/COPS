@@ -7,9 +7,12 @@
 rbind_fill(a, b)
 }
 \arguments{
-\item{a}{}
+\item{a}{\code{matrix}}
 
-\item{b}{}
+\item{b}{\code{matrix}}
+}
+\value{
+\code{matrix} with mis-matched columns as NA
 }
 \description{
 Rbind modification which fills missing columns with NA using base R functions

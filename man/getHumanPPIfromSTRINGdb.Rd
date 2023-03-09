@@ -20,9 +20,11 @@ getHumanPPIfromSTRINGdb(
 \item{directed}{a boolean value indicating the type of grpah to be generated.}
 
 \item{version}{a character value specifying STRINGdb version to query from}
+
+\item{gene_id_mart_column}{column name in biomaRt to translate STRING_ids to}
 }
 \value{
-an igraph object.
+an \code{igraph} object.
 }
 \description{
 Utility function to extract a gene subnetwork from STRINGdb including only the seed genes and their interactions.

@@ -147,7 +147,7 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
 #' @param remove_zero_var whether to remove genes based on \code{\link[caret]{nearZeroVar}}
 #' @param parallel number of threads
 #'
-#' @return
+#' @return \code{list} of test results
 #' @export
 #' @importFrom caret nearZeroVar
 univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1) {

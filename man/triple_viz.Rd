@@ -2,6 +2,9 @@
 % Please edit documentation in R/utility_functions.R
 \name{triple_viz}
 \alias{triple_viz}
+\alias{pca_viz}
+\alias{umap_viz}
+\alias{tsne_viz}
 \title{Data visualization using PCA, t-SNE and UMAP}
 \usage{
 triple_viz(
@@ -12,18 +15,42 @@ triple_viz(
   umap_neighbors = 20,
   tsne = FALSE
 )
+
+pca_viz(data, category, category_label)
+
+umap_viz(data, category, category_label, umap_neighbors = 20)
+
+tsne_viz(data, category, category_label, tsne_perplexity = 45)
 }
 \arguments{
-\item{data}{}
+\item{data}{\code{matrix} with samples on rows}
 
-\item{category}{}
+\item{category}{\code{factor} for coloring}
 
-\item{category_label}{}
+\item{category_label}{name of color legend}
 
-\item{tsne_perplexity}{}
+\item{tsne_perplexity}{t-SNE perplexity parameter}
 
-\item{umap_neighbors}{}
+\item{umap_neighbors}{UMAP neighbours parameter}
+}
+\value{
+list of plots
+
+\code{ggplot} object
+
+\code{ggplot} object
+
+\code{ggplot} object
 }
 \description{
 Data visualization using PCA, t-SNE and UMAP
 }
+\section{Functions}{
+\itemize{
+\item \code{pca_viz()}: Data visualization using PCA
+
+\item \code{umap_viz()}: Data visualization using UMAP
+
+\item \code{tsne_viz()}: Data visualization using t-SNE
+
+}}

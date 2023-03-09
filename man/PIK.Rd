@@ -5,15 +5,18 @@
 \alias{PIK_KEGG}
 \alias{KEGG_networks}
 \alias{PIK_from_networks}
+\alias{PIK_GNGS}
 \title{Pathway induced kernel (Manica et al. 2019)}
 \usage{
-PIK(x, L, rwr_smoothing = FALSE, ...)
+PIK(x, L, rwr_smoothing = FALSE, rwr_restart_prob = 0.75, ...)
 
 PIK_KEGG(x, gene_key = "SYMBOL", ...)
 
 KEGG_networks()
 
 PIK_from_networks(x, networks, normalized_laplacian = TRUE, parallel = 1, ...)
+
+PIK_GNGS(x, gene_network, gene_sets, ...)
 }
 \arguments{
 \item{x}{gene feature matrix}
@@ -22,20 +25,30 @@ PIK_from_networks(x, networks, normalized_laplacian = TRUE, parallel = 1, ...)
 
 \item{rwr_smoothing}{apply feature smoothing}
 
-\item{...}{}
+\item{rwr_restart_prob}{restart probability for smooting}
 
-\item{gene_key}{}
+\item{...}{passed on to \code{\link{PIK}}}
+
+\item{gene_key}{column in \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} that KEGG IDs should be translated to}
 
 \item{networks}{list of igraph objects corresponding to pathway graphs}
 
-\item{normalized_laplacian}{}
+\item{normalized_laplacian}{normalize Laplacian for calculations}
 
-\item{parallel}{}
+\item{parallel}{number of parallel threads}
+
+\item{gene_network}{\code{igraph} object}
+
+\item{gene_sets}{\code{list} of gene sets}
 }
 \value{
-kernel matrix
+kernel \code{matrix}
+
+\code{list} of KEGG-based pathway-kernel matrices
 
 list of undirected igraph objects
+
+list of kernel matrices
 
 list of kernel matrices
 }
@@ -49,5 +62,7 @@ Pathway induced kernel (Manica et al. 2019)
 \item \code{KEGG_networks()}: Download KEGG pathway graphs
 
 \item \code{PIK_from_networks()}: Pathway induced kernel from networks
+
+\item \code{PIK_GNGS()}: Extracts subnetworks based on pathway genesets (experimental)
 
 }}

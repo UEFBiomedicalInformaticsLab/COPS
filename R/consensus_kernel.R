@@ -111,23 +111,22 @@ ecmc_opt <- function(X,
 #' @param a consensus reward
 #' @param b disagreement penalty
 #' @param eps stopping threshold for mean difference in solution
-#' @param solver only MOSEK for now
 #' @param maxiter maximum number of iterations before terminating
 #' @param parallel number of threads for optimization
 #'
-#' @return
+#' @return list of kernel matrices, disagreement matrices and solution diagnostics
 #' @export
 ECMC <- function(x, 
                  a, 
                  b, 
                  eps = 1e-6, 
-                 solver = "MOSEK", 
                  maxiter = 10,
                  parallel = 0) {
   N_col <- sapply(x, ncol)
   N_row <- sapply(x, ncol)
   if (any(c(N_col, N_row) != N_col[1])) stop("Input dimensions do not match.")
   
+  # centering matrix
   H <- diag(rep(1, times = N_col[1])) - 1 / N_col[1]
   
   C <- lapply(x, function(xi) xi)
@@ -156,7 +155,9 @@ ECMC <- function(x,
     Ct <- list()
     solution_vals_ci <- c()
     for (i in 1:length(x)) {
-      M[[i]] <- H %*% (x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum) %*% H
+      #M[[i]] <- H %*% (x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum) %*% H
+      # no need to center if all centered previously
+      M[[i]] <- x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum
       mosek_sol <- ecmc_opt(M[i], ret_sol = TRUE, ret_optime = TRUE, parallel = parallel)
       Ct[[i]] <- as.matrix(mosek_sol$solution[[1]])
       solution_vals_ci <- mosek_sol$val
@@ -172,7 +173,8 @@ ECMC <- function(x,
     Dt <- list()
     solution_vals_di <- c()
     for (i in 1:length(x)) {
-      N[[i]] <- H %*% (x[[i]] - b * C_sum) %*% H
+      #N[[i]] <- H %*% (x[[i]] - b * C_sum) %*% H
+      N[[i]] <- x[[i]] - b * C_sum
       mosek_sol <- ecmc_opt(N[i], ret_sol = TRUE, ret_optime = TRUE)
       Dt[[i]] <- as.matrix(mosek_sol$solution[[1]])
       solution_vals_di <- mosek_sol$val

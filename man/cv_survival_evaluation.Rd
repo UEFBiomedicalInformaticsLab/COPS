@@ -31,7 +31,12 @@ cv_survival_evaluation(
 
 \item{by}{Vector of column names that identify a single clustering result in \code{clusters}.}
 
+\item{parallel}{number of parallel threads}
+
 \item{...}{Extra arguments are ignored.}
+}
+\value{
+\code{data.table} of Cox PH LRT-test p-values and Harrell's concordance index values
 }
 \description{
 Likelihood ratio analysis of Cox PH survival models for clustering results

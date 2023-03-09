@@ -1,31 +1,9 @@
-#' PAMOGK (Tepeli et al. 2021)
+#' Parallel computation of node betweenness
 #'
-#' @param x 
-#' @param networks 
-#' @param shortest_paths 
-#' @param z_up 
-#' @param z_down 
-#' @param gene_key 
-#' @param parallel 
-#'
-#' @return
-#' @export
-pamogk <- function(x, 
-                   networks, 
-                   shortest_paths, 
-                   z_up = qnorm(0.975), 
-                   z_down = qnorm(0.025), 
-                   gene_key = "SYMBOL", 
-                   parallel = 1) {
-  return(NULL)
-}
-
-#' @describeIn pamogk Parallel computation of node betweenness
-#'
-#' @param networks list of igraph objects
+#' @param networks \code{list} of \code{igraph} objects
 #' @param parallel number of threads
 #'
-#' @return
+#' @return \code{list} of betweenness centrality vectors
 #' @export
 #'
 #' @importFrom igraph betweenness
@@ -42,12 +20,12 @@ node_betweenness_parallel <- function(networks, parallel = 1) {
   return(b_list)
 }
 
-#' @describeIn pamogk Weighted linear kernel
+#' Weighted linear kernel
 #'
 #' @param x feature matrix
 #' @param weights feature weights
 #'
-#' @return kernel matrix
+#' @return kernel \code{matrix}
 #' @export
 weighted_linear_kernel <- function(x, weights) {
   weights <- weights[names(weights) %in% rownames(x) & !is.na(names(weights))]
@@ -65,17 +43,18 @@ weighted_linear_kernel <- function(x, weights) {
 #' @param x gene feature matrix
 #' @param L pathway graph Laplacian matrix
 #' @param rwr_smoothing apply feature smoothing
-#' @param ... 
+#' @param rwr_restart_prob restart probability for smooting
+#' @param ... ignored
 #'
-#' @return kernel matrix
+#' @return kernel \code{matrix}
 #' @export
-PIK <- function(x, L, rwr_smoothing = FALSE, ...) {
+PIK <- function(x, L, rwr_smoothing = FALSE, rwr_restart_prob = 0.75, ...) {
   common_genes <- colnames(L)[colnames(L) %in% colnames(x)]
   if (length(common_genes) > 0) {
     y <- matrix(0, nrow = nrow(x), ncol = ncol(L), dimnames = list(id = rownames(x), gene = colnames(L)))
     y[,common_genes] <- x[,common_genes]
     if (rwr_smoothing) {
-      y <- binary_node_attribute_smoothing_from_adjacency(y, L, ...)
+      y <- binary_node_attribute_smoothing_from_adjacency(y, L, rwr_restart_prob = rwr_restart_prob)
     }
     out <- (y) %*% L %*% t(y)
   } else {
@@ -87,10 +66,10 @@ PIK <- function(x, L, rwr_smoothing = FALSE, ...) {
 #' @describeIn PIK Use KEGG pathways to form pathway induced kernels
 #'
 #' @param x gene feature matrix
-#' @param normalized_laplacian 
-#' @param gene_key
+#' @param gene_key column in \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} that KEGG IDs should be translated to
+#' @param ... passed on to \code{\link{PIK}}
 #'
-#' @return
+#' @return \code{list} of KEGG-based pathway-kernel matrices
 #' @export
 #'
 #' @importFrom ROntoTools keggPathwayGraphs setEdgeWeights keggPathwayNames
@@ -134,9 +113,9 @@ KEGG_networks <- function() {
 #'
 #' @param x gene feature matrix
 #' @param networks list of igraph objects corresponding to pathway graphs
-#' @param normalized_laplacian 
-#' @param parallel 
-#' @param ... 
+#' @param normalized_laplacian normalize Laplacian for calculations
+#' @param parallel number of parallel threads
+#' @param ... passed on to \code{\link{PIK}}
 #'
 #' @return list of kernel matrices
 #' @export
@@ -168,7 +147,7 @@ PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel
   return(piks)
 }
 
-binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_prob = 0.75, ...) {
+binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_prob = 0.75) {
   g <- igraph::graph_from_adjacency_matrix(as.matrix(A), 
                                            mode = "undirected", weighted = TRUE)
   y <- dnet::dRWR(g, 
@@ -179,44 +158,37 @@ binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_pro
   return(t(y))
 }
 
-PIK_GNGS <- function(x, gene_network, gene_sets, normalize = FALSE) {
+#' @describeIn PIK Extracts subnetworks based on pathway genesets (experimental)
+#'
+#' @param x gene feature matrix
+#' @param gene_network \code{igraph} object
+#' @param gene_sets  \code{list} of gene sets
+#' @param ... passed on to \code{\link{PIK}}
+#'
+#' @return list of kernel matrices
+#' @export
+PIK_GNGS <- function(x, gene_network, gene_sets, ...) {
   L_pw <- list()
   V_pw <- list()
   
-  #igraph::laplacian_matrix(gene_network)
-  
-  for (pw_i in names(list_db_annots)[grep("^KEGG_", names(list_db_annots))]) {
-    sub_net_v <- list_db_annots[[pw_i]]
+  for (pw_i in names(gene_sets)) {
+    sub_net_v <- gene_sets[[pw_i]]
     sub_net_v <- sub_net_v[sub_net_v %in% igraph::V(gene_network)$name]
     sub_net_v <- sub_net_v[sub_net_v %in% colnames(x)]
     sub_net <- igraph::induced_subgraph(gene_network, sub_net_v, impl = "create_from_scratch")
     L_pw[[pw_i]] <- igraph::laplacian_matrix(sub_net, normalized = TRUE)
-    V_pw[[pw_i]] <- sub_net_v # need this for later
   }
-  k_pw <- list()
-  for (pw_i in names(L_pw)) {
-    k_pw[[pw_i]] <- (x[, V_pw[[pw_i]], drop = FALSE]) %*% L_pw[[pw_i]] %*% t(x[, V_pw[[pw_i]], drop = FALSE])
-    # Normalize
-    if (normalize) {
-      d_temp <- c()
-      for (i in 1:ncol(k_pw[[pw_i]])) {
-        d_temp[i] <- k_pw[[pw_i]][i]
-      }
-      d_temp <- diag(1/sqrt(d_temp))
-      k_pw[[pw_i]] <- d_temp %*% k_pw[[pw_i]] %*% d_temp
-    }
-  }
-  return(k_pw)
+  return(PIK(x, L_pw, ...))
 }
 
 #' Multiple kernel k-means with matrix induced regularization (Liu et al. 2016)
 #'
-#' @param K_list 
-#' @param k 
-#' @param lambda 
-#' @param tolerance 
+#' @param K_list \code{list} of kernel matrices
+#' @param k number of clusters
+#' @param lambda \code{numeric} regularization parameter
+#' @param tolerance \code{numeric} stopping criterion value
 #'
-#' @return
+#' @return a kernel \code{matrix}
 #' @export
 mkkm_mr <- function(K_list, 
                     k, 
@@ -342,10 +314,10 @@ mkkm_mr_objective <- function(K_list, mu) {
 
 #' Global kernel k-means (Tzortzis & Likas 2008)
 #'
-#' @param K 
-#' @param n_clusters 
+#' @param K kernel \code{matrix}
+#' @param n_clusters number of clusters
 #'
-#' @return
+#' @return \code{list} of cluster assignments and k-means objective
 #' @export
 global_kernel_kmeans <- function(K, n_clusters) {
   k_clusters <- rep(1, nrow(K))
@@ -354,7 +326,7 @@ global_kernel_kmeans <- function(K, n_clusters) {
     for (i in 1:nrow(K)) {
       k_clusters_init <- k_clusters
       k_clusters_init[i] <- k
-      res[[i]] <- kernel_kmeans_algorithm(K, k, k_clusters_init)
+      res[[i]] <- kernel_kmeans_algorithm(K, k, k_clusters_init, maxiter = Inf)
     }
     best_i <- which.min(sapply(res, function(x) x$E))
     k_clusters <- res[[best_i]]$clusters
@@ -366,14 +338,16 @@ global_kernel_kmeans <- function(K, n_clusters) {
 #' 
 #' K-means++ with set number of iterations. 
 #'
-#' @param K 
-#' @param n_k 
-#' @param n_initializations 
-#' @param ... 
+#' @param K kernel \code{matrix}
+#' @param n_k number of clusters
+#' @param n_initializations number of initializations
+#' @param maxiter maximum number of k-means iterations
+#' @param parallel number of parallel threads for running different initializations
+#' @param ... ignored
 #'
-#' @return
+#' @return \code{list} of cluster assignments and k-means objective
 #' @export
-kernel_kmeans <- function(K, n_k, n_initializations = 100, parallel = 1, ...) {
+kernel_kmeans <- function(K, n_k, n_initializations = 100, maxiter = 1e2, parallel = 1, ...) {
   out <- list(clusters = NA, E = Inf)
   if(n_initializations > ncol(K)) {
     w1 <- "K-means++ is deterministic for a given initialization."
@@ -396,13 +370,13 @@ kernel_kmeans <- function(K, n_k, n_initializations = 100, parallel = 1, ...) {
           .export = c(), 
           .packages = c(), 
           .inorder = FALSE) %dopar% {
-  out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, ...)
+  out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, maxiter = maxiter)
   out_i
   }, finally = close_parallel_cluster(parallel_clust))
   return(out)
 }
 
-kernel_kmeanspp <- function(K, n_k, seed, ...) {
+kernel_kmeanspp <- function(K, n_k, seed, maxiter = 1e2) {
   centroids <- seed
   for (i in 2:n_k) {
     min_similarity <- apply(K[, centroids, drop = FALSE], 1, min)
@@ -411,10 +385,10 @@ kernel_kmeanspp <- function(K, n_k, seed, ...) {
     centroids <- c(centroids, ci)
   }
   init <- apply(K[,centroids, drop = FALSE], 1, which.max)
-  return(kernel_kmeans_algorithm(K = K, n_k = n_k, init, ...))
+  return(kernel_kmeans_algorithm(K = K, n_k = n_k, init, maxiter = maxiter))
 }
 
-kernel_kmeans_algorithm <- function(K, n_k, init, maxiter = 1e3) {
+kernel_kmeans_algorithm <- function(K, n_k, init, maxiter = 1e2) {
   K_clusters <- init
   diff <- TRUE
   it <- 0

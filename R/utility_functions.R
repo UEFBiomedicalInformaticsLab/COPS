@@ -2,12 +2,17 @@
 #' 
 #' Creates cross-validation folds of data for downstream analysis. 
 #'
-#' @param dat_list list of datasets, each either data.table or data.frame (samples x features) with an "id" column or expression matrix (genes x samples) with named columns
+#' @param dat_list list of datasets, each either data.table or data.frame 
+#'   (samples x features) with an "id" column or expression matrix (genes x samples) 
+#'   with named columns
 #' @param nfolds number of cross-validation folds
 #' @param nruns number of cross-validation replicates
 #' @param stratified_cv if \code{TRUE}, perform stratified sampling for folds
-#' @param anti_stratified if \code{TRUE}, maximize separation of batch labels within folds, opposite of stratified sampling
+#' @param anti_stratified if \code{TRUE}, maximize separation of batch labels 
+#'   within folds, opposite of stratified sampling
 #' @param cv_stratification_var labels used for stratification
+#' @param extra_fold if \code{TRUE}, generates an extra fold (nfolds+1) that 
+#'   corresponds to the full dataset
 #' @param ... extra arguments are ignored
 #'
 #' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
@@ -106,7 +111,6 @@ data_preprocess <- function(dat, verbose = FALSE) {
 #' Empirical cumulative density function transformation
 #'
 #' Estimate each feature (row) distribution using Gaussian kernels with sigma corresponding to sd. 
-#' 
 #'
 #' @param x numerical matrix
 #' @param parallel number of threads
@@ -139,7 +143,7 @@ ecdf_transform <- function(x,
 #'
 #' @param x indicator or binary feature matrix
 #'
-#' @return
+#' @return \code{matrix}
 #' @export
 jaccard_matrix <- function(x) {
   A <- t(x) %*% x
@@ -160,7 +164,7 @@ jaccard_matrix <- function(x) {
 #' @param correlation_method correlation method
 #' @param cor_threshold numeric threshold used to define edges/links (see \code{\link[WGCNA]{pickHardThreshold}})
 #'
-#' @return
+#' @return \code{igraph} object
 #' @export
 coexpression_network_unweighted <- function(dat, 
                                             correlation_method = "spearman", 
@@ -182,7 +186,7 @@ coexpression_network_unweighted <- function(dat,
 #' @param palette_direction set color direction
 #' @param title plot title
 #'
-#' @return
+#' @return \code{ggplot} object
 #' @export
 #' @importFrom ggplot2 ggplot aes geom_tile theme_bw coord_fixed ggtitle scale_fill_distiller theme element_blank
 plot_similarity_matrix <- function(sim_mat, 
@@ -215,7 +219,7 @@ plot_similarity_matrix <- function(sim_mat,
 #' @param fields a character vector indicating the data types used for the infrence of disease-gene associations.
 #' Check the Open Target platforms for more details.
 #' 
-#' @return a data frame including disease-gene association found for each specified data type.
+#' @return a \code{data.frame} including disease-gene association found for each specified data type.
 #' @export
 #' @importFrom httr content GET
 #' @importFrom jsonlite fromJSON
@@ -252,15 +256,19 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 #' @param cutoff a numeric value indicating the cutoff for the edge scores.  
 #' @param directed a boolean value indicating the type of grpah to be generated. 
 #' @param version a character value specifying STRINGdb version to query from 
+#' @param gene_id_mart_column column name in biomaRt to translate STRING_ids to
 #' 
-#' @return an igraph object.
+#' @return an \code{igraph} object.
 #' @export
 #' @importFrom STRINGdb STRINGdb
 #' @importFrom igraph graph_from_edgelist graph_from_adjacency_matrix as_adjacency_matrix
 #' @importFrom biomaRt useEnsembl getBM
 #' @importFrom Matrix rowSums
-getHumanPPIfromSTRINGdb <- function(gene_ids = NULL, cutoff = 700, directed = FALSE, 
-                                    version = "11", gene_id_mart_column = "hgnc_symbol") {
+getHumanPPIfromSTRINGdb <- function(gene_ids = NULL, 
+                                    cutoff = 700, 
+                                    directed = FALSE, 
+                                    version = "11", 
+                                    gene_id_mart_column = "hgnc_symbol") {
   string_db <- STRINGdb::STRINGdb$new(version = version, species=9606, score_threshold = cutoff)
   if(directed) {
     gene.stringdb <- string_db$map(my_data_frame = gene_ids, 
@@ -292,7 +300,7 @@ getHumanPPIfromSTRINGdb <- function(gene_ids = NULL, cutoff = 700, directed = FA
     # extract protein ids from the human network
     protein_ids <- sapply(strsplit(rownames(adj_matrix), '\\.'), function(x) x[2])
     # get protein to gene id mappings
-    mart_results <- biomaRt::getBM(attributes = c(gene_id_mart_column,"ensembl_peptide_id"),
+    mart_results <- biomaRt::getBM(attributes = c(gene_id_mart_column, "ensembl_peptide_id"),
                                    #filters = "ensembl_peptide_id", values = protein_ids,
                                    mart = mart)
     ### replace protein ids with gene ids
@@ -412,13 +420,13 @@ expressionToRWFeatures <- function(dat,
 
 #' Data visualization using PCA, t-SNE and UMAP
 #'
-#' @param data 
-#' @param category 
-#' @param category_label 
-#' @param tsne_perplexity 
-#' @param umap_neighbors 
+#' @param data \code{matrix} with samples on rows
+#' @param category \code{factor} for coloring
+#' @param category_label name of color legend
+#' @param tsne_perplexity t-SNE perplexity parameter
+#' @param umap_neighbors UMAP neighbours parameter
 #'
-#' @return
+#' @return list of plots
 #' @export
 #' 
 #' @importFrom ggplot2 ggtitle
@@ -434,13 +442,13 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
   return(list(PCA = p1, tSNE = p2, UMAP = p3))
 }
 
-#' Data visualization using PCA
+#' @describeIn triple_viz Data visualization using PCA
 #'
-#' @param data 
-#' @param category 
-#' @param category_label 
+#' @param data \code{matrix} with samples on rows
+#' @param category \code{factor} for coloring
+#' @param category_label name of color legend
 #'
-#' @return
+#' @return \code{ggplot} object
 #' @export
 #' 
 #' @importFrom FactoMineR PCA
@@ -459,14 +467,14 @@ pca_viz <- function(data, category, category_label) {
   return(p1)
 }
 
-#' Data visualization using UMAP
+#' @describeIn triple_viz Data visualization using UMAP
 #'
-#' @param data 
-#' @param category 
-#' @param category_label 
-#' @param umap_neighbors 
+#' @param data \code{matrix} with samples on rows
+#' @param category \code{factor} for coloring
+#' @param category_label name of color legend
+#' @param umap_neighbors UMAP neighbours parameter
 #'
-#' @return
+#' @return \code{ggplot} object
 #' @export
 #' 
 #' @importFrom uwot umap
@@ -483,14 +491,14 @@ umap_viz <- function(data, category, category_label, umap_neighbors = 20) {
   return(p1)
 }
 
-#' Data visualization using t-SNE
+#' @describeIn triple_viz Data visualization using t-SNE
 #'
-#' @param data 
-#' @param category 
-#' @param category_label 
-#' @param tsne_perplexity 
+#' @param data \code{matrix} with samples on rows
+#' @param category \code{factor} for coloring
+#' @param category_label name of color legend
+#' @param tsne_perplexity t-SNE perplexity parameter
 #'
-#' @return
+#' @return \code{ggplot} object
 #' @export
 #' 
 #' @importFrom Rtsne Rtsne
@@ -516,10 +524,10 @@ tsne_viz <- function(data, category, category_label, tsne_perplexity = 45) {
 
 #' Rbind modification which fills missing columns with NA using base R functions
 #'
-#' @param a 
-#' @param b 
+#' @param a \code{matrix}
+#' @param b \code{matrix}
 #'
-#' @return
+#' @return \code{matrix} with mis-matched columns as NA
 #' @export
 rbind_fill <- function(a,b) {
   all_cols <- union(colnames(a), colnames(b))
@@ -538,10 +546,10 @@ rbind_fill <- function(a,b) {
 
 #' Cbind modification which fills missing rows with NA using base R functions
 #'
-#' @param a 
-#' @param b 
+#' @param a \code{matrix}
+#' @param b \code{matrix}
 #'
-#' @return
+#' @return \code{matrix} with mis-matched row as NA
 #' @export
 cbind_fill <- function(a,b) {
   all_rows <- union(rownames(a), rownames(b))
@@ -564,17 +572,17 @@ cbind_fill <- function(a,b) {
 #' 
 #' To help manage the scale differences, outliers (log p < Q1 - 1.5*IQR) are omitted. 
 #'
-#' @param x 
-#' @param target 
-#' @param x_axis_var 
-#' @param color_var 
-#' @param palette 
-#' @param by 
-#' @param facetx 
-#' @param facety 
-#' @param limits 
+#' @param x \code{data.frame}
+#' @param target column name in \code{x} for y axis (boxplot)
+#' @param x_axis_var column name in \code{x} for x axis
+#' @param color_var column name in \code{x} for color
+#' @param palette RColorBrewer palette name
+#' @param by column names in \code{x} to calculate \code{target} quantiles over
+#' @param facetx column name in \code{x} for x facet
+#' @param facety column name in \code{x} for y facet
+#' @param limits y-axis limits
 #'
-#' @return
+#' @return \code{ggplot} object
 #' @export
 #'
 #' @importFrom plyr ddply
@@ -684,14 +692,14 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 
 #' Pairwise plots for visual Pareto based multi-objective optimization
 #'
-#' @param scores 
+#' @param scores \code{data.frame} of scores
 #' @param plot_palette color codes used for coloring based on \code{color_var}
-#' @param metrics 
-#' @param color_var 
-#' @param shape_var 
-#' @param size_var 
+#' @param metrics column names in \code{scores} to plot
+#' @param color_var column name in \code{scores} for color
+#' @param shape_var column name in \code{scores} for shape
+#' @param size_var column name in \code{scores} for size
 #'
-#' @return
+#' @return \code{\link[gridExtra]{grid.arrange}} result
 #' @export
 #'
 #' @importFrom pals watlington
@@ -774,7 +782,7 @@ pareto_plot <- function(scores, plot_palette = pals::watlington(16),
 #'
 #' @param x scores from COPS pipeline
 #'
-#' @return
+#' @return \code{data.frame}
 #' @export
 reorder_method_factors <- function(x) {
   gsva_ind <- grepl("GSVA", x$Approach)
@@ -800,7 +808,7 @@ reorder_method_factors <- function(x) {
 #'
 #' @param x scores from COPS pipeline
 #'
-#' @return
+#' @return \code{data.frame}
 #' @export
 format_scores <- function(x, multi_omic = FALSE) {
   if (class(x) == "list" & "all" %in% names(x)) {

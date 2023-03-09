@@ -39,6 +39,8 @@ user friendly names.}
 \item{scores}{scores from \code{\link{scoring}}}
 }
 \value{
+\code{list} of all and best scores
+
 Returns a \code{list} containing a \code{data.frame} \code{$all} of all scores and
         a single row \code{$best} with the best score according to \code{wsum}.
 }

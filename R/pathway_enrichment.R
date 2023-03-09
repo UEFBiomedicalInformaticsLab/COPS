@@ -19,7 +19,8 @@
 #'   names that are included in the analysis.
 #' @param ... extra arguments are passed to \code{\link[COPS]{RWRFGSEA}}
 #' 
-#' @return a list of data.frames corresponding to the transformed features based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
+#' @return a list of \code{data.frame}s corresponding to the transformed features 
+#'   based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
 #' @export
 #' 
 #' @examples library(parallel)
@@ -166,7 +167,7 @@ genes_to_pathways <- function(x,
 #' @param parallel ignored and set to 1 for spawned subprocesses
 #' @param ... arguments passed on to \code{\link[COPS]{genes_to_pathways}}
 #'
-#' @return
+#' @return \code{list} of \code{data.frame}s with extracted pathway features
 #' @export
 cv_pathway_enrichment <- function(dat_list, 
                                   cv_index, 
@@ -226,7 +227,7 @@ cv_pathway_enrichment <- function(dat_list,
 #' @param gene_set_list list of gene sets with gene names that correspond to rows in \strong{x}
 #' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #' 
-#' @return 
+#' @return \code{data.frame} of pathway activities for each sample
 #' @export
 DiffRank <- function(x, 
                      gene_set_list, 

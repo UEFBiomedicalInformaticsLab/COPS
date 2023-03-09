@@ -17,6 +17,9 @@ coexpression_network_unweighted(
 
 \item{cor_threshold}{numeric threshold used to define edges/links (see \code{\link[WGCNA]{pickHardThreshold}})}
 }
+\value{
+\code{igraph} object
+}
 \description{
 Generates a gene co-expression network by thresholding gene expression correlations with \code{\link[WGCNA]{signumAdjacencyFunction}}.
 }

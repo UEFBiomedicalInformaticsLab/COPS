@@ -9,6 +9,9 @@ reorder_method_factors(x)
 \arguments{
 \item{x}{scores from COPS pipeline}
 }
+\value{
+\code{data.frame}
+}
 \description{
 Reorder factors in scores to organize plots
 }

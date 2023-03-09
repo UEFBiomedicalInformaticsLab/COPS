@@ -15,6 +15,9 @@ univariate_features(dat, group, remove_zero_var = TRUE, parallel = 1)
 
 \item{parallel}{number of threads}
 }
+\value{
+\code{list} of test results
+}
 \description{
 Computes various statistics for molecular differences between groups.
 }

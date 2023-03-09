@@ -247,21 +247,21 @@ COPS <- function(dat,
   return(out)
 }
 
-#' COPS pipeline vertical parallelization
+#' @describeIn COPS pipeline vertical parallelization
 #'
-#' @param dat_list 
-#' @param nfolds 
-#' @param nruns 
-#' @param survival_data 
-#' @param association_data 
-#' @param multi_omic_methods 
-#' @param parallel 
-#' @param data_is_kernels 
-#' @param silhouette_dissimilarities 
-#' @param by
-#' @param ... 
+#' @param dat_list list of data tables
+#' @param nfolds Number of cross-validation folds for stability evaluation and metric estimates.
+#' @param nruns Number of cross-validation replicates for stability evaluation and metric estimates.
+#' @param survival_data Data for survival analysis, see \code{\link{survival_preprocess}} for details.
+#' @param association_data Data for association tests, see \code{\link{cluster_associations}} for details.
+#' @param multi_omic_methods Character vector of multi-view clustering method names for \code{\link{multi_omic_clustering}}.
+#' @param parallel Number of parallel threads for supported operations.
+#' @param data_is_kernels Whether \code{dat_list} should be treated as kernel matrices
+#' @param silhouette_dissimilarities list of dissimilarity matrices used for silhouette calculations
+#' @param by column names used to split threads by
+#' @param ... Extra arguments are passed to pipeline components where appropriate. 
 #'
-#' @return
+#' @return \code{list} of clustering analysis results
 #' @importFrom foreach foreach %dopar% %:%
 vertical_pipeline <- function(dat_list, 
                               nfolds = 5, 
@@ -534,7 +534,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 #'
 #' @param ... 
 #'
-#' @return
+#' @return \code{list} of all and best scores
 #' @export
 clusteval_scoring <- function(...) {
   return(scoring(...))

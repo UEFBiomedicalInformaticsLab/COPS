@@ -10,7 +10,7 @@
 #' @param event_time_cutoff Upper cutoff value for time.
 #' @param event_time_lower_cutoff Lower cutoff value for time.
 #'
-#' @return
+#' @return \code{data.frame} with "time" and "event" columns added to input
 #' @export
 survival_preprocess <- function(event_data,
                                 event_time_name = "days_to_death",
@@ -43,9 +43,10 @@ survival_preprocess <- function(event_data,
 #' @param survival_covariate_names Names of covariate columns in \code{event_data}. 
 #' @param row_id Name of column in \code{event_data} that matches sample IDs in \code{clusters}.
 #' @param by Vector of column names that identify a single clustering result in \code{clusters}.
+#' @param parallel number of parallel threads
 #' @param ... Extra arguments are ignored.
 #'
-#' @return
+#' @return \code{data.table} of Cox PH LRT-test p-values and Harrell's concordance index values
 #' @export
 #' 
 #' @importFrom survival Surv coxph

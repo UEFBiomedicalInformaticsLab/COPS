@@ -7,9 +7,12 @@
 cbind_fill(a, b)
 }
 \arguments{
-\item{a}{}
+\item{a}{\code{matrix}}
 
-\item{b}{}
+\item{b}{\code{matrix}}
+}
+\value{
+\code{matrix} with mis-matched row as NA
 }
 \description{
 Cbind modification which fills missing rows with NA using base R functions

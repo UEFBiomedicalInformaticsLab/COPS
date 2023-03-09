@@ -19,6 +19,9 @@ ECMC(x, a, b, eps = 1e-06, n_threads = FALSE, solver = "MOSEK", maxiter = 5)
 
 \item{parallel}{number of threads for optimization}
 }
+\value{
+list of kernel matrices, disagreement matrices and solution diagnostics
+}
 \description{
 Consensus kernel approach described by Cai & Li (2017).
 }

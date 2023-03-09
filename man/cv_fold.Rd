@@ -16,7 +16,9 @@ cv_fold(
 )
 }
 \arguments{
-\item{dat_list}{list of datasets, each either data.table or data.frame (samples x features) with an "id" column or expression matrix (genes x samples) with named columns}
+\item{dat_list}{list of datasets, each either data.table or data.frame 
+(samples x features) with an "id" column or expression matrix (genes x samples) 
+with named columns}
 
 \item{nfolds}{number of cross-validation folds}
 
@@ -24,9 +26,13 @@ cv_fold(
 
 \item{stratified_cv}{if \code{TRUE}, perform stratified sampling for folds}
 
-\item{anti_stratified}{if \code{TRUE}, maximize separation of batch labels within folds, opposite of stratified sampling}
+\item{anti_stratified}{if \code{TRUE}, maximize separation of batch labels 
+within folds, opposite of stratified sampling}
 
 \item{cv_stratification_var}{labels used for stratification}
+
+\item{extra_fold}{if \code{TRUE}, generates an extra fold (nfolds+1) that 
+corresponds to the full dataset}
 
 \item{...}{extra arguments are ignored}
 }

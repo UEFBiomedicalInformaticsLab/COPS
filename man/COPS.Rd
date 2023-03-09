@@ -2,6 +2,7 @@
 % Please edit documentation in R/clustering_pipeline.R
 \name{COPS}
 \alias{COPS}
+\alias{vertical_pipeline}
 \title{Clustering algorithms for Omics based Patient Stratification}
 \usage{
 COPS(
@@ -19,6 +20,21 @@ COPS(
   internal_metrics = NULL,
   silhouette_dissimilarity = NULL,
   pre_compute_silhouette_dissimilarity = TRUE,
+  ...
+)
+
+vertical_pipeline(
+  dat_list,
+  nfolds = 5,
+  nruns = 1,
+  survival_data = NULL,
+  association_data = NULL,
+  multi_omic_methods = NULL,
+  parallel = 1,
+  data_is_kernels = FALSE,
+  silhouette_dissimilarities = NULL,
+  by = c("run", "fold", "m", "k", "mkkm_mr_lambda"),
+  verbose = TRUE,
   ...
 )
 }
@@ -52,6 +68,14 @@ COPS(
 \item{pre_compute_silhouette_dissimilarity}{If \code{silhouette_dissimilarity=NULL}, it will be calculated automatically by default.}
 
 \item{...}{Extra arguments are passed to pipeline components where appropriate.}
+
+\item{dat_list}{list of data tables}
+
+\item{data_is_kernels}{Whether \code{dat_list} should be treated as kernel matrices}
+
+\item{silhouette_dissimilarities}{list of dissimilarity matrices used for silhouette calculations}
+
+\item{by}{column names used to split threads by}
 }
 \value{
 Returns a \code{list} of pipeline component outputs for each run, fold and 
@@ -65,6 +89,8 @@ method given different settings and input data sets.
   \item{association} \code{data.frame} of association results to variables of interest
   \item{cluster_sizes} \code{data.frame} giving the sizes of clusters
 }
+
+\code{list} of clustering analysis results
 }
 \description{
 Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
@@ -78,6 +104,11 @@ If multi_omic_methods is set, then the input matrices are treated as
 different views of the same patients. Available methods are listed in the
 documentation for \code{\link{multi_omic_clustering}}.
 }
+\section{Functions}{
+\itemize{
+\item \code{vertical_pipeline()}: pipeline vertical parallelization
+
+}}
 \examples{
 library(parallel)
 library(COPS)

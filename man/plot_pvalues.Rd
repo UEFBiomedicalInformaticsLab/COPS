@@ -18,23 +18,26 @@ plot_pvalues(
 )
 }
 \arguments{
-\item{x}{}
+\item{x}{\code{data.frame}}
 
-\item{target}{}
+\item{target}{column name in \code{x} for y axis (boxplot)}
 
-\item{x_axis_var}{}
+\item{x_axis_var}{column name in \code{x} for x axis}
 
-\item{color_var}{}
+\item{color_var}{column name in \code{x} for color}
 
-\item{palette}{}
+\item{palette}{RColorBrewer palette name}
 
-\item{by}{}
+\item{by}{column names in \code{x} to calculate \code{target} quantiles over}
 
-\item{facetx}{}
+\item{facetx}{column name in \code{x} for x facet}
 
-\item{facety}{}
+\item{facety}{column name in \code{x} for y facet}
 
-\item{limits}{}
+\item{limits}{y-axis limits}
+}
+\value{
+\code{ggplot} object
 }
 \description{
 To help manage the scale differences, outliers (log p < Q1 - 1.5*IQR) are omitted.

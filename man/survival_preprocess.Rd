@@ -29,6 +29,9 @@ survival_preprocess(
 
 \item{event_time_lower_cutoff}{Lower cutoff value for time.}
 }
+\value{
+\code{data.frame} with "time" and "event" columns added to input
+}
 \description{
 Use when survival data is not in time and event format e.g., TCGA clinical data.
 }

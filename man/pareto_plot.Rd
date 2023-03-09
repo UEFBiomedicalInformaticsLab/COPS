@@ -17,17 +17,20 @@ pareto_plot(
 )
 }
 \arguments{
-\item{scores}{}
+\item{scores}{\code{data.frame} of scores}
 
 \item{plot_palette}{color codes used for coloring based on \code{color_var}}
 
-\item{metrics}{}
+\item{metrics}{column names in \code{scores} to plot}
 
-\item{color_var}{}
+\item{color_var}{column name in \code{scores} for color}
 
-\item{shape_var}{}
+\item{shape_var}{column name in \code{scores} for shape}
 
-\item{size_var}{}
+\item{size_var}{column name in \code{scores} for size}
+}
+\value{
+\code{\link[gridExtra]{grid.arrange}} result
 }
 \description{
 Pairwise plots for visual Pareto based multi-objective optimization

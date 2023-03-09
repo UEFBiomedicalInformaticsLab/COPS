@@ -26,6 +26,9 @@ plot_similarity_matrix(
 
 \item{title}{plot title}
 }
+\value{
+\code{ggplot} object
+}
 \description{
 Order using hierarchical clustering
 }

@@ -2,17 +2,34 @@
 % Please edit documentation in R/knn_clustering.R
 \name{knn_g}
 \alias{knn_g}
-\title{Title}
+\alias{knn_communities}
+\title{Generate KNN graph from}
 \usage{
 knn_g(dat, k = 30, jaccard_kernel = TRUE)
+
+knn_communities(...)
 }
 \arguments{
-\item{dat}{}
+\item{dat}{data matrix with samples on columns}
 
-\item{k}{}
+\item{k}{number of neighbours}
 
-\item{jaccard_kernel}{}
+\item{jaccard_kernel}{if TRUE computes the Jaccard similarity of nearest 
+neighbors for each sample-pair which results in a weighted graph where the 
+weight describes the fraction of mutual nearest neighbors}
+
+\item{...}{passed to \code{\link{knn_g}}}
+}
+\value{
+\code{igraph} object
+
+cluster assignments
 }
 \description{
-Title
+Generate KNN graph from
 }
+\section{Functions}{
+\itemize{
+\item \code{knn_communities()}: Louvain community detection on KNNG
+
+}}

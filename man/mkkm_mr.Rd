@@ -7,13 +7,16 @@
 mkkm_mr(K_list, k, lambda, tolerance = 1e-06, parallel = 0, use_mosek = FALSE)
 }
 \arguments{
-\item{K_list}{}
+\item{K_list}{\code{list} of kernel matrices}
 
-\item{k}{}
+\item{k}{number of clusters}
 
-\item{lambda}{}
+\item{lambda}{\code{numeric} regularization parameter}
 
-\item{tolerance}{}
+\item{tolerance}{\code{numeric} stopping criterion value}
+}
+\value{
+a kernel \code{matrix}
 }
 \description{
 Multiple kernel k-means with matrix induced regularization (Liu et al. 2016)

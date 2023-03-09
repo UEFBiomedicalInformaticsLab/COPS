@@ -20,6 +20,9 @@ cv_module_evaluation(
 
 \item{...}{Extra arguments are passed to \code{\link{gene_module_score}}.}
 }
+\value{
+\code{data.table}
+}
 \description{
 Runs \code{\link{gene_module_score}} in parallel.
 }

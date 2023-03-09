@@ -9,6 +9,9 @@ format_scores(x, multi_omic = FALSE)
 \arguments{
 \item{x}{scores from COPS pipeline}
 }
+\value{
+\code{data.frame}
+}
 \description{
 Renames internal method and score names to something more understandable.
 }

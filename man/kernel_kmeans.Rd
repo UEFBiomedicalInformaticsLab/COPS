@@ -4,16 +4,30 @@
 \alias{kernel_kmeans}
 \title{Kernel k-means}
 \usage{
-kernel_kmeans(K, n_k, n_initializations = 100, parallel = 1, ...)
+kernel_kmeans(
+  K,
+  n_k,
+  n_initializations = 100,
+  maxiter = 100,
+  parallel = 1,
+  ...
+)
 }
 \arguments{
-\item{K}{}
+\item{K}{kernel \code{matrix}}
 
-\item{n_k}{}
+\item{n_k}{number of clusters}
 
-\item{n_initializations}{}
+\item{n_initializations}{number of initializations}
 
-\item{...}{}
+\item{maxiter}{maximum number of k-means iterations}
+
+\item{parallel}{number of parallel threads for running different initializations}
+
+\item{...}{ignored}
+}
+\value{
+\code{list} of cluster assignments and k-means objective
 }
 \description{
 K-means++ with set number of iterations.

@@ -51,7 +51,10 @@ names that are included in the analysis.}
 \item{...}{extra arguments are passed to \code{\link[COPS]{RWRFGSEA}}}
 }
 \value{
-a list of data.frames corresponding to the transformed features based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
+a list of \code{data.frame}s corresponding to the transformed features 
+  based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
+
+\code{data.frame} of pathway activities for each sample
 }
 \description{
 This is a utility function which wraps several methods to extract pathway-based features from gene feature data

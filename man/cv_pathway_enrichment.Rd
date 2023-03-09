@@ -17,6 +17,9 @@ cv_pathway_enrichment(dat_list, cv_index, gene_id_list, parallel = 1, ...)
 
 \item{...}{arguments passed on to \code{\link[COPS]{genes_to_pathways}}}
 }
+\value{
+\code{list} of \code{data.frame}s with extracted pathway features
+}
 \description{
 This function wraps the pathway enrichment based data transformations for use in a 'cross-validated' clustering pipeline. 
 Assumes a parallel backend has been registered for \code{\link[foreach]{foreach}} with \code{\link[doParallel]{registerDoParallel}}. 

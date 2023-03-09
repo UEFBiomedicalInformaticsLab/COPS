@@ -1,10 +1,12 @@
-#' Title
+#' Generate KNN graph from
 #'
-#' @param dat 
-#' @param k 
-#' @param jaccard_kernel 
+#' @param dat data matrix with samples on columns
+#' @param k number of neighbours
+#' @param jaccard_kernel if TRUE computes the Jaccard similarity of nearest 
+#'   neighbors for each sample-pair which results in a weighted graph where the 
+#'   weight describes the fraction of mutual nearest neighbors
 #'
-#' @return
+#' @return \code{igraph} object
 #' @export
 knn_g <- function(dat, k = 30, jaccard_kernel = TRUE) {
   # Distance metric, for now only Euclidean (Minkowski with p=2)
@@ -27,15 +29,13 @@ knn_g <- function(dat, k = 30, jaccard_kernel = TRUE) {
   }
 }
 
-#' Title
+#' @describeIn knn_g Louvain community detection on KNNG
 #'
-#' @param dat 
-#' @param k 
-#' @param jaccard_kernel 
+#' @param ... passed to \code{\link{knn_g}}
 #'
-#' @return
+#' @return cluster assignments
 #' @export
-knn_communities <- function(dat, k = 30, jaccard_kernel = TRUE) {
+knn_communities <- function(...) {
   # Obtain KNN graph
   g <- knn_g(dat, k, jaccard_kernel)
   # Apply Louvain

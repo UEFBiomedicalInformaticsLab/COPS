@@ -7,9 +7,12 @@
 global_kernel_kmeans(K, n_clusters)
 }
 \arguments{
-\item{K}{}
+\item{K}{kernel \code{matrix}}
 
-\item{n_clusters}{}
+\item{n_clusters}{number of clusters}
+}
+\value{
+\code{list} of cluster assignments and k-means objective
 }
 \description{
 Global kernel k-means (Tzortzis & Likas 2008)
