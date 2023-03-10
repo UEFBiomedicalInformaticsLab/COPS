@@ -12,7 +12,7 @@
 
 <meta name="author" content="Teemu Rintala and Vittorio Fortino" />
 
-<meta name="date" content="2023-02-21" />
+<meta name="date" content="2023-03-10" />
 
 <title>COPS - multi-omic TCGA breast cancer patient stratification example</title>
 
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">COPS - multi-omic TCGA breast cancer
 patient stratification example</h1>
 <h4 class="author">Teemu Rintala and Vittorio Fortino</h4>
-<h4 class="date">2023-02-21</h4>
+<h4 class="date">2023-03-10</h4>
 
 
 
@@ -674,7 +674,7 @@ resampled data (via cross-fold validation).</p>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">mvc_threads =</span> <span class="dv">6</span>,</span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_clusters =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">8</span>)</span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">&quot;Finished clustering in&quot;</span>, COPS<span class="sc">:::</span><span class="fu">time_taken_string</span>(pipeline_start)))</span></code></pre></div>
-<pre><code>## [1] &quot;Finished clustering in 7.36 mins&quot;</code></pre>
+<pre><code>## [1] &quot;Finished clustering in 6.44 mins&quot;</code></pre>
 <div id="internal-evaluation" class="section level3">
 <h3>Internal evaluation</h3>
 <p>The internal metrics can be computed with respect to each view and
@@ -720,9 +720,9 @@ kernels and let <code>COPS</code> perform internal evaluations:</p>
 <span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_clusters =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">8</span>)</span></code></pre></div>
 <pre><code>## [1] &quot;Processing data sets ...&quot;
 ## [1] &quot;Starting multi-omic clustering and evaluation ...&quot;
-## [1] &quot;Finished multi-omic clustering and evaluation in 3.78 mins&quot;
+## [1] &quot;Finished multi-omic clustering and evaluation in 4.18 mins&quot;
 ## [1] &quot;Starting clustering stability analysis ...&quot;
-## [1] &quot;Finished clustering stability analysis in 43.97 secs&quot;</code></pre>
+## [1] &quot;Finished clustering stability analysis in 1.11 mins&quot;</code></pre>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>molk_scores <span class="ot">&lt;-</span> COPS<span class="sc">::</span><span class="fu">scoring</span>(molk_res, <span class="at">wsum =</span> <span class="dv">1</span>)</span></code></pre></div>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>molk_scores<span class="sc">$</span>all</span></code></pre></div>
 <pre><code>##   k       m mkkm_mr_lambda cnv_Silhouette meth_gene_Silhouette mrna_Silhouette
@@ -815,14 +815,14 @@ for each result.</p>
 <span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>                                                                           <span class="st">&quot;pathologic_stage&quot;</span>),</span>
 <span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">row_id =</span> <span class="st">&quot;patient&quot;</span>)</span></code></pre></div>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>mopw_surv_res</span></code></pre></div>
-<pre><code>##    k       m concordance_index
-## 1: 2 mkkm_mr         0.7834892
-## 2: 3 mkkm_mr         0.7828429
-## 3: 4 mkkm_mr         0.7845663
-## 4: 5 mkkm_mr         0.7925805
-## 5: 6 mkkm_mr         0.8032444
-## 6: 7 mkkm_mr         0.7917834
-## 7: 8 mkkm_mr         0.7949071</code></pre>
+<pre><code>##    k       m cluster_significance concordance_index
+## 1: 2 mkkm_mr           0.04829100         0.7834892
+## 2: 3 mkkm_mr           0.03573797         0.7828429
+## 3: 4 mkkm_mr           0.24830654         0.7845663
+## 4: 5 mkkm_mr           0.07359812         0.7925805
+## 5: 6 mkkm_mr           0.01718867         0.8032444
+## 6: 7 mkkm_mr           0.30042475         0.7917834
+## 7: 8 mkkm_mr           0.05875950         0.7949071</code></pre>
 <p>When used within the <code>COPS</code>-pipeline the returned object
 will be included in the returned list under the key “survival”. The
 <code>scoring</code>- function can then be used to generate summaries of
@@ -845,13 +845,13 @@ Psoriasis-vignette.</p>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>molk_scores <span class="ot">&lt;-</span> COPS<span class="sc">::</span><span class="fu">scoring</span>(molk_res, <span class="at">wsum =</span> <span class="dv">1</span>, <span class="at">significance_level =</span> <span class="fl">0.05</span>)</span></code></pre></div>
 <div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>molk_scores<span class="sc">$</span>all[,<span class="fu">c</span>(<span class="st">&quot;m&quot;</span>, <span class="st">&quot;k&quot;</span>, <span class="st">&quot;SurvivalLRtestRR&quot;</span>, <span class="st">&quot;SurvivalConcordance&quot;</span>)]</span></code></pre></div>
 <pre><code>##         m k SurvivalLRtestRR SurvivalConcordance
-## 1 mkkm_mr 2              NaN           0.7696168
-## 2 mkkm_mr 3              NaN           0.7816277
-## 3 mkkm_mr 4              NaN           0.7863241
-## 4 mkkm_mr 5              NaN           0.7884625
-## 5 mkkm_mr 6              NaN           0.7924186
-## 6 mkkm_mr 7              NaN           0.7970798
-## 7 mkkm_mr 8              NaN           0.8097808</code></pre>
+## 1 mkkm_mr 2              0.0           0.7696168
+## 2 mkkm_mr 3              0.4           0.7816277
+## 3 mkkm_mr 4              0.3           0.7863241
+## 4 mkkm_mr 5              0.4           0.7884625
+## 5 mkkm_mr 6              0.4           0.7924186
+## 6 mkkm_mr 7              0.4           0.7970798
+## 7 mkkm_mr 8              0.8           0.8097808</code></pre>
 <p>Based on the likelihood-ratio test it seems that the data-driven
 clusters are not consistently significant predictors of survival. From
 the stability results we saw that cluster sizes greater than 3 had
@@ -1004,7 +1004,7 @@ to <code>ComplexHeatmap::Heatmap</code>.</p>
 ## [121] memoise_2.0.1               GSEABase_1.58.0            
 ## [123] magrittr_2.0.3              plyr_1.8.7                 
 ## [125] hexbin_1.28.2               gplots_3.1.3               
-## [127] zlibbioc_1.42.0             COPS_0.3.0                 
+## [127] zlibbioc_1.42.0             COPS_1.0.0                 
 ## [129] compiler_4.2.1              RColorBrewer_1.1-3         
 ## [131] plotrix_3.8-2               clue_0.3-63                
 ## [133] KEGGgraph_1.56.0            cli_3.4.1                  
