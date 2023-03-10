@@ -100,7 +100,7 @@ cv_survival_evaluation <- function(event_data,
                      }
                      model0 <- survival::coxph(as.formula(model_formula0), data = temp)
                      res <- anova(model, model0, test="LRT")
-                     out_i$cluster_significance <- res[["Pr(>|Chi|)"]][2]
+                     out_i$cluster_significance <- res[["P(>|Chi|)"]][2]
                      ci <- survival::concordance(model)
                      out_i$concordance_index <- ci[["concordance"]]
                    }
