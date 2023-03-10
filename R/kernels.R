@@ -187,6 +187,8 @@ PIK_GNGS <- function(x, gene_network, gene_sets, ...) {
 #' @param k number of clusters
 #' @param lambda \code{numeric} regularization parameter
 #' @param tolerance \code{numeric} stopping criterion value
+#' @param parallel number of parallel threads used by the SDP solver
+#' @param use_mosek if \code{TRUE} the optimization will be run with \code{Rmosek} instead of \code{CVXR},
 #'
 #' @return a kernel \code{matrix}
 #' @export

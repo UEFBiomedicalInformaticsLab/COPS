@@ -23,11 +23,18 @@ pareto_plot(
 
 \item{metrics}{column names in \code{scores} to plot}
 
+\item{metrics_scale}{either "identity" or "nlog10" where the latter is meant 
+for translating p-values to negative log10}
+
 \item{color_var}{column name in \code{scores} for color}
 
 \item{shape_var}{column name in \code{scores} for shape}
 
 \item{size_var}{column name in \code{scores} for size}
+
+\item{size_range}{controls the range of point sizes}
+
+\item{color_scale}{can be used instead of \code{plot_palette} to control colors}
 }
 \value{
 \code{\link[gridExtra]{grid.arrange}} result

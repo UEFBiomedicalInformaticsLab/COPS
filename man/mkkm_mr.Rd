@@ -14,6 +14,10 @@ mkkm_mr(K_list, k, lambda, tolerance = 1e-06, parallel = 0, use_mosek = FALSE)
 \item{lambda}{\code{numeric} regularization parameter}
 
 \item{tolerance}{\code{numeric} stopping criterion value}
+
+\item{parallel}{number of parallel threads used by the SDP solver}
+
+\item{use_mosek}{if \code{TRUE} the optimization will be run with \code{Rmosek} instead of \code{CVXR},}
 }
 \value{
 a kernel \code{matrix}

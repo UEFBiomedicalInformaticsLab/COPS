@@ -17,6 +17,8 @@ stability_eval(
 
 \item{by}{vector of column names to keep}
 
+\item{parallel}{number of threads}
+
 \item{reference_fold}{fold number that corresponds to reference which other folds are compared against, inferred from input by default}
 
 \item{...}{extra arguments are ignored}

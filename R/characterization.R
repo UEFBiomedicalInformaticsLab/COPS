@@ -172,7 +172,7 @@ univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1
     }
     return(out)
   }
-  parallel_clust <- COPS:::setup_parallelization(parallel)
+  parallel_clust <- setup_parallelization(parallel)
   out <- tryCatch(foreach(j = lapply(gene_names, function(x) dat[,x]), 
                           .combine = cfun) %dopar% {
     out_j <- list()
@@ -199,7 +199,7 @@ univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1
     out_j$median <- data.frame(t(tapply(j, group, median, na.rm = TRUE)))
     out_j$mean <- data.frame(t(tapply(j, group, mean, na.rm = TRUE)))
     out_j
-  }, finally = COPS:::close_parallel_cluster(parallel_clust))
+  }, finally = close_parallel_cluster(parallel_clust))
   # Vectorized computations for signal-to-noise ratio
   out$snr <- matrix(NA, nrow = length(gene_names), ncol = length(unique(group)))
   out$effect <- matrix(NA, nrow = length(gene_names), ncol = length(unique(group)))

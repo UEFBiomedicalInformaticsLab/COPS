@@ -8,6 +8,8 @@ format_scores(x, multi_omic = FALSE)
 }
 \arguments{
 \item{x}{scores from COPS pipeline}
+
+\item{multi_omic}{results from multi-view algorithms are formatted differently}
 }
 \value{
 \code{data.frame}

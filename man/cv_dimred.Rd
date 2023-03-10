@@ -20,6 +20,10 @@ cv_dimred(
 
 \item{cv_split_data}{Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.}
 
+\item{parallel}{number of parallel threads}
+
+\item{by}{column names to split data by such that each split corresponds to one dataset and fold}
+
 \item{...}{Extra arguments are passed to \code{\link{dimensionality_reduction}}.}
 }
 \value{

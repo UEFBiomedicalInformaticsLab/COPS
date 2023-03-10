@@ -425,6 +425,7 @@ expressionToRWFeatures <- function(dat,
 #' @param category_label name of color legend
 #' @param tsne_perplexity t-SNE perplexity parameter
 #' @param umap_neighbors UMAP neighbours parameter
+#' @param tsne whether to use t-SNE
 #'
 #' @return list of plots
 #' @export
@@ -443,10 +444,6 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
 }
 
 #' @describeIn triple_viz Data visualization using PCA
-#'
-#' @param data \code{matrix} with samples on rows
-#' @param category \code{factor} for coloring
-#' @param category_label name of color legend
 #'
 #' @return \code{ggplot} object
 #' @export
@@ -469,11 +466,6 @@ pca_viz <- function(data, category, category_label) {
 
 #' @describeIn triple_viz Data visualization using UMAP
 #'
-#' @param data \code{matrix} with samples on rows
-#' @param category \code{factor} for coloring
-#' @param category_label name of color legend
-#' @param umap_neighbors UMAP neighbours parameter
-#'
 #' @return \code{ggplot} object
 #' @export
 #' 
@@ -492,11 +484,6 @@ umap_viz <- function(data, category, category_label, umap_neighbors = 20) {
 }
 
 #' @describeIn triple_viz Data visualization using t-SNE
-#'
-#' @param data \code{matrix} with samples on rows
-#' @param category \code{factor} for coloring
-#' @param category_label name of color legend
-#' @param tsne_perplexity t-SNE perplexity parameter
 #'
 #' @return \code{ggplot} object
 #' @export
@@ -695,9 +682,13 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 #' @param scores \code{data.frame} of scores
 #' @param plot_palette color codes used for coloring based on \code{color_var}
 #' @param metrics column names in \code{scores} to plot
+#' @param metrics_scale either "identity" or "nlog10" where the latter is meant 
+#'   for translating p-values to negative log10
 #' @param color_var column name in \code{scores} for color
 #' @param shape_var column name in \code{scores} for shape
 #' @param size_var column name in \code{scores} for size
+#' @param size_range controls the range of point sizes
+#' @param color_scale can be used instead of \code{plot_palette} to control colors
 #'
 #' @return \code{\link[gridExtra]{grid.arrange}} result
 #' @export
@@ -707,7 +698,8 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 #' @importFrom cowplot get_legend
 #' @importFrom gridExtra grid.arrange
 #' @importFrom scales trans_new log_breaks
-pareto_plot <- function(scores, plot_palette = pals::watlington(16),
+pareto_plot <- function(scores, 
+                        plot_palette = pals::watlington(16),
                         metrics = c("TrainStabilityJaccard", 
                                     "Silhouette", 
                                     "Smallest_cluster_size"), 
@@ -807,6 +799,7 @@ reorder_method_factors <- function(x) {
 #' Renames internal method and score names to something more understandable. 
 #'
 #' @param x scores from COPS pipeline
+#' @param multi_omic results from multi-view algorithms are formatted differently
 #'
 #' @return \code{data.frame}
 #' @export

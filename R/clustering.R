@@ -288,10 +288,12 @@ temp_function <- function(x) {
 
 #' Dissimilarity matrix
 #'
-#' @param x 
-#' @param distance_metric 
-#' @param correlation_method 
-#' @param ... 
+#' @param x input data \code{matrix}
+#' @param distance_metric Either "euclidean" or "correlation"
+#' @param correlation_method method for \code{\link[stats]{cor}}
+#' @param preprocess set to \code{TRUE}if \code{x} is a \code{data.frame} that 
+#'   is processed within the COPS pipeline with data columns named "dim1", "dim2" and so on
+#' @param ... ignored
 #'
 #' @return \code{dist}-object
 #' @export

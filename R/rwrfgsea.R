@@ -22,6 +22,7 @@
 #' @param second_seed_list_reverse_order if TRUE, seeds for second RWR are selected from based on lowest expression or ecdf.
 #' @param rwr_return_seeds if TRUE, returns seeds in output list (not implemented)
 #' @param fgsea_nperm a numeric value determining the number of permutations used in \code{\link[fgsea]{fgseaSimple}}
+#' @param logp_scaling if \code{TRUE}, multiplies FGSEA normalized enrichment scores (NESs) with the log p.value to give more weight to the most significantly enriched pathways.
 #' @param ... extra arguments are ignored
 #' 
 #' @details The default behaviour 
@@ -82,6 +83,7 @@ RWRFGSEA <- function(expr,
                      second_seed_list_reverse_order = FALSE,
                      rwr_return_seeds = FALSE,
                      fgsea_nperm = 10000,
+                     logp_scaling = TRUE,
                      ...) {
   gene_set_list <- gene_set_list[sapply(gene_set_list, function(x) length(x) >= min_size & length(x) <= max_size)]
   
@@ -134,7 +136,8 @@ RWRFGSEA <- function(expr,
                                             gene_set_list, 
                                             parallel = parallel, 
                                             fgsea_input_cutoff = fgsea_input_cutoff,
-                                            fgsea_nperm = fgsea_nperm))
+                                            fgsea_nperm = fgsea_nperm, 
+                                            logp_scaling = logp_scaling))
   
   out <- rwrfgsea_results
   

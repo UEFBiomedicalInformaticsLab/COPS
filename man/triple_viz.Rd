@@ -32,6 +32,8 @@ tsne_viz(data, category, category_label, tsne_perplexity = 45)
 \item{tsne_perplexity}{t-SNE perplexity parameter}
 
 \item{umap_neighbors}{UMAP neighbours parameter}
+
+\item{tsne}{whether to use t-SNE}
 }
 \value{
 list of plots

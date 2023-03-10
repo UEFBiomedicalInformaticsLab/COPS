@@ -66,7 +66,7 @@
 #' res <- COPS(ad_ge_micro_zscore, 
 #' association_data = ad_studies, 
 #' pathway_enrichment_method = "DiffRank", 
-#' gene_key_expr = "ENSEMBL", 
+#' gene_key_x = "ENSEMBL", 
 #' gs_subcats = "CP:KEGG", 
 #' parallel = 2, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("none"), 
@@ -532,7 +532,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
 
 #' @describeIn scoring Alias for scoring
 #'
-#' @param ... 
+#' @param ... passed to \code{scoring}
 #'
 #' @return \code{list} of all and best scores
 #' @export

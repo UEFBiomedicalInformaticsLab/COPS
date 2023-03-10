@@ -13,13 +13,16 @@ clustering_dissimilarity_from_data(
 )
 }
 \arguments{
-\item{x}{}
+\item{x}{input data \code{matrix}}
 
-\item{distance_metric}{}
+\item{distance_metric}{Either "euclidean" or "correlation"}
 
-\item{correlation_method}{}
+\item{correlation_method}{method for \code{\link[stats]{cor}}}
 
-\item{...}{}
+\item{preprocess}{set to \code{TRUE}if \code{x} is a \code{data.frame} that 
+is processed within the COPS pipeline with data columns named "dim1", "dim2" and so on}
+
+\item{...}{ignored}
 }
 \value{
 \code{dist}-object

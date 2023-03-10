@@ -41,21 +41,21 @@ adj_modules <- WGCNA::adjacency.fromSimilarity(gene_correlation[dynamicMods != 0
 MEList <- WGCNA::moduleEigengenes(t(ad_ge_micro_zscore[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
 MEs <- MEList$eigengenes
 
-# Compute the module score
+# Compute the module score for a given clustering result
 clust <- cutree(hclust(as.dist(1-cor(ad_ge_micro_zscore, method = "spearman")), method = "average"), k = 3)
 clust <- data.frame(id = names(clust), cluster = clust)
 
 score <- gene_module_score(clust, MEs)
 
 # Within full pipeline
-res <- dimred_clusteval_pipeline(ad_ge_micro_zscore, 
-batch_label = ad_studies, 
+res <- COPS(ad_ge_micro_zscore, 
+association_data = ad_studies, 
 parallel = 2, nruns = 2, nfolds = 5, 
-dimred_methods = c("pca", "umap", "tsne"), 
+dimred_methods = c("pca", "umap"), 
 cluster_methods = c("hierarchical", "kmeans"), 
 distance_metric = "euclidean", 
 n_clusters = 2:4, 
 module_eigs = MEs)
 
-scores <- clusteval_scoring(res, wsum = Silhouette - Module_score, summarise = TRUE)
+scores <- scoring(res, wsum = Silhouette - Module_score, summarise = TRUE)
 }

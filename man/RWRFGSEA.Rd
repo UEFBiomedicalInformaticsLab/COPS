@@ -25,6 +25,7 @@ RWRFGSEA(
   second_seed_list_reverse_order = FALSE,
   rwr_return_seeds = FALSE,
   fgsea_nperm = 10000,
+  logp_scaling = TRUE,
   ...
 )
 
@@ -86,6 +87,8 @@ fgsea_wrapper(
 \item{rwr_return_seeds}{if TRUE, returns seeds in output list (not implemented)}
 
 \item{fgsea_nperm}{a numeric value determining the number of permutations used in \code{\link[fgsea]{fgseaSimple}}}
+
+\item{logp_scaling}{if \code{TRUE}, multiplies FGSEA normalized enrichment scores (NESs) with the log p.value to give more weight to the most significantly enriched pathways.}
 
 \item{...}{extra arguments are ignored}
 

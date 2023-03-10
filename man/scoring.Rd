@@ -20,7 +20,7 @@ scoring(
 get_best_result(res, scores)
 }
 \arguments{
-\item{...}{}
+\item{...}{passed to \code{scoring}}
 
 \item{res}{result from \code{\link{COPS}}}
 
