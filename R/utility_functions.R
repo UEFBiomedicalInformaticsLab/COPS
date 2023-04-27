@@ -563,6 +563,7 @@ cbind_fill <- function(a,b) {
 #' @param target column name in \code{x} for y axis (boxplot)
 #' @param x_axis_var column name in \code{x} for x axis
 #' @param color_var column name in \code{x} for color
+#' @param group_var column name in \code{x} for group
 #' @param palette RColorBrewer palette name
 #' @param by column names in \code{x} to calculate \code{target} quantiles over
 #' @param facetx column name in \code{x} for x facet
@@ -694,7 +695,7 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 #' @export
 #'
 #' @importFrom pals watlington
-#' @importFrom ggplot2 ggplot ensym scale_color_manual geom_point theme_bw 
+#' @importFrom ggplot2 ggplot ensym scale_color_manual geom_point theme_bw scale_x_continuous
 #' @importFrom cowplot get_legend
 #' @importFrom gridExtra grid.arrange
 #' @importFrom scales trans_new log_breaks

@@ -26,6 +26,8 @@ plot_pvalues(
 
 \item{color_var}{column name in \code{x} for color}
 
+\item{group_var}{column name in \code{x} for group}
+
 \item{palette}{RColorBrewer palette name}
 
 \item{by}{column names in \code{x} to calculate \code{target} quantiles over}

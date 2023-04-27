@@ -165,7 +165,7 @@ stability_eval <- function(clusters,
     }
   }
   by2 = c("fold")
-  # Function to be applied for each
+  # Function to be applied for each result
   f1 <- function(clust, clustref) {
     if (length(clust) != length(clustref)) {
       stop("Number of given references does not match number of given inputs.")

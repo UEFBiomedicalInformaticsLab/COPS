@@ -166,6 +166,12 @@ clustering_analysis <- function(dat,
                                                k = n_clusters[j], cluster = clust_k$assignments))
       }
     } else if (cluster_methods_expanded[i] == "SC3") {
+      sc3 <- requireNamespace("SC3", quietly = TRUE)
+      sce <- requireNamespace("SingleCellExperiment", quietly = TRUE)
+      sc <- requireNamespace("SummarizedExperiment", quietly = TRUE)
+      if (!(sc3 & sce & sc)) {
+        stop("To run the SC3 clustering method, please install SC3 and required packages.")
+      }
       # Multi-thread errors that seemingly cannot be avoided
       for (j in 1:length(n_clusters)) {
         # SC3 only accepts input in the form of SingleCellExperiment 
@@ -334,7 +340,6 @@ clustering_dissimilarity_from_data <- function(x,
 #' @return Returns a \code{list} containing metrics and cluster sizes
 #' @export
 #' @importFrom cluster silhouette
-#' @importFrom clusterCrit intCriteria
 clustering_metrics <- function(x, 
                                dat = NULL, 
                                by = c("k", "m"), # must have k and m # TODO: fix?
@@ -370,6 +375,9 @@ clustering_metrics <- function(x,
   clusters <- split_by_safe(x, by)
   for (i in 1:length(clusters)) { # TODO: add foreach and prevent nested parallelization
     if (!is.null(internal_metrics)) {
+      if (!requireNamespace("clusterCrit", quietly = TRUE)) {
+        stop("Please install clusterCrit to enable advanced internal metrics.")
+      }
       if ("data.frame" %in% class(dat)) dat <- list(dat) # make list of dataframes
       if (length(dat) > 1 & is.null(names(dat))) names(dat) <- paste0("input", 1:length(dat))
       if (length(dat) == 0) stop("No data for internal metric calculations.")

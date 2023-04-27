@@ -16,7 +16,6 @@ Imports:
     caret,
     circlize,
     cluster,
-    clusterCrit,
     ClusterR,
     clusteval,
     ComplexHeatmap,
@@ -58,6 +57,7 @@ Imports:
     survival,
     uwot
 Suggests:
+    clusterCrit,
     curatedTCGAData,
     dynamicTreeCut,
     knitr,
@@ -65,6 +65,8 @@ Suggests:
     rmarkdown,
     Rmosek,
     SC3,
+    SingleCellExperiment,
+    SummarizedExperiment,
     swamp,
     TCGAutils,
     TCGAbiolinks,

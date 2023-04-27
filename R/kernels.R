@@ -43,7 +43,7 @@ weighted_linear_kernel <- function(x, weights) {
 #' @param x gene feature matrix
 #' @param L pathway graph Laplacian matrix
 #' @param rwr_smoothing apply feature smoothing
-#' @param rwr_restart_prob restart probability for smooting
+#' @param rwr_restart_prob restart probability for smoothing
 #' @param ... ignored
 #'
 #' @return kernel \code{matrix}
@@ -92,7 +92,7 @@ PIK_KEGG <- function(x, gene_key = "SYMBOL", ...) {
   return(PIK(x, kegg_pw_net, ...))
 }
 
-#' @describeIn PIK Download KEGG pathway graphs
+#' Download KEGG pathway graphs
 #'
 #' @return list of undirected igraph objects
 #' @export
@@ -152,13 +152,44 @@ binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_pro
                                            mode = "undirected", weighted = TRUE)
   y <- dnet::dRWR(g, 
                   normalise = "none", 
-                  setSeeds = t(y), 
+                  setSeeds = t(x), 
                   restart = rwr_restart_prob,
                   parallel = FALSE)
   return(t(y))
 }
 
-#' @describeIn PIK Extracts subnetworks based on pathway genesets (experimental)
+#' Extract subnetworks based on pathway genesets
+#'
+#' @param gene_network \code{igraph} object
+#' @param gene_sets  \code{list} of gene sets
+#'
+#' @return list of kernel matrices
+#' 
+#' @examples
+#' \dontrun{
+#' pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
+#' pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
+#' pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
+#' pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
+#' ppi_net <- COPS::getHumanPPIfromSTRINGdb(gene_id_mart_column = "ensembl_gene_id")
+#' ppi_pws <- COPS::pathway_gene_subnetworks(ppi_net, pw_list)
+#' # Check the connected components to see if subnets are properly connected:
+#' lapply(ppi_pws, function(x) igraph::components(x)$csize) # Not all are
+#' }
+#' 
+#' @export
+pathway_gene_subnetworks <- function(gene_network, gene_sets) {
+  out <- list()
+  for (pw_i in names(gene_sets)) {
+    sub_net_v <- gene_sets[[pw_i]]
+    sub_net_v <- sub_net_v[sub_net_v %in% igraph::V(gene_network)$name]
+    #sub_net_v <- sub_net_v[sub_net_v %in% colnames(x)]
+    out[[pw_i]] <- igraph::induced_subgraph(gene_network, sub_net_v, impl = "create_from_scratch")
+  }
+  return(out)
+}
+
+#' @describeIn PIK Extract subnetworks based on pathway genesets and compute PIKs
 #'
 #' @param x gene feature matrix
 #' @param gene_network \code{igraph} object
@@ -169,14 +200,9 @@ binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_pro
 #' @export
 PIK_GNGS <- function(x, gene_network, gene_sets, ...) {
   L_pw <- list()
-  V_pw <- list()
-  
-  for (pw_i in names(gene_sets)) {
-    sub_net_v <- gene_sets[[pw_i]]
-    sub_net_v <- sub_net_v[sub_net_v %in% igraph::V(gene_network)$name]
-    sub_net_v <- sub_net_v[sub_net_v %in% colnames(x)]
-    sub_net <- igraph::induced_subgraph(gene_network, sub_net_v, impl = "create_from_scratch")
-    L_pw[[pw_i]] <- igraph::laplacian_matrix(sub_net, normalized = TRUE)
+  pw_nets <- pathway_gene_subnetworks(gene_network, gene_sets)
+  for (pw_i in names(pw_nets)) {
+    L_pw[[pw_i]] <- igraph::laplacian_matrix(pw_nets[[i]], normalized = TRUE)
   }
   return(PIK(x, L_pw, ...))
 }

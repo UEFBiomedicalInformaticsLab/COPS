@@ -3,7 +3,6 @@
 \name{PIK}
 \alias{PIK}
 \alias{PIK_KEGG}
-\alias{KEGG_networks}
 \alias{PIK_from_networks}
 \alias{PIK_GNGS}
 \title{Pathway induced kernel (Manica et al. 2019)}
@@ -11,8 +10,6 @@
 PIK(x, L, rwr_smoothing = FALSE, rwr_restart_prob = 0.75, ...)
 
 PIK_KEGG(x, gene_key = "SYMBOL", ...)
-
-KEGG_networks()
 
 PIK_from_networks(x, networks, normalized_laplacian = TRUE, parallel = 1, ...)
 
@@ -25,7 +22,7 @@ PIK_GNGS(x, gene_network, gene_sets, ...)
 
 \item{rwr_smoothing}{apply feature smoothing}
 
-\item{rwr_restart_prob}{restart probability for smooting}
+\item{rwr_restart_prob}{restart probability for smoothing}
 
 \item{...}{passed on to \code{\link{PIK}}}
 
@@ -46,8 +43,6 @@ kernel \code{matrix}
 
 \code{list} of KEGG-based pathway-kernel matrices
 
-list of undirected igraph objects
-
 list of kernel matrices
 
 list of kernel matrices
@@ -59,10 +54,8 @@ Pathway induced kernel (Manica et al. 2019)
 \itemize{
 \item \code{PIK_KEGG()}: Use KEGG pathways to form pathway induced kernels
 
-\item \code{KEGG_networks()}: Download KEGG pathway graphs
-
 \item \code{PIK_from_networks()}: Pathway induced kernel from networks
 
-\item \code{PIK_GNGS()}: Extracts subnetworks based on pathway genesets (experimental)
+\item \code{PIK_GNGS()}: Extract subnetworks based on pathway genesets and compute PIKs
 
 }}
