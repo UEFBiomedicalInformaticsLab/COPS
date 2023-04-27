@@ -17,6 +17,7 @@ bioc_dependencies <- c("ANF", "AnnotationDbi", "biomaRt", "dnet", "fgsea",
                        "ComplexHeatmap")
 BiocManager::install(bioc_dependencies)
 devtools::install_github("cran/clusteval")
+devtools::install_github("cran/clusterCrit")
 devtools::install_github("theislab/kBet")
 devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
 ```
