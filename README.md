@@ -17,9 +17,14 @@ bioc_dependencies <- c("ANF", "AnnotationDbi", "biomaRt", "dnet", "fgsea",
                        "ComplexHeatmap")
 BiocManager::install(bioc_dependencies)
 devtools::install_github("cran/clusteval")
-devtools::install_github("cran/clusterCrit")
 devtools::install_github("theislab/kBet")
 devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
+```
+### Optional packages
+```R
+devtools::install_github("cran/clusterCrit") # For additional internal metrics
+BiocManager::install("SC3") # Additional clustering method: SC3
+install.packages("Rmosek") # Optional high-performance library for multiple-kernel learning
 ```
 ## Usage
 The single-omic functionalities of COPS are demonstrated in a vignette where single-view clustering is performed on a psoriasis-related RNA-Seq dataset.
