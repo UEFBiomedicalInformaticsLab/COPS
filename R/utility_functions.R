@@ -705,9 +705,9 @@ pareto_plot <- function(scores,
                                     "Silhouette", 
                                     "Smallest_cluster_size"), 
                         metrics_scale = rep("identity", length(metrics)), 
-                        color_var = "Transform",
-                        shape_var = "Clustering",
-                        size_var = "k", 
+                        color_var = Transform,
+                        shape_var = Clustering,
+                        size_var = k, 
                         size_range = c(2,6),
                         color_scale = ggplot2::scale_color_manual(values = plot_palette)) {
   if (!"data.frame" %in% class(scores)) {
@@ -720,8 +720,11 @@ pareto_plot <- function(scores,
   }
   
   # Convert size_var to numeric to avoid warnings
-  size_var_conv <- as.numeric(as.character(scores[[size_var]]))
-  if (all(!is.na(size_var_conv))) scores[[size_var]] <- size_var_conv
+  num <- function(x) if(is.null(x)) NULL else as.numeric(as.character(x))
+  #if (!is.null(size_var)) {
+  #  size_var_conv <- as.numeric(as.character(dplyr::select(scores, {{size_var}})))
+  #  if (all(!is.na(size_var_conv))) dplyr::select(scores, {{size_var}}) <- size_var_conv
+  #}
   
   plot_list <- list()
   # Create list of pairwise metric scatter plots
@@ -733,9 +736,9 @@ pareto_plot <- function(scores,
       j_scale <- switch(metrics_scale[j], identity = "identity", nlog10 = nlog10_trans)
       plot_ij <- ggplot(scores, aes(x = !!ggplot2::ensym(i_name), 
                                     y = !!ggplot2::ensym(j_name), 
-                                    color = !!ggplot2::ensym(color_var), 
-                                    shape = !!ggplot2::ensym(shape_var), 
-                                    size = !!ggplot2::ensym(size_var))) + 
+                                    color = {{color_var}}, 
+                                    shape = {{shape_var}}, 
+                                    size = f_convert({{size_var}}))) + 
         geom_point() + theme_bw() + scale_color_manual(values = plot_palette) + 
         theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
@@ -745,9 +748,9 @@ pareto_plot <- function(scores,
   }
   # Create plot for legend extraction
   legend_plot <- ggplot(scores, aes(x = 1, y = 1, 
-                                    color = !!ggplot2::ensym(color_var),
-                                    shape = !!ggplot2::ensym(shape_var), 
-                                    size = !!ggplot2::ensym(size_var))) + 
+                                    color = {{color_var}},
+                                    shape = {{shape_var}}, 
+                                    size = num({{size_var}}))) + 
     geom_point() + theme_bw() + scale_color_manual(values = plot_palette) +
     theme(legend.box = "horizontal") + scale_size(range = size_range) + 
     guides(shape = guide_legend(ncol = 1, order = 2), 
@@ -769,7 +772,6 @@ pareto_plot <- function(scores,
   
   return(plot_out)
 }
-
 
 #' Reorder factors in scores to organize plots
 #'
