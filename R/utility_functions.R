@@ -738,7 +738,7 @@ pareto_plot <- function(scores,
                                     y = !!ggplot2::ensym(j_name), 
                                     color = {{color_var}}, 
                                     shape = {{shape_var}}, 
-                                    size = f_convert({{size_var}}))) + 
+                                    size = num({{size_var}}))) + 
         geom_point() + theme_bw() + scale_color_manual(values = plot_palette) + 
         theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
