@@ -60,6 +60,7 @@ Suggests:
     clusterCrit,
     curatedTCGAData,
     dynamicTreeCut,
+    ggh4x,
     knitr,
     markdown,
     rmarkdown,
