@@ -584,8 +584,7 @@ table(pfs)
 ```
 
 ```{r}
-interest_cols <- c("Approach", "Embedding", "Clustering", "k", "Silhouette", 
-                   "ClusteringStabilityJaccard", "GSE.nmi", "Module_score")
+interest_cols <- c("Approach", "Embedding", "Clustering", "k", "pareto_front")
 scores_combined_subset$pareto_front <- pfs
 scores_combined_subset[scores_combined_subset$pareto_front == 1,interest_cols]
 ```
