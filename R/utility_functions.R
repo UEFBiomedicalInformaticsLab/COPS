@@ -679,6 +679,15 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
                                   function(y) exp(-y), breaks = scales::log_breaks())
 
 #' Pairwise plots for visual Pareto based multi-objective optimization
+#' 
+#' Plots the given data with pairwise scatter plots for each pair of given columns. 
+#' Intended to be used with \code{\link{scoring}} output. 
+#' 
+#' For Pareto fronts \code{metric_comparators} should be a list of \code{.Primitive(">")} and \code{.Primitive("<")}. 
+#' ">" should be used for metrics that should be maximized and 
+#' "<" for metrics that should minimized. By default they are guessed by 
+#' \code{\link{get_metric_comparators}}, but for plots involving variable 
+#' associations and p-values they should be set manually. 
 #'
 #' @param scores \code{data.frame} of scores
 #' @param plot_palette color codes used for coloring based on \code{color_var}
@@ -690,6 +699,8 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 #' @param size_var column name in \code{scores} for size
 #' @param size_range controls the range of point sizes
 #' @param color_scale can be used instead of \code{plot_palette} to control colors
+#' @param plot_pareto_front Whether to plot a step-function showing the first Pareto front for each pair of metrics. 
+#' @param metric_comparators Required if \code{plot_pareto_front==TRUE}, see details below. 
 #'
 #' @return \code{\link[gridExtra]{grid.arrange}} result
 #' @export
@@ -709,13 +720,23 @@ pareto_plot <- function(scores,
                         shape_var = Clustering,
                         size_var = k, 
                         size_range = c(2,6),
-                        color_scale = ggplot2::scale_color_manual(values = plot_palette)) {
+                        color_scale = ggplot2::scale_color_manual(values = plot_palette),
+                        plot_pareto_front = FALSE,
+                        metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL
+                        ) {
   if (!"data.frame" %in% class(scores)) {
     if (is.null(scores$all)) {
-      stop("Please provide a data.frame of scores")
+      stop("Please provide a data.frame of scores or COPS::scoring result as input.")
     } else {
       # Assume that we are dealing with COPS::clusteval_scoring output
       scores <- scores$all
+    }
+  }
+  if (plot_pareto_front & is.null(names(metric_comparators))) {
+    if (length(metric_comparators) == length(metrics)) {
+      names(metric_comparators) <- metrics
+    } else {
+      stop("Comparator list length is not equal to the number of metrics.")
     }
   }
   
@@ -734,6 +755,13 @@ pareto_plot <- function(scores,
       j_name <- metrics[j]
       i_scale <- switch(metrics_scale[i], identity = "identity", nlog10 = nlog10_trans)
       j_scale <- switch(metrics_scale[j], identity = "identity", nlog10 = nlog10_trans)
+      if (plot_pareto_front) {
+        pfs <- pareto_fronts(scores = scores, 
+                             metrics = c(i_name, j_name), 
+                             metric_comparators = metric_comparators[c(i_name, j_name)])
+        pfs_name <- paste(i_name, j_name, "front", sep = ".")
+        scores[[pfs_name]] <- pfs
+      }
       plot_ij <- ggplot(scores, aes(x = !!ggplot2::ensym(i_name), 
                                     y = !!ggplot2::ensym(j_name), 
                                     color = {{color_var}}, 
@@ -743,6 +771,15 @@ pareto_plot <- function(scores,
         theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
         scale_size(range = size_range)
+      if (plot_pareto_front) {
+        front_direction <- ifelse(identical(metric_comparators[[i_name]], .Primitive("<")), "hv", "vh")
+        p_front <- geom_step(aes(!!ggplot2::ensym(i_name), 
+                                 !!ggplot2::ensym(j_name), 
+                                 group = !!ggplot2::ensym(pfs_name)),
+                             data = scores[scores[[pfs_name]] == 1,],
+                             direction = front_direction, inherit.aes = FALSE)
+        plot_ij <- plot_ij + p_front
+      }
       plot_list <- c(plot_list, list(plot_ij))
     }
   }
@@ -771,6 +808,79 @@ pareto_plot <- function(scores,
   plot_out <- gridExtra::grid.arrange(grobs = plot_list, layout_matrix = layout)
   
   return(plot_out)
+}
+
+#' Pareto based multi-objective optimization
+#'
+#' @param scores \code{data.frame} of scores
+#' @param metrics column names in \code{scores} to plot
+#' @param metric_comparators list of comparison functions for each metric, 
+#'   should be \code{.Primitive(">")} for maximization and \code{.Primitive("<")} 
+#'   for minimization.
+#'   
+#' @return integer vector of Pareto front number for each row of \code{scores}
+#' @export
+pareto_fronts <- function(scores, 
+                          metrics, 
+                          metric_comparators = get_metric_comparators(metrics)
+) {
+  N <- nrow(scores)
+  domination <- list()
+  equality <- list()
+  if (is.null(names(metric_comparators))) {
+    names(metric_comparators) <- metrics
+  }
+  # Calculate pair-wise comparisons for each metric
+  for (i in metrics) {
+    domination[[i]] <- sweep(matrix(rep(scores[[i]], N), N, N), 2, 
+                             scores[[i]], metric_comparators[[i]])
+    equality[[i]] <- sweep(matrix(rep(scores[[i]], N), N, N), 2, 
+                           scores[[i]], .Primitive("=="))
+  }
+  domination <- Reduce(.Primitive("+"), domination)
+  equality <- Reduce(.Primitive("+"), equality)
+  
+  # If any metric is dominated while the rest are equal, the point is dominated
+  domination[domination > 0] <- domination[domination > 0] + equality[domination > 0]
+  domination <- domination == length(metrics)
+  
+  # Calculate number of times each point has been dominated
+  ndom <- apply(domination, 2, sum)
+  
+  pareto_front <- rep(1, N)
+  while(any(ndom > 0)) {
+    # Increase front number on points that are dominated by previous front
+    pareto_front[ndom > 0] <- pareto_front[ndom > 0] + 1
+    # Ignore domination caused by previous front members
+    domination[ndom == 0,] <- 0
+    # Recalculate number of dominations
+    ndom <- apply(domination, 2, sum)
+  }
+  
+  return(pareto_front)
+}
+
+#' @describeIn pareto_fronts Default metric comparators.
+#'
+#' @export
+get_metric_comparators <- function(metrics) {
+  comparators <- list()
+  for (i in metrics) {
+    if (grepl("Stability", i, ignore.case = TRUE)) {
+      comparators[[i]]
+    } else if (grepl("stability", i, ignore.case = TRUE)) {
+      comparators[[i]] <- .Primitive(">")
+    } else if (grepl("silhouette", i, ignore.case = TRUE)) {
+      comparators[[i]] <- .Primitive(">")
+    } else if (grepl("module_score", i, ignore.case = TRUE)) {
+      comparators[[i]] <- .Primitive(">")
+    } else if (grepl("smallest_cluster_size", i, ignore.case = TRUE)) {
+      comparators[[i]] <- .Primitive(">")
+    } else {
+      stop(paste0("No preset comparator for ", i, ". Please set comparators manually."))
+    }
+  }
+  return(comparators)
 }
 
 #' Reorder factors in scores to organize plots

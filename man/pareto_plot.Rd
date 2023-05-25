@@ -9,11 +9,13 @@ pareto_plot(
   plot_palette = pals::watlington(16),
   metrics = c("TrainStabilityJaccard", "Silhouette", "Smallest_cluster_size"),
   metrics_scale = rep("identity", length(metrics)),
-  color_var = "Transform",
-  shape_var = "Clustering",
-  size_var = "k",
+  color_var = Transform,
+  shape_var = Clustering,
+  size_var = k,
   size_range = c(2, 6),
-  color_scale = ggplot2::scale_color_manual(values = plot_palette)
+  color_scale = ggplot2::scale_color_manual(values = plot_palette),
+  plot_pareto_front = FALSE,
+  metric_comparators = if (plot_pareto_front) get_metric_comparators(metrics) else NULL
 )
 }
 \arguments{
@@ -35,10 +37,22 @@ for translating p-values to negative log10}
 \item{size_range}{controls the range of point sizes}
 
 \item{color_scale}{can be used instead of \code{plot_palette} to control colors}
+
+\item{plot_pareto_front}{Whether to plot a step-function showing the first Pareto front for each pair of metrics.}
+
+\item{metric_comparators}{Required if \code{plot_pareto_front==TRUE}, see details below.}
 }
 \value{
 \code{\link[gridExtra]{grid.arrange}} result
 }
 \description{
-Pairwise plots for visual Pareto based multi-objective optimization
+Plots the given data with pairwise scatter plots for each pair of given columns. 
+Intended to be used with \code{\link{scoring}} output.
+}
+\details{
+For Pareto fronts \code{metric_comparators} should be a list of \code{.Primitive(">")} and \code{.Primitive("<")}. 
+">" should be used for metrics that should be maximized and 
+"<" for metrics that should minimized. By default they are guessed by 
+\code{\link{get_metric_comparators}}, but for plots involving variable 
+associations and p-values they should be set manually.
 }

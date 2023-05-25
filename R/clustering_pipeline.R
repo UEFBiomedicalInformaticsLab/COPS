@@ -727,19 +727,17 @@ scoring <- function(res,
       association <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
                                  by_association, 
                                  function(x) as.data.frame(lapply(x[grepl(assoc_string, colnames(x))], mean, na.rm = TRUE)))
-    } else {
-      assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
-      # This can break if by does not uniquely identify each row
-      association <- as.data.frame(res$association)[res$association[["fold"]] %in% non_reference_fold,
-                                     c(by_association, colnames(res$association)[grepl(assoc_string, colnames(res$association))])]
-    }
-    if (summarise) {
       # Calculate rejection rates for statistical tests
       association_rr <- plyr::ddply(res$association[res$association[["fold"]] %in% non_reference_fold,], 
                                     by_association, 
                                     function(x) as.data.frame(lapply(x[grepl("\\.p$", colnames(x))], function(x) mean(x < significance_level, na.rm = TRUE))))
       colnames(association_rr) <- gsub("\\.p$", ".rr", colnames(association_rr))
       association <- plyr::join(association, association_rr, by = by_association)
+    } else {
+      assoc_string <- "\\.nmi$|\\.ari$|\\.p$"
+      # This can break if by does not uniquely identify each row
+      association <- as.data.frame(res$association)[res$association[["fold"]] %in% non_reference_fold,
+                                     c(by_association, colnames(res$association)[grepl(assoc_string, colnames(res$association))])]
     }
   } else {
     association <- NULL

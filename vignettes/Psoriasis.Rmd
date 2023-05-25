@@ -326,7 +326,8 @@ returns a table with one line per input data and <code>COPS</code> setting.
 The <code>wsum</code> argument is used to define a composite metric comprised of 
 multiple metrics for ranking the results. By default, the metrics are summarised 
 across CV folds (mean and sd), but this can be disabled by setting 
-<code>summarise=FALSE</code>:
+<code>summarise=FALSE</code>. P-values are summarised based on the null hypothesis 
+rejection rate which is parameterized by the <code>significance_level</code>:
 
 ```{r}
 scores_rwrfgsea <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
@@ -336,6 +337,8 @@ scores_rwrfgsea <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard
 
 This returns a list containing the whole summarised table in the element "all", 
 and only the line corresponding to the best result (according to wsum) in "best". 
+<code>COPS</code> also includes tools for Pareto-based multi-objective evaluation, 
+but these are discussed later. 
 
 ```{r}
 scores_rwrfgsea$all[,c("Approach", "Embedding", "Clustering", "k", "Silhouette", 
@@ -527,7 +530,13 @@ all scores using rbind:
 scores_combined <- rbind(scores_dr$all, scores_rwrfgsea$all)
 ```
 
-Finally, we can do a comparison by using the <code>pareto_plot</code> function:
+Finally, we can do a comparison by using the <code>pareto_plot</code> function. 
+By setting <code>plot_pareto_front = TRUE</code> we can also visualise the first 
+Pareto front which consists of all the non-dominated solutions. In order to do so, 
+we also need to provide a list of comparators that are used to determine if a 
+result is better than another one. <code>COPS</code> can guess the comparators to 
+some extent, but for variable associations it is necessary to define whether it 
+should be minimized or maximized.
 
 ```{r, dpi=300, out.width="100%", fig.width = 10, fig.height = 8, message = FALSE}
 p <- COPS::pareto_plot(scores_combined[scores_combined[["Smallest_cluster_size"]] >= 10 &
@@ -536,7 +545,9 @@ p <- COPS::pareto_plot(scores_combined[scores_combined[["Smallest_cluster_size"]
                        metrics = c("ClusteringStabilityJaccard", "Silhouette", 
                                    "Smallest_cluster_size", "GSE.nmi", 
                                    "Module_score"),
-                       plot_palette = RColorBrewer::brewer.pal(9, "Set1"))
+                       plot_palette = RColorBrewer::brewer.pal(9, "Set1"),
+                       plot_pareto_front = TRUE,
+                       metric_comparators = list(`>`, `>`, `>`, `<`, `>`))
 ```
 
 In terms of internal metrics like average silhouette score and clustering 
@@ -553,6 +564,31 @@ Regardless, in this comparison there do not seem to be any significant
 trade-offs in the performance metrics, so we would perhaps select one of the 
 PCA-based results with two clusters, since they have the highest Silhouette, 
 stability and module_score while also having the lowest batch NMI. 
+
+### Pareto fronts
+
+To obtain a list of the Pareto optimal results, we can use the <code>pareto_fronts</code> 
+function. Note that using a high number of metrics will typically result in more 
+Pareto optimal results as it becomes more likely that at least one of the metrics is 
+better when comparing two results to each other and thus neither result dominates 
+the other. 
+
+```{r}
+scores_combined_subset <- scores_combined[scores_combined[["Smallest_cluster_size"]] >= 10,]
+pfs <- COPS::pareto_fronts(scores_combined_subset,
+                           metrics = c("ClusteringStabilityJaccard", "Silhouette", 
+                                       "Smallest_cluster_size", "GSE.nmi", 
+                                       "Module_score"),
+                           metric_comparators = list(`>`, `>`, `>`, `<`, `>`))
+table(pfs)
+```
+
+```{r}
+interest_cols <- c("Approach", "Embedding", "Clustering", "k", "Silhouette", 
+                   "ClusteringStabilityJaccard", "GSE.nmi", "Module_score")
+scores_combined_subset$pareto_front <- pfs
+scores_combined_subset[scores_combined_subset$pareto_front == 1,interest_cols]
+```
 
 ## Batch effects and data preparation
 
