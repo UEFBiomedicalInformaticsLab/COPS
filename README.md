@@ -42,6 +42,12 @@ The extraction methods include algorithms that transform molecular data (e.g., g
 | PAMOGK    | Pathway feature-network | Pathway kernel | PAthway (Multi-Omic) Kernel uses RWR to smooth features and is defined as a sum of inner products between features along all shortest paths in a network. | COPS | https://doi.org/10.1093/bioinformatics/btaa655 |
 | PIK       | Pathway feature-network | Pathway kernel | Pathway Induced Kernel uses the normalized Laplacian matrices of a pathway network to define the kernel. | COPS | https://doi.org/10.1038/s41540-019-0086-3 |
 
+#### Pathway network generation methods
+
+The pathway networks used for kernel-based biology-driven can be generated with different methods which can be combined with any of the pathway integrating kernels. COPS includes functions to:
+* Use the KEGG pathway networks included in the ROntoTools-package. 
+* Use a given gene-gene network (e.g., PPI) and pathway gene-sets (e.g., gene ontology) to induce pathway networks which are sub-networks of the full network. 
+
 ### Data-driven feature extraction methods
 
 Data-driven feature extraction in COPS is done either via dimensionality reduction or kernels. For either type of method there are a couple of options. 
