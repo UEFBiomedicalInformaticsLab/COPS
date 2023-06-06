@@ -39,29 +39,6 @@ DSC <- function(data_matrix, batch_label) {
   return(Db/Dw)
 }
 
-#' Jaccard similarity coefficient between two categorical vectors
-#' 
-#' R implementation of clusteval::cluster_similarity to avoid crashing.
-#' 
-#' @param a categorical vector
-#' @param b categorical vector
-#' 
-#' @return Scalar, Jaccard coefficient 
-#' @export
-JaccardSimCoef <- function(a,b) {
-  na <- is.na(a) | is.na(b)
-  a <- a[!na]
-  b <- b[!na]
-  # flattened matrix of observation pairs (only need upper triangular, but its not efficient in R?)
-  A <- rep(a, length(a)) == rep(a, each = length(a))
-  B <- rep(b, length(b)) == rep(b, each = length(b))
-  # compare matrices (remove diagonal)
-  s1 <- sum(A & B) - length(a)
-  s2 <- sum(A | B) - length(a)
-  # return (first remove diagonal from result)
-  return(s1 / s2)
-}
-
 silhouette_adjusted <- function(x, diss, min_size = 0.05) {
   csize <- table(x)
   under_size <- which(csize/length(x) < min_size)
@@ -78,62 +55,9 @@ silhouette_adjusted <- function(x, diss, min_size = 0.05) {
   return(silh)
 }
 
-#' Average Jaccard dissimilarity coefficient between multiple clustering results
-#'
-#' Measures the stability of a given clustering method when combined with
-#' cross-validation or bootstrap by estimating the repeatability of clustering results.
-#'
-#' @param clustering_list \code{list} of clustering vectors
-#'
-#' @return Returns a scalar value giving the mean jaccard distance between clustering vectors
-#' @importFrom clusteval cluster_similarity
-#' @export
-jdist <- function(clustering_list) {
-  n_runs <- length(clustering_list)
-  jdist <- array(NA, dim = c(n_runs, n_runs))
-  for (i in 1:(n_runs-1)) {
-    for (j in (i+1):n_runs) {
-      jdist[i,j] <- 1 - clusteval::cluster_similarity(clustering_list[[i]],
-                                                      clustering_list[[j]],
-                                                      similarity = "jaccard")
-    }
-  }
-  mean_dist <- mean(jdist, na.rm = TRUE)
-  return(mean_dist)
-}
-
-#' Average Jaccard dissimilarity coefficient between clusterings and references
-#'
-#' Measures the stability of a given clustering method when combined with
-#' cross-validation or bootstrap by estimating the repeatability of clustering results.
-#'
-#' @param clustering_list \code{list} of clustering vectors
-#' @param clustering_reference_list \code{list} of reference clustering vectors
-#'
-#' @return Returns a scalar value giving the mean jaccard distance between clustering vectors
-#' @importFrom clusteval cluster_similarity
-#' @export
-jdist_ref <- function(clustering_list, clustering_reference_list) {
-  if (length(clustering_list) != length(clustering_reference_list)) {
-    stop("Number of given references does not match number of given inputs.")
-  }
-  if (length(clustering_list) > 0) {
-    jdist <- c()
-    for (i in 1:length(clustering_list)) {
-      jdist[i] <- 1 - clusteval::cluster_similarity(clustering_list[[i]],
-                                                    clustering_reference_list[[i]],
-                                                    similarity = "jaccard")
-    }
-    mean_dist <- mean(jdist, na.rm = TRUE)
-  } else {
-    mean_dist <- NA
-  }
-  return(mean_dist)
-}
-
 #' Clustering stability evaluation
 #'
-#' Performs stability analysis on cross-validated clusterings using \code{\link{jdist}}.
+#' Performs stability analysis on cross-validated clusterings.
 #'
 #' Default settings work with \code{\link{cv_clusteval}} output 'clusters'.
 #'
@@ -178,21 +102,14 @@ stability_eval <- function(clusters,
         jsc[i] <- clusteval::cluster_similarity(clust[[i]],
                                                 clustref[[i]],
                                                 similarity = "jaccard")
-        nmi[i] <- aricode::NMI(clust[[i]], clustref[[i]])
-        ari[i] <- aricode::ARI(clust[[i]], clustref[[i]])
+        nmi[i] <- igraph::compare(clust[[i]], clustref[[i]], method = "nmi")
+        ari[i] <- igraph::compare(clust[[i]], clustref[[i]], method = "adjusted.rand")
       }
-      #mean_jsc <- mean(jsc, na.rm = TRUE)
-      #mean_nmi <- mean(nmi, na.rm = TRUE)
-      #mean_ari <- mean(ari, na.rm = TRUE)
     } else {
-      #mean_jsc <- NA
-      #mean_nmi <- NA
-      #mean_ari <- NA
       jsc <- NA
       nmi <- NA
       ari <- NA
     }
-    #return(list(mean_jsc = mean_jsc, mean_nmi = mean_nmi, mean_ari = mean_ari))
     return(list(jsc = jsc, nmi = nmi, ari = ari))
   }
   # Function to be applied for method combinations in clustering table
@@ -266,7 +183,7 @@ stability_eval <- function(clusters,
   stability <- tryCatch(foreach(temp = temp_list,
                         .combine = function(...) data.table::rbindlist(list(...)),
                         .export = c(),
-                        .packages = c("clusteval", "data.table", "aricode"),
+                        .packages = c("clusteval", "data.table", "igraph"),
                         .multicombine = TRUE,
                         .maxcombine = max(length(temp_list), 2)) %dopar% {
     out <- tryCatch({
@@ -371,10 +288,12 @@ cluster_associations <- function(clusters,
     }
     if(valid) {
       if (class(association_var) %in% c("character", "factor")) {
-        out[[i]] <- data.frame(nmi = aricode::NMI(clusters$cluster[nna_ind], 
-                                                  association_var[nna_ind]), 
-                               ari = aricode::ARI(clusters$cluster[nna_ind], 
-                                                  association_var[nna_ind]))
+        out[[i]] <- data.frame(nmi = igraph::compare(clusters$cluster[nna_ind], 
+                                                     association_var[nna_ind],
+                                                     method = "nmi"), 
+                               ari = igraph::compare(clusters$cluster[nna_ind], 
+                                                     association_var[nna_ind], 
+                                                     method = "adjusted.rand"))
         temp <- tryCatch(suppressWarnings(chisq.test(clusters$cluster[nna_ind], 
                                                      association_var[nna_ind])), 
                          error = function(e) NULL)
