@@ -150,7 +150,7 @@ or <code>CVXR</code>.
 ### Betweenness weighted kernel
 
 The betweenness weighted kernel (BWK) is a simplification of PAMOGK, that  
-weighs features based on the degree of of their corresponding node in a given 
+weighs features based on the degree of their corresponding node in a given 
 pathway network:
 $$
 k_G(\mathbf{x},\mathbf{x'}) = \left\langle \mathbf{\sqrt{g_G} \odot x,\sqrt{g_G} \odot x'} \right\rangle
