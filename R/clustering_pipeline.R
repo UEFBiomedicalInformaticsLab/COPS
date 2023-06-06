@@ -788,7 +788,6 @@ scoring <- function(res,
   if (!is.null(res$mkkm_mr_weights) & !summarise) {
     out$mkkm_mr_weights <- res$mkkm_mr_weights[res$mkkm_mr_weights[["fold"]] %in% non_reference_fold,]
   }
-  #out <- Reduce(plyr::join, out[!sapply(out, is.null)])
   out <- Reduce(function(x,y) plyr::join(x, y, 
                                          by = intersect(by, 
                                                         intersect(colnames(x), 
