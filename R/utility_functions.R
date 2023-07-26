@@ -431,14 +431,14 @@ expressionToRWFeatures <- function(dat,
 #' @export
 #' 
 #' @importFrom ggplot2 ggtitle
-triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20, tsne = FALSE) {
-  p1 <- pca_viz(data, category, category_label) + ggtitle("PCA")
+triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20, tsne = FALSE, color_scale = scale_color_brewer(palette = "Dark2")) {
+  p1 <- pca_viz(data, category, category_label, color_scale = color_scale) + ggtitle("PCA")
   if (tsne) {
-    p2 <- tsne_viz(data, category, category_label, tsne_perplexity = tsne_perplexity) + ggtitle("t-SNE")
+    p2 <- tsne_viz(data, category, category_label, tsne_perplexity = tsne_perplexity, color_scale = color_scale) + ggtitle("t-SNE")
   } else {
     p2 <- NULL
   }
-  p3 <- umap_viz(data, category, category_label, umap_neighbors = umap_neighbors) + ggtitle("UMAP")
+  p3 <- umap_viz(data, category, category_label, umap_neighbors = umap_neighbors, color_scale = color_scale) + ggtitle("UMAP")
   
   return(list(PCA = p1, tSNE = p2, UMAP = p3))
 }
@@ -450,7 +450,7 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
 #' 
 #' @importFrom FactoMineR PCA
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
-pca_viz <- function(data, category, category_label) {
+pca_viz <- function(data, category, category_label, color_scale = scale_color_brewer(palette = "Dark2")) {
   res_pca <- FactoMineR::PCA(data, scale.unit = FALSE, ncp = 2, graph = FALSE)
   res_pca_dat <- as.data.frame(res_pca$ind$coord)
   res_pca_dat <- cbind(res_pca_dat, category)
@@ -458,7 +458,7 @@ pca_viz <- function(data, category, category_label) {
   eig_percentages <- res_pca$eig[,"percentage of variance"]
   eig_percentages <- as.character(signif(eig_percentages, 3))
   p1 <- ggplot(res_pca_dat, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
-    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    theme_bw() + color_scale + 
     labs(x = paste0("PC1 (", eig_percentages[1], "%)"), y = paste0("PC2 (", eig_percentages[2], "%)"), color = category_label)
   
   return(p1)
@@ -471,13 +471,13 @@ pca_viz <- function(data, category, category_label) {
 #' 
 #' @importFrom uwot umap
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
-umap_viz <- function(data, category, category_label, umap_neighbors = 20) {
+umap_viz <- function(data, category, category_label, umap_neighbors = 20, color_scale = scale_color_brewer(palette = "Dark2")) {
   res_umap <- uwot::umap(data, n_neighbors = umap_neighbors, n_components = 2, pca = min(50, dim(data)), verbose = FALSE, init = "normlaplacian")
   res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
   res_umap <- cbind(res_umap, category)
   colnames(res_umap)[3] <- "category"
   p1 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
-    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    theme_bw() + color_scale + 
     labs(x = "Z1", y = "Z2", color = category_label)
   
   return(p1)
@@ -490,7 +490,7 @@ umap_viz <- function(data, category, category_label, umap_neighbors = 20) {
 #' 
 #' @importFrom Rtsne Rtsne
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
-tsne_viz <- function(data, category, category_label, tsne_perplexity = 45) {
+tsne_viz <- function(data, category, category_label, tsne_perplexity = 45, color_scale = scale_color_brewer(palette = "Dark2")) {
   res_tsne <- Rtsne::Rtsne(data,
                            dims = 2,
                            perplexity = tsne_perplexity,
@@ -503,7 +503,7 @@ tsne_viz <- function(data, category, category_label, tsne_perplexity = 45) {
   res_tsne <- cbind(res_tsne, category)
   colnames(res_tsne)[3] <- "category"
   p1 <- ggplot(res_tsne, aes(V1, V2, color = category)) + geom_point(shape = "+", size = 3) + 
-    theme_bw() + scale_color_brewer(palette = "Dark2") + 
+    theme_bw() + color_scale + 
     labs(x = "Z1", y = "Z2", color = category_label)
   
   return(p1)
