@@ -28,7 +28,7 @@ Returns a \code{data.frame} where each row corresponds to clustering stability
         with respect to kept column variables
 }
 \description{
-Performs stability analysis on cross-validated clusterings using \code{\link{jdist}}.
+Performs stability analysis on cross-validated clusterings.
 }
 \details{
 Default settings work with \code{\link{cv_clusteval}} output 'clusters'.

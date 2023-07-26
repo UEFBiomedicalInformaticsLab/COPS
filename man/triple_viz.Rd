@@ -13,14 +13,32 @@ triple_viz(
   category_label,
   tsne_perplexity = 45,
   umap_neighbors = 20,
-  tsne = FALSE
+  tsne = FALSE,
+  color_scale = scale_color_brewer(palette = "Dark2")
 )
 
-pca_viz(data, category, category_label)
+pca_viz(
+  data,
+  category,
+  category_label,
+  color_scale = scale_color_brewer(palette = "Dark2")
+)
 
-umap_viz(data, category, category_label, umap_neighbors = 20)
+umap_viz(
+  data,
+  category,
+  category_label,
+  umap_neighbors = 20,
+  color_scale = scale_color_brewer(palette = "Dark2")
+)
 
-tsne_viz(data, category, category_label, tsne_perplexity = 45)
+tsne_viz(
+  data,
+  category,
+  category_label,
+  tsne_perplexity = 45,
+  color_scale = scale_color_brewer(palette = "Dark2")
+)
 }
 \arguments{
 \item{data}{\code{matrix} with samples on rows}
