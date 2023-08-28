@@ -276,18 +276,14 @@ cluster_associations <- function(clusters,
   for (i in 1:ncol(association_data)) {
     association_var <- association_data_matched[,i]
     nna_ind <- which(!is.na(association_var))
-    if (length(nna_ind) > 1) {
+    n_samples <- length(nna_ind)
+    valid <- n_samples > 1
+    if (valid) {
       n_categories <- length(unique(association_var[nna_ind]))
       n_clusters <- length(unique(clusters$cluster[nna_ind]))
-      if (n_categories > 1 &
-          n_categories < n_clusters &
-          n_clusters > 1) {
-        valid <- TRUE
-      } else {
-        valid <- FALSE
-      }
-    } else {
-      valid <- FALSE
+      valid <- n_categories > 1 &
+        n_clusters > 1 &
+        n_clusters < n_samples
     }
     if(valid) {
       if (class(association_var) %in% c("character", "factor")) {
