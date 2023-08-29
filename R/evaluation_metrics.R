@@ -282,26 +282,29 @@ cluster_associations <- function(clusters,
       n_categories <- length(unique(association_var[nna_ind]))
       n_clusters <- length(unique(clusters$cluster[nna_ind]))
       valid <- n_categories > 1 &
-        n_clusters > 1 &
-        n_clusters < n_samples
+        n_clusters > 1
     }
     if(valid) {
       if (class(association_var) %in% c("character", "factor")) {
-        out[[i]] <- data.frame(nmi = igraph::compare(clusters$cluster[nna_ind], 
-                                                     association_var[nna_ind],
-                                                     method = "nmi"), 
-                               ari = igraph::compare(clusters$cluster[nna_ind], 
-                                                     association_var[nna_ind], 
-                                                     method = "adjusted.rand"))
-        temp <- tryCatch(suppressWarnings(chisq.test(clusters$cluster[nna_ind], 
-                                                     association_var[nna_ind])), 
-                         error = function(e) NULL)
-        if (is.null(temp)) {
-          out[[i]]$chisq.p <- NA
-        } else {
-          out[[i]]$chisq.p <- temp$p.value
+        valid <- n_categories < n_samples & 
+          n_clusters < n_samples
+        if (valid) {
+          out[[i]] <- data.frame(nmi = igraph::compare(clusters$cluster[nna_ind], 
+                                                       association_var[nna_ind],
+                                                       method = "nmi"), 
+                                 ari = igraph::compare(clusters$cluster[nna_ind], 
+                                                       association_var[nna_ind], 
+                                                       method = "adjusted.rand"))
+          temp <- tryCatch(suppressWarnings(chisq.test(clusters$cluster[nna_ind], 
+                                                       association_var[nna_ind])), 
+                           error = function(e) NULL)
+          if (is.null(temp)) {
+            out[[i]]$chisq.p <- NA
+          } else {
+            out[[i]]$chisq.p <- temp$p.value
+          }
+          colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
         }
-        colnames(out[[i]]) <- paste0(colnames(association_data)[i], ".", colnames(out[[i]]))
       } else if (class(association_var) %in% c("numeric", "integer")) {
         anova_res <- stats::aov(association_var[nna_ind] ~ clusters$cluster[nna_ind])
         kruskal_res <- stats::kruskal.test(association_var[nna_ind], 
