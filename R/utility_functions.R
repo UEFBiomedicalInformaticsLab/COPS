@@ -945,22 +945,22 @@ format_scores <- function(x, multi_omic = FALSE) {
     x$Embedding[pathway_approaches] <- x$datname[pathway_approaches]
     x$Embedding[!pathway_approaches] <- ifelse(!is.na(as.numeric(as.character(x$datname[!pathway_approaches]))), 
                                                "", x$datname[!pathway_approaches])
-    x$Embedding[!pathway_approaches] <- paste0(x$drname, "+", x$Embedding[!pathway_approaches])
+    x$Embedding[!pathway_approaches] <- paste0(x$Embedding[!pathway_approaches], "+", x$drname)
     # remove "original" tag which is just used to indicate a skipped DR step
-    x$Embedding <- gsub("\\+original$", "", x$Embedding)
-    x$Embedding <- gsub("\\+$", "", x$Embedding)
+    x$Embedding <- gsub("^original\\+", "", x$Embedding)
+    x$Embedding <- gsub("^\\+", "", x$Embedding)
     # remove redundant pathway method tags (included in Transform)
     x$Embedding <- gsub("_RWRFGSEA|_GSVA|_DiffRank", "", x$Embedding)
     # format methods and dimension numbers
-    x$Embedding <- paste0(gsub("^pca", "PCA, ", x$Embedding), ifelse(grepl("^pca", x$Embedding), "d", ""))
-    x$Embedding <- paste0(gsub("^tsne", "t-SNE, ", x$Embedding), ifelse(grepl("^tsne", x$Embedding), "d", ""))
-    x$Embedding <- paste0(gsub("^umap", "UMAP, ", x$Embedding), ifelse(grepl("^umap", x$Embedding), "d", ""))
+    x$Embedding <- paste0(gsub("\\+pca", "+PCA(", x$Embedding), ifelse(grepl("\\+pca", x$Embedding), "d)", ""))
+    x$Embedding <- paste0(gsub("\\+tsne", "+t-SNE(", x$Embedding), ifelse(grepl("\\+tsne", x$Embedding), "d)", ""))
+    x$Embedding <- paste0(gsub("\\+umap", "+UMAP(", x$Embedding), ifelse(grepl("\\+umap", x$Embedding), "d)", ""))
     
     # Transform, same as Embedding except that pathway gene sets are appended with 
     # enrichment method name (used for Pareto plots)
     x$Transform <- NA
-    x$Transform[!pathway_approaches] <- x$Embedding
-    x$Transform[pathway_approaches] <- gsub("_", " ", x$datname)
+    x$Transform[!pathway_approaches] <- x$Embedding[!pathway_approaches]
+    x$Transform[pathway_approaches] <- gsub("_", " ", x$datname[pathway_approaches])
     
     # Clustering method
     x$Clustering <- x$m
