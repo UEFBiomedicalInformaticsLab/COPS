@@ -943,9 +943,11 @@ format_scores <- function(x, multi_omic = FALSE) {
     # Embedding, describes the features which are used for clustering
     x$Embedding <- NA
     x$Embedding[pathway_approaches] <- x$datname[pathway_approaches]
-    x$Embedding[!pathway_approaches] <- ifelse(!is.na(as.numeric(as.character(x$datname[!pathway_approaches]))), 
-                                               "", x$datname[!pathway_approaches])
-    x$Embedding[!pathway_approaches] <- paste0(x$Embedding[!pathway_approaches], "+", x$drname)
+    x$Embedding[!pathway_approaches] <- ifelse(
+      !is.na(as.numeric(as.character(x$datname[!pathway_approaches]))), 
+      "", x$datname[!pathway_approaches])
+    x$Embedding[!pathway_approaches] <- paste0(
+      x$Embedding[!pathway_approaches], "+", x$drname[!pathway_approaches])
     # remove "original" tag which is just used to indicate a skipped DR step
     x$Embedding <- gsub("^original\\+", "", x$Embedding)
     x$Embedding <- gsub("^\\+", "", x$Embedding)
