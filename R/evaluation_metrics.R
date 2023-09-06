@@ -259,9 +259,9 @@ feature_associations <- function(x,
   pc_wise_silhouettes <- list()
   for (i in names(class)) {
     pc_wise_silhouettes[[i]] <- sapply(1:npc, function(j) {
-      cluster::silhouette(
+      mean(cluster::silhouette(
         as.integer(class[[i]][!is.na(class[[i]])]), 
-        dist(dat_pca$ind$coord[!is.na(class[[i]]), j, drop = FALSE]))
+        dist(dat_pca$ind$coord[!is.na(class[[i]]), j, drop = FALSE]))[,"sil_width"])
       })
   }
   
