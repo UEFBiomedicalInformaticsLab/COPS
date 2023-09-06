@@ -258,7 +258,11 @@ feature_associations <- function(x,
   npc <- min(c(n_pc_max, dim(x)))
   pc_wise_silhouettes <- list()
   for (i in names(class)) {
-    pc_wise_silhouettes[[i]] <- sapply(1:npc, function(j) cluster::silhouette(class[[i]][!is.na(class[[i]])], dist(dat_pca$ind$coord[!is.na(class[[i]]),j, drop = FALSE])))
+    pc_wise_silhouettes[[i]] <- sapply(1:npc, function(j) {
+      cluster::silhouette(
+        as.integer(class[[i]][!is.na(class[[i]])]), 
+        dist(dat_pca$ind$coord[!is.na(class[[i]]), j, drop = FALSE]))
+      })
   }
   
   return(list(associations = out, eigenvalues = dat_pca$eig, pc_wise_silhouettes = pc_wise_silhouettes))
