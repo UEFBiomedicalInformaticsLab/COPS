@@ -16,6 +16,7 @@ heatmap_annotated(
   show_row_dend = FALSE,
   row_names_side = "left",
   legend_names = NULL,
+  color_breaks = NULL,
   ...
 )
 }
@@ -41,6 +42,9 @@ heatmap_annotated(
 \item{row_names_side}{where row names should be located}
 
 \item{legend_names}{names to use for \code{dat} color legends}
+
+\item{color_breaks}{manual color breaks in form \code{c(min, middle, max)}, 
+passed to \link[circlize]{colorRamp2}}
 
 \item{...}{other arguments passed to \link[ComplexHeatmap]{Heatmap}}
 }

@@ -94,6 +94,8 @@ heatmap_annotations <- function(annotations,
 #' @param show_row_dend whether to include row dendrogram
 #' @param row_names_side where row names should be located
 #' @param legend_names names to use for \code{dat} color legends
+#' @param color_breaks manual color breaks in form \code{c(min, middle, max)}, 
+#'   passed to \link[circlize]{colorRamp2}
 #' @param ... other arguments passed to \link[ComplexHeatmap]{Heatmap} 
 #'
 #' @return \code{\link[ComplexHeatmap]{`HeatmapList-class`}}
@@ -109,6 +111,7 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
                               show_row_dend = FALSE,
                               row_names_side = "left", 
                               legend_names = NULL, 
+                              color_breaks = NULL,
                               ...) {
   if (!"list" %in% class(dat)) dat <- list(dat)
   if (length(variable_list) > 0) {
@@ -122,7 +125,8 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
   for (i in 1:length(dat)) {
     if (!is.null(feature_names)) dat[[i]] <- dat[[i]][intersect(feature_names, rownames(dat[[i]])),]
     if (center | scale) dat[[i]] <- t(scale(t(dat[[i]]), center = center, scale = scale))
-    col_dat <- circlize::colorRamp2(c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]])), c("blue", "white", "red"))
+    if (is.null(color_breaks)) color_breaks <- c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]]))
+    col_dat <- circlize::colorRamp2(color_breaks, c("blue", "white", "red"))
     heatmap_list <- c(heatmap_list, 
                       list(ComplexHeatmap::Heatmap(dat[[i]], 
                                                    name = legend_names[i],
