@@ -300,15 +300,24 @@ cluster_associations <- function(clusters,
         valid <- n_categories < n_samples & 
           n_clusters < n_samples
         if (valid) {
-          out[[i]] <- data.frame(nmi = igraph::compare(clusters$cluster[nna_ind], 
-                                                       association_var[nna_ind],
-                                                       method = "nmi"), 
-                                 ari = igraph::compare(clusters$cluster[nna_ind], 
-                                                       association_var[nna_ind], 
-                                                       method = "adjusted.rand"))
-          temp <- tryCatch(suppressWarnings(chisq.test(clusters$cluster[nna_ind], 
-                                                       association_var[nna_ind])), 
-                           error = function(e) NULL)
+          if (class(association_var) == "factor") {
+            clean_var <- droplevels(association_var[nna_ind])
+          } else {
+            clean_var <- association_var[nna_ind]
+          }
+          out[[i]] <- data.frame(
+            nmi = igraph::compare(
+              clusters$cluster[nna_ind], 
+              clean_var,
+              method = "nmi"), 
+            ari = igraph::compare(
+              clusters$cluster[nna_ind], 
+              clean_var, 
+              method = "adjusted.rand"))
+          temp <- tryCatch(
+            suppressWarnings(
+              chisq.test(clusters$cluster[nna_ind], clean_var)
+            ), error = function(e) NULL)
           if (is.null(temp)) {
             out[[i]]$chisq.p <- NA
           } else {
