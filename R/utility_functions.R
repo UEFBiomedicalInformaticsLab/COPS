@@ -66,7 +66,7 @@ cv_fold <- function(dat_list,
       #       Possible incompatibility with external methods. 
       #       Also note that some methods are stochastic. 
       folded[[j]] <- list()
-      for (f in 1:(nfolds+1)) {
+      for (f in 1:(nfolds+extra_fold)) {
         # TODO: fix downstream support so that test set can be included too
         #tempfold <- dat_list[[i]][cv_index != f, ]
         #tempfold$fold <- f
