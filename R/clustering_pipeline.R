@@ -347,11 +347,7 @@ vertical_pipeline <- function(dat_list,
       
       # Clustering metrics 
       silh_i <- list()
-      if (data_is_kernels) {
-        # While the unnormalized linear kernel could be used to compute 
-        # silhouette in the original space, other kernels cannot. 
-        silh_i <- NULL
-      } else if (!is.null(silhouette_dissimilarities)) {
+      if (!is.null(silhouette_dissimilarities)) {
         for (j in 1:length(silhouette_dissimilarities)) {
           silh_i[[j]] <- clustering_metrics(clust_i, 
                                             dat = NULL, 
@@ -363,6 +359,10 @@ vertical_pipeline <- function(dat_list,
           silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(silhouette_dissimilarities)[j], "_Silhouette")
         }
         silh_i <- Reduce(rbind, silh_i)
+      } else if (data_is_kernels) {
+        # While the unnormalized linear kernel could be used to compute 
+        # silhouette in the original space, other kernels cannot. 
+        silh_i <- NULL
       } else {
         for (j in 1:length(dat_i)) {
           silh_i[[j]] <- clustering_metrics(clust_i, 
@@ -452,7 +452,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
     # multi-omic clustering
     # 1) multi-view clustering
     # 2) multi-view integration/embedding + clustering
-    clust_i <- multi_omic_clustering(dat_list_clust = dat_i$dat_i,
+    clust_i <- multi_omic_clustering(dat_list = dat_i$dat_i,
                                      meta_data = dat_i$non_data_cols, 
                                      multi_view_methods = multi_omic_methods,
                                      data_is_kernels = data_is_kernels, 
@@ -461,22 +461,21 @@ embarrassingly_parallel_pipeline <- function(dat_list,
     
     # Clustering metrics 
     silh_i <- list()
-    if (data_is_kernels) {
-      # While the unnormalized linear kernel could be used to compute 
-      # silhouette in the original space, other kernels cannot. 
-      silh_i <- NULL
-    } else if (!is.null(silhouette_dissimilarities)) {
+    if (!is.null(silhouette_dissimilarities)) {
       for (j in 1:length(silhouette_dissimilarities)) {
         silh_i[[j]] <- clustering_metrics(clust_i, 
                                           dat = NULL, 
                                           by = by,
-                                          clustering_dissimilarity = silhouette_dissimilarities[[j]], 
+                                          dissimilarity = silhouette_dissimilarities[[j]], 
                                           cluster_size_table = FALSE, 
-                                          silhouette_min_cluster_size = 0.0,
-                                          distance_metric = "euclidean")$metrics
+                                          silhouette_min_cluster_size = 0.0)$metrics
         silh_i[[j]]$metric[silh_i[[j]]$metric == "Silhouette"] <- paste0(names(silhouette_dissimilarities)[j], "_Silhouette")
       }
       silh_i <- Reduce(rbind, silh_i)
+    } else if (data_is_kernels) {
+      # While the unnormalized linear kernel could be used to compute 
+      # silhouette in the original space, other kernels cannot. 
+      silh_i <- NULL
     } else {
       for (j in 1:length(dat_i$dat_i)) {
         silh_i[[j]] <- clustering_metrics(clust_i, 
@@ -524,6 +523,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
       }
     }
     out$clusters <- data.table::setDT(out$clusters)
+    attributes(out)$multi_omic <- TRUE
     return(out)
   } else {
     stop("Not implemented.")
