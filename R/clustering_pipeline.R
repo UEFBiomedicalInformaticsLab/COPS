@@ -454,7 +454,7 @@ embarrassingly_parallel_pipeline <- function(dat_list,
     # 2) multi-view integration/embedding + clustering
     clust_i <- multi_omic_clustering(dat_list = dat_i$dat_i,
                                      meta_data = dat_i$non_data_cols, 
-                                     multi_view_methods = multi_omic_methods,
+                                     multi_omic_methods = multi_omic_methods,
                                      data_is_kernels = data_is_kernels, 
                                      preprocess_data = FALSE,
                                      ...)
