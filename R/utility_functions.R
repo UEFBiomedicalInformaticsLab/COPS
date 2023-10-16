@@ -630,15 +630,6 @@ plot_pvalues <- function(x,
   return(temp)
 }
 
-plot_pairwise_metrics <- function(results, metrics) {
-  for (i in 1:(length(metrics)-1)) {
-    for (j in (i+1):length(metrics)) {
-      
-    }
-  }
-}
-
-
 setup_parallelization <- function(parallel) {
   if (is.null(parallel)) return(NULL)
   if (parallel > 1) {
@@ -767,7 +758,7 @@ pareto_plot <- function(scores,
                                     color = {{color_var}}, 
                                     shape = {{shape_var}}, 
                                     size = num({{size_var}}))) + 
-        geom_point() + theme_bw() + scale_color_manual(values = plot_palette) + 
+        geom_point() + theme_bw() + color_scale + 
         theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
         scale_size(range = size_range)
@@ -788,7 +779,7 @@ pareto_plot <- function(scores,
                                     color = {{color_var}},
                                     shape = {{shape_var}}, 
                                     size = num({{size_var}}))) + 
-    geom_point() + theme_bw() + scale_color_manual(values = plot_palette) +
+    geom_point() + theme_bw() + color_scale +
     theme(legend.box = "horizontal") + scale_size(range = size_range) + 
     guides(shape = guide_legend(ncol = 1, order = 2), 
            color = guide_legend(ncol = 1, order = 1),
@@ -820,9 +811,10 @@ pareto_plot <- function(scores,
 #'   
 #' @return integer vector of Pareto front number for each row of \code{scores}
 #' @export
-pareto_fronts <- function(scores, 
-                          metrics, 
-                          metric_comparators = get_metric_comparators(metrics)
+pareto_fronts <- function(
+  scores, 
+  metrics, 
+  metric_comparators = get_metric_comparators(metrics)
 ) {
   N <- nrow(scores)
   domination <- list()
