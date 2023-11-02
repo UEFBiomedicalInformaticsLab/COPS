@@ -254,8 +254,8 @@ mkkm_mr <- function(K_list,
   return(list(K = K, H = H, mu = mu, objective = objective))
 }
 
-# min <K (I - HHT)>
-# s.t.HTH = I
+# min <K, (I - HHT)>
+# s.t. HTH = I
 # k first eigenvectors is optimal
 mkkm_mr_h_opt <- function(K, k) {
   #pca <- FactoMineR::PCA(K, scale.unit = FALSE, ncp = k, graph = FALSE)
@@ -446,6 +446,18 @@ kernel_kmeans_algorithm <- function(K, n_k, init, maxiter = 1e2) {
     out$E <- out$E + sum(K_dist[j_ind, j])
   }
   return(out)
+}
+
+kernel_kmeans_spectral_approximation <- function(eigen_vectors, k) {
+    init_qr <- qr(t(eigen_vectors[,1:k]), LAPACK = TRUE)
+    r_11 <- init_qr$qr[,1:k]
+    r_11[lower.tri(r_11)] <- 0
+    r_12 <- init_qr$qr[,(k+1):nrow(eigen_vectors)]
+    r_11_inv <- solve(r_11)
+    r_hat <- r_11_inv %*% cbind(r_11, r_12)
+    init <- rep(NA, nrow(eigen_vectors))
+    init[init_qr$pivot] <- apply(abs(r_hat), 2, which.max)
+    return(init)
 }
 
 # Utilities
