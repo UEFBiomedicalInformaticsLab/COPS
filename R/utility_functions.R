@@ -713,7 +713,9 @@ pareto_plot <- function(scores,
                         size_range = c(2,6),
                         color_scale = ggplot2::scale_color_manual(values = plot_palette),
                         plot_pareto_front = FALSE,
-                        metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL
+                        front_color = "black", 
+                        metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL, 
+                        point_args = list()
                         ) {
   if (!"data.frame" %in% class(scores)) {
     if (is.null(scores$all)) {
@@ -758,7 +760,7 @@ pareto_plot <- function(scores,
                                     color = {{color_var}}, 
                                     shape = {{shape_var}}, 
                                     size = num({{size_var}}))) + 
-        geom_point() + theme_bw() + color_scale + 
+        do.call(geom_point, args = point_args) + theme_bw() + color_scale + 
         theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
         scale_size(range = size_range)
@@ -768,6 +770,7 @@ pareto_plot <- function(scores,
                                  !!ggplot2::ensym(j_name), 
                                  group = !!ggplot2::ensym(pfs_name)),
                              data = scores[scores[[pfs_name]] == 1,],
+                             color = front_color, 
                              direction = front_direction, inherit.aes = FALSE)
         plot_ij <- plot_ij + p_front
       }
@@ -779,7 +782,7 @@ pareto_plot <- function(scores,
                                     color = {{color_var}},
                                     shape = {{shape_var}}, 
                                     size = num({{size_var}}))) + 
-    geom_point() + theme_bw() + color_scale +
+    do.call(geom_point, args = point_args) + theme_bw() + color_scale +
     theme(legend.box = "horizontal") + scale_size(range = size_range) + 
     guides(shape = guide_legend(ncol = 1, order = 2), 
            color = guide_legend(ncol = 1, order = 1),
