@@ -33,8 +33,7 @@ heatmap_annotations <- function(annotations,
   
   a_sizes <- sapply(annotations, function(x) length(table(x)))
   
-  factor_palette_list <- list("Dark2", "Pastel1", "Set1")
-  factor_palette_size <- c(8,9,9,16,22)
+  factor_palette_size <- sapply(factor_color_sets, length)
   factor_palette_size_reserved <- rep(0, length(factor_palette_size))
   
   a_palette_ind <- c()
