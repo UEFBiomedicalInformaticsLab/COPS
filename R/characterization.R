@@ -111,6 +111,7 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
                               row_names_side = "left", 
                               legend_names = NULL, 
                               color_breaks = NULL,
+                              col_dat = circlize::colorRamp2(color_breaks, c("blue", "white", "red")), 
                               ...) {
   if (!"list" %in% class(dat)) dat <- list(dat)
   if (length(variable_list) > 0) {
@@ -125,7 +126,6 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
     if (!is.null(feature_names)) dat[[i]] <- dat[[i]][intersect(feature_names, rownames(dat[[i]])),]
     if (center | scale) dat[[i]] <- t(scale(t(dat[[i]]), center = center, scale = scale))
     if (is.null(color_breaks)) color_breaks <- c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]]))
-    col_dat <- circlize::colorRamp2(color_breaks, c("blue", "white", "red"))
     heatmap_list <- c(heatmap_list, 
                       list(ComplexHeatmap::Heatmap(dat[[i]], 
                                                    name = legend_names[i],
