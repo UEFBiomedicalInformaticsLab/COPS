@@ -43,20 +43,22 @@ computer.
 ### Installation
 
 ```{r, eval=FALSE}
-# Tested on Rocky Linux 8.7, R 4.2.1 and Bioconductor 3.15
+# Tested with R 4.3.2 and Bioconductor 3.18
 install.packages("devtools")
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install()
-bioc_dependencies <- c("ANF", "AnnotationDbi", "biomaRt", "dnet", "fgsea", 
+bioc_dependencies <- c("AnnotationDbi", "biomaRt", "dnet", "fgsea", 
                        "graph", "GSVA", "iClusterPlus", "MOFA2", "org.Hs.eg.db", 
                        "Rgraphviz", "ROntoTools", "STRINGdb", "supraHex", 
                        "ComplexHeatmap")
 BiocManager::install(bioc_dependencies)
-devtools::install_github("cran/clusteval")
+devtools::install_git("https://git.bioconductor.org/packages/ANF")
 devtools::install_github("theislab/kBet")
+devtools::install_github("trintala/IntNMF")
 devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
+install.packages("ggha4x") # used in this vignette
 ```
 
 ## Clustering functionality
@@ -257,7 +259,7 @@ the pathways based on size.
 pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
 pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
 pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
-pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
+pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 100)]
 ```
 
 The RWR-FGSEA method also requires a gene-network, since it uses random walk with 
@@ -291,17 +293,18 @@ divisive hierarchical clustering.
 set.seed(0)
 lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
 pso_degs <- COPS::psoriasis_degs_example
-res_rwrfgsea <- COPS::COPS(log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
-                           parallel = 6, nruns = 2, nfolds = 5, 
-                           pathway_enrichment_method = "RWRFGSEA", 
-                           gene_network = ppi_net, 
-                           rwr_seed_size = 50, 
-                           gene_set_list = pw_list, 
-                           dimred_methods = c("none"), 
-                           cluster_methods = c("diana"), 
-                           distance_metric = "correlation", 
-                           n_clusters = 2:6,
-                           association_data = COPS::psoriasis_clinical_example[["lesional"]])
+res_rwrfgsea <- COPS::COPS(
+  log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
+  parallel = 6, nruns = 2, nfolds = 5, 
+  pathway_enrichment_method = "RWRFGSEA", 
+  gene_network = ppi_net, 
+  rwr_seed_size = 50, 
+  gene_set_list = pw_list, 
+  dimred_methods = c("none"), 
+  cluster_methods = c("diana"), 
+  distance_metric = "correlation", 
+  n_clusters = 2:6,
+  association_data = COPS::psoriasis_clinical_example[["lesional"]])
 ```
 
 ### Result data structures
@@ -330,9 +333,10 @@ across CV folds (mean and sd), but this can be disabled by setting
 rejection rate which is parameterized by the <code>significance_level</code>:
 
 ```{r}
-scores_rwrfgsea <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
-                                              Silhouette - GSE.nmi,
-                                  significance_level = 0.05)
+scores_rwrfgsea <- COPS::scoring(
+  res_rwrfgsea, 
+  wsum = ClusteringStabilityJaccard + Silhouette - GSE.nmi,
+  significance_level = 0.05)
 ```
 
 This returns a list containing the whole summarised table in the element "all", 
@@ -341,19 +345,25 @@ and only the line corresponding to the best result (according to wsum) in "best"
 but these are discussed later. 
 
 ```{r}
-scores_rwrfgsea$all[,c("Approach", "Embedding", "Clustering", "k", "Silhouette", 
-                       "ClusteringStabilityJaccard", "GSE.nmi")]
+score_cols <- c(
+  "Approach", 
+  "Embedding", 
+  "Clustering", 
+  "k", 
+  "Silhouette", 
+  "ClusteringStabilityJaccard", 
+  "GSE.nmi")
+scores_rwrfgsea$all[,score_cols]
 ```
 
 For visualising the spread of metrics, we can use boxplots after reorganising the 
 scores without summary:
 
 ```{r}
-scores_rwrfgsea_dist <- COPS::scoring(res_rwrfgsea, 
-                                      wsum = ClusteringStabilityJaccard + 
-                                                 Silhouette - GSE.nmi,
-                                      significance_level = 0.05, 
-                                      summarise = FALSE)
+scores_rwrfgsea_dist <- COPS::scoring(
+  res_rwrfgsea, 
+  wsum = ClusteringStabilityJaccard + Silhouette - GSE.nmi,
+  summarise = FALSE)
 ```
 
 Note that with summarise set to FALSE, the function will also return results for 
@@ -362,19 +372,23 @@ should be omitted manually.
 
 ```{r, dpi=300, out.width="100%", fig.width=5, fig.height=4, message=FALSE}
 require(ggplot2)
-ggplot(scores_rwrfgsea_dist$all[scores_rwrfgsea_dist$all$fold != 6,], 
-       aes(x = interaction(Embedding, Clustering),  
-           y = ClusteringStabilityJaccard, 
-           fill = interaction(Embedding, Clustering))) + 
-        geom_boxplot() + 
-        theme_bw() + 
-        ggh4x::facet_grid2(Approach ~ k, scales = "free_x", independent = "x",
-                           labeller = labeller(k = function(x) paste0("k=", x)))+
-        theme(legend.position="bottom", 
-              axis.text.x = element_blank(), 
-              axis.ticks.x = element_blank(), 
-              axis.title.x = element_blank()) + 
-        guides(fill = guide_legend(ncol = 3, title.position = "top"))
+ggplot(
+  scores_rwrfgsea_dist$all[scores_rwrfgsea_dist$all$fold != 6,], 
+  aes(x = interaction(Embedding, Clustering),  
+      y = ClusteringStabilityJaccard, 
+      fill = interaction(Embedding, Clustering))) + 
+  geom_boxplot() + 
+  theme_bw() + 
+  ggh4x::facet_grid2(
+    Approach ~ k, 
+    scales = "free_x", 
+    independent = "x",
+    labeller = labeller(k = function(x) paste0("k=", x))) +
+  theme(legend.position="bottom", 
+        axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        axis.title.x = element_blank()) + 
+  guides(fill = guide_legend(ncol = 3, title.position = "top"))
 ```
 
 
@@ -434,7 +448,9 @@ where
 $$
 \mathbf{S^\pm_{i}} = \sum_j{\delta^\pm\left(\rho(\mathbf{e}^{(i)}, \mathbf{c}^{(j)})\right)}
 $$
-where $\rho$ corresponds to spearman correlation, $\mathbf{e}^{(i)}$ corresponds to the $i^{th}$ column of the WGCNA eigen-gene matrix, $\mathbf{c}^{(j)}$ corresponds to the $j^{th}$ cluster indicator variable and   
+where $\rho$ corresponds to spearman correlation, $\mathbf{e}^{(i)}$ corresponds 
+to the $i^{th}$ column of the WGCNA eigen-gene matrix, $\mathbf{c}^{(j)}$ 
+corresponds to the $j^{th}$ cluster indicator variable and   
 $$
 \delta^{-}(x) = \begin{cases}
     1 & \mbox{if } x \leq -\alpha \\
@@ -448,8 +464,11 @@ $$
     \end{cases}
 $$
 where $\alpha$ is a parameter that defines a threshold for counting correlations. 
-The fraction is undefined when the denominator is zero which occurs when no clusters are strongly correlated to an eigen-gene, in which case we assign a score of $\beta$. 
-When $\beta$ is close to zero, clustering results that do not exhibit differential expression between clusters in each gene module are penalized. 
+The fraction is undefined when the denominator is zero which occurs when no 
+clusters are strongly correlated to an eigen-gene, in which case we assign 
+a score of $\beta$. When $\beta$ is close to zero, clustering results that 
+do not exhibit differential expression between clusters in each gene module 
+are penalized. 
 
 In the <code>gene_module_score</code>-function $\alpha$ corresponds to the 
 argument <code>module_cor_threshold </code> while $\beta$ corresponds to the 
@@ -460,18 +479,20 @@ To generate these for previously calculated results we can call
 on this data by using the WGCNA eigen-gene method. 
 
 ```{r}
-res_rwrfgsea$modules <- COPS::cv_module_evaluation(clusters = res_rwrfgsea$clusters, 
-                                                   parallel = 6, 
-                                                   module_eigs = COPS::psoriasis_example_MEs,
-                                                   module_cor_threshold = 0.3,
-                                                   module_nan.substitute = 0)
+res_rwrfgsea$modules <- COPS::cv_module_evaluation(
+  clusters = res_rwrfgsea$clusters, 
+  parallel = 6, 
+  module_eigs = COPS::psoriasis_example_MEs,
+  module_cor_threshold = 0.3,
+  module_nan.substitute = 0)
 ```
 
 Recompute summaries:
 ```{r}
-scores_rwrfgsea <- COPS::scoring(res_rwrfgsea, wsum = ClusteringStabilityJaccard + 
-                                              Silhouette - GSE.nmi,
-                                  significance_level = 0.05)
+scores_rwrfgsea <- COPS::scoring(
+  res_rwrfgsea, 
+  wsum = ClusteringStabilityJaccard + Silhouette - GSE.nmi,
+  significance_level = 0.05)
 ```
 
 ### Survival relevance evaluation
@@ -505,22 +526,24 @@ But first we should generate some alternative results to compare against:
 set.seed(0)
 lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
 pso_degs <- COPS::psoriasis_degs_example
-res_dr <- COPS::COPS(log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
-                     parallel = 6, nruns = 2, nfolds = 5, 
-                     dimred_methods = c("pca"), 
-                     pca_dims = 2:10,
-                     cluster_methods = c("kmeans", "diana"), 
-                     distance_metric = "euclidean", 
-                     n_clusters = 2:6,
-                     association_data = COPS::psoriasis_clinical_example[["lesional"]],
-                     module_eigs = COPS::psoriasis_example_MEs)
+res_dr <- COPS::COPS(
+  log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
+  parallel = 6, nruns = 2, nfolds = 5, 
+  dimred_methods = c("pca"), 
+  pca_dims = 2:10,
+  cluster_methods = c("kmeans", "diana"), 
+  distance_metric = "euclidean", 
+  n_clusters = 2:6,
+  association_data = COPS::psoriasis_clinical_example[["lesional"]],
+  module_eigs = COPS::psoriasis_example_MEs)
 ```
 
 
 ```{r}
-scores_dr <- COPS::scoring(res_dr, wsum = ClusteringStabilityJaccard + 
-                                          Silhouette - GSE.nmi,
-                           significance_level = 0.05)
+scores_dr <- COPS::scoring(
+  res_dr, 
+  wsum = ClusteringStabilityJaccard + Silhouette - GSE.nmi,
+  significance_level = 0.05)
 ```
 
 In order to compare the scores, we can combine the two data.frames containing 
@@ -539,15 +562,21 @@ some extent, but for variable associations it is necessary to define whether it
 should be minimized or maximized.
 
 ```{r, dpi=300, out.width="100%", fig.width = 10, fig.height = 8, message = FALSE}
-p <- COPS::pareto_plot(scores_combined[scores_combined[["Smallest_cluster_size"]] >= 10 &
-                                         (scores_combined[["drname"]] %in% paste0("pca", c(2,5,7,10)) |
-                                            scores_combined[["Approach"]] == "RWR-FGSEA"),],
-                       metrics = c("ClusteringStabilityJaccard", "Silhouette", 
-                                   "Smallest_cluster_size", "GSE.nmi", 
-                                   "Module_score"),
-                       plot_palette = RColorBrewer::brewer.pal(9, "Set1"),
-                       plot_pareto_front = TRUE,
-                       metric_comparators = list(`>`, `>`, `>`, `<`, `>`))
+selection <- scores_combined[["drname"]] %in% paste0("pca", c(2,5,7,10))
+selection <- selection | (scores_combined[["Approach"]] == "RWR-FGSEA")
+selection <- selection & scores_combined[["Smallest_cluster_size"]] >= 10
+
+p <- COPS::pareto_plot(
+  scores_combined[selection,],
+  metrics = c(
+    "ClusteringStabilityJaccard", 
+    "Silhouette", 
+    "Smallest_cluster_size", 
+    "GSE.nmi", 
+    "Module_score"),
+  plot_palette = RColorBrewer::brewer.pal(9, "Set1"),
+  plot_pareto_front = TRUE,
+  metric_comparators = list(`>`, `>`, `>`, `<`, `>`))
 ```
 
 In terms of internal metrics like average silhouette score and clustering 
@@ -560,10 +589,13 @@ embedded space the score will tend to favour embeddings with fewer dimensions.
 This behaviour can be changed by setting the <code>COPS</code> argument 
 <code>pre_compute_silhouette_dissimilarity = TRUE</code>. 
 
-Regardless, in this comparison there do not seem to be any significant 
-trade-offs in the performance metrics, so we would perhaps select one of the 
-PCA-based results with two clusters, since they have the highest Silhouette, 
-stability and module_score while also having the lowest batch NMI. 
+Regardless, in this comparison there seems to be a trade-off between silhouette 
+and module score. Two cluster results form one group while three and four cluster 
+results vary significantly more in terms of metrics. Batch NMI is also very low 
+overall so it might not be considered a trade-off metric. Hence, we would probably 
+select one of the PCA-based results with two clusters, since they have the highest 
+silhouette and stability and one three cluster result which have the high 
+module score and stability. 
 
 ### Pareto fronts
 

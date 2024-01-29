@@ -41,6 +41,15 @@ requirements it may not be practical for some datasets. In such cases, it is
 possible to manually separate and distribute computations for each method and 
 CV fold. 
 
+### Additional installations
+This vignette makes use of data outside of <code>COPS</code> and therefore 
+requires additional packages to be installed. 
+```{r}
+if (!requireNamespace("TCGAbiolinks", quietly = TRUE)) {
+  BiocManager::install("TCGAbiolinks")
+}
+```
+
 ### Provided methods
 
 ```{r, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
@@ -206,11 +215,13 @@ readability.
 omics_d <- list()
 omics_s <- list()
 for (o in names(COPS::brca_multi_omics)) {
-  omics_d[[o]] <- COPS::clustering_dissimilarity_from_data(t(COPS::brca_multi_omics[[o]]))
-  omics_s[[o]] <- COPS::clustering_metrics(mopw_clusters, 
-                                           dissimilarity = omics_d[[o]])$metrics
+  omics_d[[o]] <- COPS::clustering_dissimilarity_from_data(
+    t(COPS::brca_multi_omics[[o]]))
+  omics_s[[o]] <- COPS::clustering_metrics(
+    mopw_clusters, dissimilarity = omics_d[[o]])$metrics
   omics_s[[o]]$metric <- paste0(o, "_", omics_s[[o]]$metric)
-  omics_s[[o]] <- reshape2::dcast(omics_s[[o]], k + m ~ metric, value.var = "value")
+  omics_s[[o]] <- reshape2::dcast(
+    omics_s[[o]], k + m ~ metric, value.var = "value")
 }
 omics_s <- Reduce(plyr::join, omics_s)
 ```
@@ -273,12 +284,13 @@ to be converted to TRUE/FALSE. TCGA also has some very long follow-up times,
 we can trim these by setting a cutoff. 
 
 ```{r}
-surv_data <- COPS::survival_preprocess(event_data = clinical_data, 
-                                       event_time_name = "days_to_death",
-                                       follow_up_time_name = "days_to_last_followup",
-                                       event_field_name = "vital_status",
-                                       event_name = "Dead",
-                                       event_time_cutoff = 3000)
+surv_data <- COPS::survival_preprocess(
+  event_data = clinical_data, 
+  event_time_name = "days_to_death",
+  follow_up_time_name = "days_to_last_followup",
+  event_field_name = "vital_status",
+  event_name = "Dead",
+  event_time_cutoff = 3000)
 ```
 
 After preprocessing survival data we can call <code>cv_survival_evaluation</code> 
@@ -300,14 +312,17 @@ index for each result.
 
 ```{r}
 mopw_clusters_surv <- mopw_clusters
-mopw_clusters_surv[["id"]] <- gsub("-[0-9]+[A-Z]+$", "", mopw_clusters_surv[["id"]])
-mopw_surv_res <- COPS::cv_survival_evaluation(event_data = surv_data, 
-                                              clusters = mopw_clusters_surv,
-                                              survival_time_col = "time",
-                                              survival_event_col = "event", 
-                                              survival_covariate_names = c("age_at_initial_pathologic_diagnosis", 
-                                                                           "pathologic_stage"),
-                                              row_id = "patient")
+mopw_clusters_surv[["id"]] <- gsub(
+  "-[0-9]+[A-Z]+$", "", mopw_clusters_surv[["id"]])
+mopw_surv_res <- COPS::cv_survival_evaluation(
+  event_data = surv_data, 
+  clusters = mopw_clusters_surv,
+  survival_time_col = "time",
+  survival_event_col = "event", 
+  survival_covariate_names = c(
+    "age_at_initial_pathologic_diagnosis", 
+    "pathologic_stage"),
+  row_id = "patient")
 ```
 
 ```{r}
@@ -321,14 +336,17 @@ similarly to other metrics discussed in the Psoriasis-vignette.
 
 ```{r}
 molk_clusters_surv <- molk_res$clusters
-molk_clusters_surv[["id"]] <- gsub("-[0-9]+[A-Z]+$", "", molk_clusters_surv[["id"]])
-molk_surv_res <- COPS::cv_survival_evaluation(event_data = surv_data, 
-                                              clusters = molk_clusters_surv,
-                                              survival_time_col = "time",
-                                              survival_event_col = "event", 
-                                              survival_covariate_names = c("age_at_initial_pathologic_diagnosis", 
-                                                                           "pathologic_stage"),
-                                              row_id = "patient")
+molk_clusters_surv[["id"]] <- gsub(
+  "-[0-9]+[A-Z]+$", "", molk_clusters_surv[["id"]])
+molk_surv_res <- COPS::cv_survival_evaluation(
+  event_data = surv_data, 
+  clusters = molk_clusters_surv,
+  survival_time_col = "time",
+  survival_event_col = "event", 
+  survival_covariate_names = c(
+    "age_at_initial_pathologic_diagnosis", 
+    "pathologic_stage"),
+  row_id = "patient")
 ```
 
 ```{r}
@@ -359,10 +377,10 @@ clusters for each feature.
 ```{r}
 mopw_features <- list()
 for (i in names(COPS::brca_multi_omics)) {
-  mopw_features[[i]] <- COPS::univariate_features(COPS::brca_multi_omics[[i]], 
-                                                  mopw_clusters[mopw_clusters[["k"]] == 3, 
-                                                                "cluster"], # same order as input rows
-                                                  parallel = 6)
+  mopw_features[[i]] <- COPS::univariate_features(
+    COPS::brca_multi_omics[[i]], 
+    mopw_clusters[mopw_clusters[["k"]] == 3, "cluster"], # same order
+    parallel = 6)
 }
 ```
 
@@ -372,7 +390,8 @@ for example use the signal-to-noise-ratio to select interesting features:
 ```{r}
 mopw_features_selected <- list()
 for (i in names(COPS::brca_multi_omics)) {
-  mopw_features_selected[[i]] <- names(which(apply(abs(mopw_features[[i]][["snr"]]) > 0.75, 1, any)))
+  filter_i <- apply(abs(mopw_features[[i]][["snr"]]) > 0.75, 1, any)
+  mopw_features_selected[[i]] <- names(which(filter_i))
 }
 ```
 
@@ -396,9 +415,9 @@ omics data.
 ```{r}
 # We need to extract the patient IDs from the sample IDs again
 p_id <- gsub("-[0-9]+[A-Z]+$", "", colnames(COPS::brca_multi_omics$mrna))
-hm_annotations <- clinical_data[match(p_id, clinical_data[["patient"]]),
-                                c("age_at_initial_pathologic_diagnosis",
-                                  "pathologic_stage", "BRCA_Subtype_PAM50")]
+hm_annotations <- clinical_data[
+  match(p_id, clinical_data[["patient"]]),
+  c("age_at_initial_pathologic_diagnosis", "pathologic_stage", "BRCA_Subtype_PAM50")]
 colnames(hm_annotations) <- c("age","stage", "PAM50")
 hm_annotations[["cluster"]] <- mopw_clusters[mopw_clusters[["k"]] == 3, "cluster"]
 ```
@@ -412,10 +431,11 @@ output is highly customisable, since all extra arguments are passed to
 <code>ComplexHeatmap::Heatmap</code>. 
 
 ```{r, dpi=300, out.width="100%", fig.width=16, fig.height=16}
-COPS::heatmap_annotated(mopw_dat_selected, 
-                        hm_annotations, 
-                        scale = TRUE,
-                        column_split = hm_annotations[["cluster"]])
+COPS::heatmap_annotated(
+  mopw_dat_selected, 
+  hm_annotations, 
+  scale = TRUE,
+  column_split = hm_annotations[["cluster"]])
 ```
 
 ## Session info
