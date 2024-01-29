@@ -15,7 +15,9 @@ pareto_plot(
   size_range = c(2, 6),
   color_scale = ggplot2::scale_color_manual(values = plot_palette),
   plot_pareto_front = FALSE,
-  metric_comparators = if (plot_pareto_front) get_metric_comparators(metrics) else NULL
+  front_color = "black",
+  metric_comparators = if (plot_pareto_front) get_metric_comparators(metrics) else NULL,
+  point_args = list()
 )
 }
 \arguments{

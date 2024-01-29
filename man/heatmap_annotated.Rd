@@ -17,6 +17,7 @@ heatmap_annotated(
   row_names_side = "left",
   legend_names = NULL,
   color_breaks = NULL,
+  col_dat = circlize::colorRamp2(color_breaks, c("blue", "white", "red")),
   ...
 )
 }

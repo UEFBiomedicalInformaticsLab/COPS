@@ -228,7 +228,7 @@ Supported methods:
   \item "IntNMF" - Integrative Non-negative Matrix Factorization 
     \code{\link[IntNMF]{nmf.mnnals}}.
   \item "kkmeans" - kernel k-means initialized on spectral approximation, 
-    uses average kernel.
+    uses average kernel. 
   \item "kkmeanspp" - kernel k-means++ initialized randomly 
     \code{kkmeans_n_init} times, uses average kernel.
   \item "mkkm_mr" - Multiple Kernel K-Means with Matrix-induced Regularization 
