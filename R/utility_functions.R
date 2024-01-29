@@ -139,6 +139,20 @@ ecdf_transform <- function(x,
   return(out)
 }
 
+#' Jaccard similarity coefficient between two partitions
+#'
+#' @param x group indicators corresponding to a data partition
+#' @param y group indicators corresponding to another data partition
+#'
+#' @return Jaccard similarity coefficient
+#' @export
+jaccard_similarity <- function(x, y) {
+  if (length(x) != length(y)) stop("Unequal input lenghts!")
+  A <- sweep(t(x)[rep(1, length(x)),], 1, x, "==")
+  B <- sweep(t(y)[rep(1, length(y)),], 1, y, "==")
+  return((sum(A & B) - length(x)) / (sum(A | B) - length(x)))
+}
+
 #' Jaccard index between indicator matrix columns
 #'
 #' @param x indicator or binary feature matrix

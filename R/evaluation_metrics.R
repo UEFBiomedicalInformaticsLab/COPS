@@ -99,9 +99,7 @@ stability_eval <- function(clusters,
       nmi <- c()
       ari <- c()
       for (i in 1:length(clust)) {
-        jsc[i] <- clusteval::cluster_similarity(clust[[i]],
-                                                clustref[[i]],
-                                                similarity = "jaccard")
+        jsc[i] <- jaccard_similarity(clust[[i]], clustref[[i]])
         nmi[i] <- igraph::compare(clust[[i]], clustref[[i]], method = "nmi")
         ari[i] <- igraph::compare(clust[[i]], clustref[[i]], method = "adjusted.rand")
       }
@@ -183,7 +181,7 @@ stability_eval <- function(clusters,
   stability <- tryCatch(foreach(temp = temp_list,
                         .combine = function(...) data.table::rbindlist(list(...)),
                         .export = c(),
-                        .packages = c("clusteval", "data.table", "igraph"),
+                        .packages = c("data.table", "igraph"),
                         .multicombine = TRUE,
                         .maxcombine = max(length(temp_list), 2)) %dopar% {
     out <- tryCatch({

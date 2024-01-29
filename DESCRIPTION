@@ -16,7 +16,6 @@ Imports:
     circlize,
     cluster,
     ClusterR,
-    clusteval,
     ComplexHeatmap,
     cowplot,
     CVXR,
@@ -76,4 +75,4 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 LazyDataCompression: gzip
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
