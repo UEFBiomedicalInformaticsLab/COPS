@@ -40,25 +40,14 @@ with relatively small datasets (up to 1000 samples) can be run on a personal
 computer. 
 
 
-### Installation
+### Vignette required packages
 
-```{r, eval=FALSE}
-# Tested with R 4.3.2 and Bioconductor 3.18
-install.packages("devtools")
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install()
-bioc_dependencies <- c("AnnotationDbi", "biomaRt", "dnet", "fgsea", 
-                       "graph", "GSVA", "iClusterPlus", "MOFA2", "org.Hs.eg.db", 
-                       "Rgraphviz", "ROntoTools", "STRINGdb", "supraHex", 
-                       "ComplexHeatmap")
-BiocManager::install(bioc_dependencies)
-devtools::install_git("https://git.bioconductor.org/packages/ANF")
-devtools::install_github("theislab/kBet")
-devtools::install_github("trintala/IntNMF")
-devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
-install.packages("ggha4x") # used in this vignette
+In addition to the basic installation of <code>COPS</code>, this vignette makes 
+use of additional formatting for ggplot. 
+```{r}
+if (!requireNamespace("ggha4x", quietly = TRUE)) {
+  install.packages("ggha4x")
+}
 ```
 
 ## Clustering functionality

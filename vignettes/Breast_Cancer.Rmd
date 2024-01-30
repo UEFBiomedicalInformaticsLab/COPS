@@ -41,7 +41,7 @@ requirements it may not be practical for some datasets. In such cases, it is
 possible to manually separate and distribute computations for each method and 
 CV fold. 
 
-### Additional installations
+### Vignette required packages
 This vignette makes use of data outside of <code>COPS</code> and therefore 
 requires additional packages to be installed. 
 ```{r}
