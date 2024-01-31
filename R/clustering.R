@@ -47,7 +47,6 @@
 #' @importFrom flashClust flashClust
 #' @importFrom ClusterR KMeans_rcpp
 #' @import mclust
-#' @importFrom Spectrum Spectrum
 #' @importFrom cluster silhouette
 clustering_analysis <- function(dat,
                                 n_clusters = 2:5,
@@ -160,6 +159,9 @@ clustering_analysis <- function(dat,
       clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 
                                              k = "variable", cluster = clust_k))
     } else if (cluster_methods_expanded[i] == "spectral") {
+      if (!requireNamespace("Spectrum", quietly = TRUE)) {
+        stop("Please install Spectrum to enable spectral clustering.")
+      }
       for (j in 1:length(n_clusters)) {
         clust_k <- Spectrum::Spectrum(t(temp), method = 3, fixk = n_clusters[j])
         clusters <- rbind(clusters, data.frame(id = rownames(temp), m = cluster_methods_expanded[i], 

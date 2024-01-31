@@ -50,7 +50,6 @@ Imports:
     reticulate,
     ROntoTools,
     Rtsne,
-    Spectrum,
     STRINGdb,
     survival,
     uwot
@@ -65,6 +64,7 @@ Suggests:
     Rmosek,
     SC3,
     SingleCellExperiment,
+    Spectrum,
     SummarizedExperiment,
     swamp,
     TCGAutils,
