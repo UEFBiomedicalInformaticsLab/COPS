@@ -5,19 +5,31 @@ COPS is an R-package for clustering patients based on omics data. The COPS packa
 ## Installation
 
 ```R
-# Tested on Rocky Linux 8.7, R 4.2.1 and Bioconductor 3.15
+# Tested with R 4.3.2 and Bioconductor 3.18
 install.packages("devtools")
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install()
-bioc_dependencies <- c("ANF", "AnnotationDbi", "biomaRt", "dnet", "fgsea", 
-                       "graph", "GSVA", "iClusterPlus", "MOFA2", "org.Hs.eg.db", 
-                       "Rgraphviz", "ROntoTools", "STRINGdb", "supraHex", 
-                       "ComplexHeatmap")
+BiocManager::install("supraHex")
+devtools::install_github("cran/dnet")
+bioc_dependencies <- c(
+  "AnnotationDbi", 
+  "biomaRt", 
+  "fgsea", *
+  "graph", 
+  "GSVA", 
+  "iClusterPlus", *
+  "MOFA2", *
+  "org.Hs.eg.db", 
+  "Rgraphviz", *
+  "ROntoTools", *
+  "STRINGdb", 
+  "ComplexHeatmap")
 BiocManager::install(bioc_dependencies)
-devtools::install_github("cran/clusteval")
+devtools::install_git("https://git.bioconductor.org/packages/ANF")
 devtools::install_github("theislab/kBet")
+devtools::install_github("trintala/IntNMF")
 devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
 ```
 ### Optional packages
