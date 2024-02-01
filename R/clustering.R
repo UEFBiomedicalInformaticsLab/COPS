@@ -43,7 +43,6 @@
 #'         if batch_label was supplied
 #' @export
 #' @importFrom stats chisq.test cutree cor dist as.dist
-#' @importFrom aricode NMI ARI
 #' @importFrom flashClust flashClust
 #' @importFrom ClusterR KMeans_rcpp
 #' @import mclust
