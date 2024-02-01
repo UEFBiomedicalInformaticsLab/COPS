@@ -125,9 +125,14 @@ This notebook covers single-view clustering.
 </li>
 </ol>
 
+```{r}
+if (!requireNamespace("swamp", quietly = TRUE)) {
+  install.packages("swamp", repos='http://cran.rstudio.com/')
+}
+```
+
 ```{r setup, message = FALSE}
 library(COPS)
-library(swamp)
 ```
 
 ## 1. How to perform cluster analysis using COPS
@@ -150,6 +155,7 @@ scores <- clusteval_scoring(results)
 # List 10 best scores
 scores$all[1:10,]
 ```
+
 ```{r, cache.lazy = TRUE, echo = TRUE, message = FALSE}
 # Generate embedding and clustering based on best setting
 best <- get_best_result(results, scores)
