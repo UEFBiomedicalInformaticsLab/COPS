@@ -16,14 +16,14 @@ devtools::install_github("cran/dnet")
 bioc_dependencies <- c(
   "AnnotationDbi", 
   "biomaRt", 
-  "fgsea", *
+  "fgsea", 
   "graph", 
   "GSVA", 
-  "iClusterPlus", *
-  "MOFA2", *
+  "iClusterPlus", 
+  "MOFA2", 
   "org.Hs.eg.db", 
-  "Rgraphviz", *
-  "ROntoTools", *
+  "Rgraphviz", 
+  "ROntoTools", 
   "STRINGdb", 
   "ComplexHeatmap")
 BiocManager::install(bioc_dependencies)
