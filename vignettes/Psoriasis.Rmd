@@ -45,8 +45,8 @@ computer.
 In addition to the basic installation of <code>COPS</code>, this vignette makes 
 use of additional formatting for ggplot. 
 ```{r}
-if (!requireNamespace("ggha4x", quietly = TRUE)) {
-  install.packages("ggha4x", repos='http://cran.rstudio.com/')
+if (!requireNamespace("ggh4x", quietly = TRUE)) {
+  install.packages("ggh4x", repos='http://cran.rstudio.com/')
 }
 ```
 
