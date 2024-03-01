@@ -55,7 +55,8 @@ if (!requireNamespace("ggh4x", quietly = TRUE)) {
 Clustering analysis in <code>COPS</code> is divided into several steps, many of 
 which are optional:
 
-1. <code>cv_fold</code> generates cross-validation folds.
+1. <code>subsampling</code> generates data subsets using cross-validation or 
+bootstrap.
 2. <code>cv_pathway_enrichment</code> transforms the data from gene features 
 to pathway features thereby integrating biological knowledge with omics data.
 3. <code>cv_dimred</code> transforms the data into a lower dimensional 
@@ -109,7 +110,8 @@ relevant to each step, starting from general arguments shared by many functions:
     function call. See <code>?COPS</code> for more information. 
 * <code>cv_fold</code>
     + <code>nfolds</code> : Number of CV folds.
-    + <code>nruns</code> : Number of CV repeats
+    + <code>nruns</code> : Number of CV repeats or bootstrap iterations
+    + <code>nruns</code> : Number of CV repeats or bootstrap iterations
     + <code>stratified_cv</code> : Sets use of stratified CV, sample given 
     stratification variable as evenly as possible across the folds.
     + <code>anti_stratified</code> : Sets use of anti-stratified CV, sample 
@@ -119,8 +121,8 @@ relevant to each step, starting from general arguments shared by many functions:
     additional k+1th fold containing all data points, this fold is used as 
     reference by stability_eval.
 * <code>cv_pathway_enrichment</code>, <code>genes_to_pathways </code>
-    + <code>cv_index</code> : List of data.frames corresponding to 
-    cross-validation fold indicators as produced by <code>cv_fold</code>. 
+    + <code>sub_index</code> : List of data.frames corresponding to 
+    subset indices produced by <code>subsampling</code>. 
     Managed by the <code>COPS</code> function. 
     + <code>gene_id_list</code> : List of gene id vectors of the corresponding 
     columns in <code>dat_list</code> used to translate 'dim[0-9]+' back to genes 
@@ -136,10 +138,10 @@ relevant to each step, starting from general arguments shared by many functions:
     is not performed if this is <code>NULL</code>. 
     + <code>...</code> : See <code>?genes_to_pathways</code> for more options. 
 * <code>cv_dimred</code>, <code>dimensionality_reduction</code>
-    + <code>cv_index</code> : List of data.frames corresponding to 
-    cross-validation fold indicators as produced by <code>cv_fold</code>. 
+    + <code>sub_index</code> : List of data.frames corresponding to 
+    subset indices produced by <code>subsampling</code>. 
     Managed by the <code>COPS</code> function. 
-    + <code>cv_split_data</code> : Can be set to <code>FALSE</code> if 
+    + <code>sub_split_data</code> : Can be set to <code>FALSE</code> if 
     <code>dat_list</code> elements already contain the columns "run" and "fold". 
     The first transformation step in the analysis (either pathway-based or DR-based) 
     splits the data according to the folds, so if DR is performed after PW 
@@ -519,7 +521,7 @@ res_dr <- COPS::COPS(
   log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
   parallel = 6, nruns = 2, nfolds = 5, 
   dimred_methods = c("pca"), 
-  pca_dims = 2:10,
+  pca_dims = 2:8,
   cluster_methods = c("kmeans", "diana"), 
   distance_metric = "euclidean", 
   n_clusters = 2:6,

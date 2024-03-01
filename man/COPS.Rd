@@ -7,8 +7,8 @@
 \usage{
 COPS(
   dat,
-  nfolds,
-  nruns,
+  nfolds = 5,
+  nruns = 1,
   association_data = NULL,
   survival_data = NULL,
   module_eigs = NULL,
@@ -93,7 +93,7 @@ method given different settings and input data sets.
 \code{list} of clustering analysis results
 }
 \description{
-Combines \code{\link{cv_fold}}, \code{\link{cv_pathway_enrichment}},
+Combines \code{\link{subsampling}}, \code{\link{cv_pathway_enrichment}},
 \code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, 
 \code{\link{stability_eval}}, \code{\link{cv_survival_evaluation}}, 
 \code{\link{cv_module_evaluation}} and \code{\link{cv_association_analysis}} 

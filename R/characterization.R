@@ -17,12 +17,15 @@
 #' @importFrom circlize colorRamp2
 #' @importFrom RColorBrewer brewer.pal
 #' @importFrom pals watlington kelly
-heatmap_annotations <- function(annotations, 
-                                factor_color_sets = list(RColorBrewer::brewer.pal(8, "Dark2"), 
-                                                         RColorBrewer::brewer.pal(9, "Set1"),
-                                                         RColorBrewer::brewer.pal(9, "Pastel1"),
-                                                         pals::watlington(n = 16), 
-                                                         pals::kelly(n = 22))) {
+heatmap_annotations <- function(
+    annotations, 
+    factor_color_sets = list(
+      RColorBrewer::brewer.pal(8, "Dark2"), 
+      RColorBrewer::brewer.pal(9, "Set1"),
+      RColorBrewer::brewer.pal(9, "Pastel1"),
+      pals::watlington(n = 16), 
+      pals::kelly(n = 22))
+) {
   a_types <- sapply(annotations, class)
   for (i in names(annotations)) {
     if (a_types[i] %in% c("character", "integer")) {
@@ -54,7 +57,8 @@ heatmap_annotations <- function(annotations,
       a_palette_offset[i] <- factor_palette_size_reserved[fpi]
       factor_palette_size_reserved[fpi] <- factor_palette_size_reserved[fpi] + a_sizes[i]
       
-      heat_annotation_colors[[i]] <- factor_color_sets[[fpi]][(1+a_palette_offset[i]):(a_sizes[i]+a_palette_offset[i])]
+      col_inds <- (1+a_palette_offset[i]):(a_sizes[i]+a_palette_offset[i])
+      heat_annotation_colors[[i]] <- factor_color_sets[[fpi]][col_inds]
       
       names(heat_annotation_colors[[i]]) <- names(table(annotations[[i]]))
     } else {
@@ -62,19 +66,28 @@ heatmap_annotations <- function(annotations,
       if (length(cpi) == 0) stop("Too few continuous scales defined!")
       cpi <- cpi[1]
       cont_taken[cpi] <- TRUE
-      heat_annotation_colors[[i]] <- circlize::colorRamp2(c(min(annotations[[i]], na.rm = TRUE), 
-                                                            max(annotations[[i]], na.rm = TRUE)), 
-                                                          c("white", cont_colors[cpi]))
+      heat_annotation_colors[[i]] <- circlize::colorRamp2(
+        c(
+          min(annotations[[i]], na.rm = TRUE), 
+          max(annotations[[i]], na.rm = TRUE)
+        ), 
+        c("white", cont_colors[cpi]))
     }
     
-    heat_anno_args <- list(annotations[[i]], list(heat_annotation_colors[[i]]))
+    heat_anno_args <- list(
+      annotations[[i]], 
+      list(heat_annotation_colors[[i]]))
     names(heat_anno_args) <- c(i, "col")
     names(heat_anno_args[["col"]]) <- i
     
-    heat_annotations[[i]] <- do.call(ComplexHeatmap::HeatmapAnnotation, args = heat_anno_args)
+    heat_annotations[[i]] <- do.call(
+      ComplexHeatmap::HeatmapAnnotation, 
+      args = heat_anno_args)
   }
   
-  heat_annotations_combined <- Reduce(ComplexHeatmap::`%v%`, heat_annotations)
+  heat_annotations_combined <- Reduce(
+    ComplexHeatmap::`%v%`, 
+    heat_annotations)
   return(heat_annotations_combined)
 }
 
@@ -102,17 +115,21 @@ heatmap_annotations <- function(annotations,
 #'
 #' @importFrom ComplexHeatmap Heatmap %v%
 #' @importFrom circlize colorRamp2
-heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
-                              center = TRUE, scale = FALSE, 
-                              show_column_names = FALSE, 
-                              show_row_names = TRUE,
-                              show_column_dend = FALSE,
-                              show_row_dend = FALSE,
-                              row_names_side = "left", 
-                              legend_names = NULL, 
-                              color_breaks = NULL,
-                              col_dat = circlize::colorRamp2(color_breaks, c("blue", "white", "red")), 
-                              ...) {
+heatmap_annotated <- function(
+    dat, 
+    variable_list = list(), 
+    feature_names = NULL,
+    center = TRUE, scale = FALSE, 
+    show_column_names = FALSE, 
+    show_row_names = TRUE,
+    show_column_dend = FALSE,
+    show_row_dend = FALSE,
+    row_names_side = "left", 
+    legend_names = NULL, 
+    color_breaks = NULL,
+    col_dat = circlize::colorRamp2(color_breaks, c("blue", "white", "red")), 
+    ...
+) {
   if (!"list" %in% class(dat)) dat <- list(dat)
   if (length(variable_list) > 0) {
     col_annots <- heatmap_annotations(variable_list)
@@ -123,19 +140,29 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
   if (is.null(legend_names)) legend_names <- names(dat)
   if (is.null(legend_names)) legend_names <- paste0("input", 1:length(dat))
   for (i in 1:length(dat)) {
-    if (!is.null(feature_names)) dat[[i]] <- dat[[i]][intersect(feature_names, rownames(dat[[i]])),]
-    if (center | scale) dat[[i]] <- t(scale(t(dat[[i]]), center = center, scale = scale))
-    if (is.null(color_breaks)) color_breaks <- c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]]))
-    heatmap_list <- c(heatmap_list, 
-                      list(ComplexHeatmap::Heatmap(dat[[i]], 
-                                                   name = legend_names[i],
-                                                   show_column_names = show_column_names, 
-                                                   show_row_names = show_row_names,
-                                                   show_column_dend = show_column_dend,
-                                                   show_row_dend = show_row_dend,
-                                                   row_names_side = row_names_side,
-                                                   col = col_dat,
-                                                   ...)))
+    if (!is.null(feature_names)) {
+      dat[[i]] <- dat[[i]][intersect(feature_names, rownames(dat[[i]])),]
+    }
+    if (center | scale) {
+      dat[[i]] <- t(scale(t(dat[[i]]), center = center, scale = scale))
+    }
+    if (is.null(color_breaks)) {
+      color_breaks <- c(min(dat[[i]]), mean(dat[[i]]), max(dat[[i]]))
+    }
+    heatmap_list <- c(
+      heatmap_list, 
+      list(ComplexHeatmap::Heatmap(
+        dat[[i]], 
+        name = legend_names[i],
+        show_column_names = show_column_names, 
+        show_row_names = show_row_names,
+        show_column_dend = show_column_dend,
+        show_row_dend = show_row_dend,
+        row_names_side = row_names_side,
+        col = col_dat,
+        ...
+      ))
+    )
   }
   heatmap_combined <- Reduce(ComplexHeatmap::`%v%`, heatmap_list)
   return(heatmap_combined)
@@ -153,7 +180,12 @@ heatmap_annotated <- function(dat, variable_list = list(), feature_names = NULL,
 #' @return \code{list} of test results
 #' @export
 #' @importFrom caret nearZeroVar
-univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1) {
+univariate_features <- function(
+    dat, 
+    group, 
+    remove_zero_var = TRUE, 
+    parallel = 1
+) {
   dat <- t(dat)
   if (remove_zero_var) {
     zv <- caret::nearZeroVar(dat)
@@ -187,12 +219,16 @@ univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1
     for (k in unique(group)) {
       k_indicator <- group == k
       if (sum(k_indicator) > 1) {
-        t_res <- t.test(j[k_indicator], j[!k_indicator], 
-                        alternative = "two.sided", var.equal = FALSE)
+        t_res <- t.test(
+          j[k_indicator], 
+          j[!k_indicator], 
+          alternative = "two.sided", 
+          var.equal = FALSE)
         out_j$t_test_t[k] <- t_res$statistic
         out_j$t_test_p[k] <- t_res$p.value
-        w_res <- wilcox.test(j[k_indicator], j[!k_indicator], 
-                             alternative = "two.sided")
+        w_res <- wilcox.test(
+          j[k_indicator], j[!k_indicator], 
+          alternative = "two.sided")
         out_j$w_test_w[k] <- w_res$statistic
         out_j$w_test_p[k] <- w_res$p.value
       }
@@ -204,8 +240,14 @@ univariate_features <- function(dat, group, remove_zero_var = TRUE, parallel = 1
     out_j
   }, finally = close_parallel_cluster(parallel_clust))
   # Vectorized computations for signal-to-noise ratio
-  out$snr <- matrix(NA, nrow = length(gene_names), ncol = length(unique(group)))
-  out$effect <- matrix(NA, nrow = length(gene_names), ncol = length(unique(group)))
+  out$snr <- matrix(
+    NA, 
+    nrow = length(gene_names), 
+    ncol = length(unique(group)))
+  out$effect <- matrix(
+    NA, 
+    nrow = length(gene_names), 
+    ncol = length(unique(group)))
   colnames(out$snr) <- colnames(out$effect) <- unique(group)
   rownames(out$snr) <- rownames(out$effect) <- gene_names
   

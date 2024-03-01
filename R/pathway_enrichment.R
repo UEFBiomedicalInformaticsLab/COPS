@@ -27,95 +27,137 @@
 #' library(COPS)
 #' 
 #' ## GSVA example
-#' ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-#'                              parallel = 2, gene_key_x = "ENSEMBL", 
-#'                              gs_subcats = "CP:KEGG")
+#' ad_gsva <- genes_to_pathways(
+#'     as.matrix(ad_ge_micro_zscore), 
+#'     "GSVA", 
+#'     parallel = 2, 
+#'     gene_key_x = "ENSEMBL", 
+#'     gs_subcats = "CP:KEGG")
 #' # batch-wise
-#' ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-#'                              batch_label_pw = ad_studies$GSE, parallel = 2, 
-#'                              gene_key_x = "ENSEMBL", gs_subcats = "CP:KEGG")
+#' ad_gsva <- genes_to_pathways(
+#'     as.matrix(ad_ge_micro_zscore), 
+#'     "GSVA", 
+#'     batch_label_pw = ad_studies$GSE, 
+#'     parallel = 2, 
+#'     gene_key_x = "ENSEMBL", 
+#'     gs_subcats = "CP:KEGG")
 #' 
 #' ## DiffRank example with batch-wise enrichment
-#' ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-#'                                  parallel = 2, gene_key_x = "ENSEMBL", 
-#'                                  gs_subcats = "CP:KEGG")
+#' ad_diffrank <- genes_to_pathways(
+#'     ad_ge_micro_zscore, 
+#'     "DiffRank", 
+#'     parallel = 2, 
+#'     gene_key_x = "ENSEMBL", 
+#'     gs_subcats = "CP:KEGG")
 #' # batch-wise
-#' ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-#'                                  batch_label_pw = ad_studies$GSE, 
-#'                                  parallel = 2, gene_key_x = "ENSEMBL", 
-#'                                  gs_subcats = "CP:KEGG")
-#' 
-#' ## RWRFGSEA example
-#' ad_data <- ad_ge_micro_zscore
-#' rownames(ad_data) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
-#'                                                         rownames(ad_data), "SYMBOL", "ENSEMBL"))
-#' ad_wgcna_net <- coexpression_network_unweighted(ad_data)
-#' kegg_annotations <- msigdbr::msigdbr(species = "Homo sapiens", 
-#'                                      category = "C2", 
-#'                                      subcategory = "CP:KEGG")
-#' list_kegg_annotations <- lapply(split(kegg_annotations, kegg_annotations$gs_name), 
-#'                                 function(x) x$human_gene_symbol) 
-#' 
-#' ad_rwrfgsea <- genes_to_pathways(ad_data, "RWRFGSEA", gene_set_list = list_kegg_annotations, 
-#'                                  gene_network = ad_wgcna_net, parallel = 2)
+#' ad_diffrank <- genes_to_pathways(
+#'     ad_ge_micro_zscore, 
+#'     "DiffRank", 
+#'     batch_label_pw = ad_studies$GSE, 
+#'     parallel = 2, 
+#'     gene_key_x = "ENSEMBL", 
+#'     gs_subcats = "CP:KEGG")
 #' 
 #' @importFrom AnnotationDbi mapIds
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
 #' @importFrom dplyr filter
 #' @importFrom msigdbr msigdbr
 #' @importFrom GSVA gsva
-genes_to_pathways <- function(x, 
-                              enrichment_method = "GSVA",
-                              gene_set_list = NULL,
-                              batch_label_pw = NULL, 
-                              min_size = 5, 
-                              max_size = 200, 
-                              parallel = 1,
-                              verbose = FALSE,
-                              gene_key_x = "SYMBOL",
-                              gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
-                              gsva_kcdf = "Gaussian",
-                              ...
+genes_to_pathways <- function(
+    x, 
+    enrichment_method = "GSVA",
+    gene_set_list = NULL,
+    batch_label_pw = NULL, 
+    min_size = 5, 
+    max_size = 200, 
+    parallel = 1,
+    verbose = FALSE,
+    gene_key_x = "SYMBOL",
+    gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
+    gsva_kcdf = "Gaussian",
+    ...
 ) {
   #x <- t(x)
   if (is.null(gene_set_list)) {
     # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
     db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
-    db_annots <- dplyr::filter(db_annots, grepl(paste0("^", paste(gs_subcats, collapse = "$|^"), "$"), gs_subcat))
+    db_annots <- dplyr::filter(
+      db_annots, 
+      grepl(
+        paste0("^", paste(gs_subcats, collapse = "$|^"), "$"), 
+        gs_subcat
+      )
+    )
     
     if (gene_key_x != "SYMBOL") {
-      db_annots$gene_id <- suppressMessages(as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
-                                                                               db_annots$human_gene_symbol, 
-                                                                               column = gene_key_x, 
-                                                                               keytype = "SYMBOL")))
+      db_annots$gene_id <- suppressMessages(
+        as.character(
+          AnnotationDbi::mapIds(
+            org.Hs.eg.db::org.Hs.eg.db, 
+            db_annots$human_gene_symbol, 
+            column = gene_key_x, 
+            keytype = "SYMBOL"
+          )
+        )
+      )
     } else {
       db_annots$gene_id <- db_annots$human_gene_symbol
     }
     
-    gene_set_list <- lapply(split(db_annots, db_annots$gs_name), function(a) a$gene_id)
+    gene_set_list <- lapply(
+      split(db_annots, db_annots$gs_name), 
+      function(a) a$gene_id)
   }
   
-  gene_set_list <- gene_set_list[which(sapply(gene_set_list, length) <= max_size & sapply(gene_set_list, length) >= min_size)]
+  gene_set_list <- gene_set_list[
+    which(
+      sapply(gene_set_list, length) <= max_size & 
+        sapply(gene_set_list, length) >= min_size
+    )
+  ]
   
   if(!is.null(batch_label_pw)) {
     # Batch-wise enrichment analysis
     if (any(table(batch_label_pw) < 10)) {
-      warning("Batch-wise pathway enrichment results may be unreliable due to low number of samples in some batches.")
+      warning(paste(
+        "Batch-wise pathway enrichment results may be unreliable due to low", 
+        "number of samples in some batches."))
     }
     if (any(table(batch_label_pw) < 2)) {
-      stop("Batch-wise pathway enrichment failed, all batches must have at least 2 samples.")
+      stop(paste(
+        "Batch-wise pathway enrichment failed, all batches must have at least", 
+        "2 samples."))
     }
-    batch_dat_list <- lapply(unique(batch_label_pw), function(a) x[, which(a == as.character(batch_label_pw)), drop = FALSE])
+    batch_dat_list <- lapply(
+      unique(batch_label_pw), 
+      function(a) x[, which(a == as.character(batch_label_pw)), drop = FALSE])
     
     # Apply the specified enrichment methods
     if (enrichment_method == "GSVA") {
-      enriched_dat <- lapply(batch_dat_list, GSVA::gsva, gset.idx.list = gene_set_list, mx.diff = TRUE, 
-                             verbose = verbose, parallel.sz = parallel, kcdf = gsva_kcdf,
-                             min.sz = min_size, max.sz = max_size)
+      enriched_dat <- lapply(
+        batch_dat_list, 
+        GSVA::gsva, 
+        gset.idx.list = gene_set_list, 
+        mx.diff = TRUE, 
+        verbose = verbose, 
+        parallel.sz = parallel,
+        kcdf = gsva_kcdf,
+        min.sz = min_size, 
+        max.sz = max_size)
     } else if (enrichment_method == "DiffRank") {
-      enriched_dat <- lapply(batch_dat_list, DiffRank, gene_set_list = gene_set_list, parallel = parallel)
+      enriched_dat <- lapply(
+        batch_dat_list, 
+        DiffRank, 
+        gene_set_list = gene_set_list, 
+        parallel = parallel)
     } else if (enrichment_method == "RWRFGSEA") {
-      enriched_dat <- lapply(batch_dat_list, RWRFGSEA, gene_set_list = gene_set_list, parallel = parallel, verbose = verbose, ...)
+      enriched_dat <- lapply(
+        batch_dat_list, 
+        RWRFGSEA, 
+        gene_set_list = gene_set_list, 
+        parallel = parallel, 
+        verbose = verbose, 
+        ...)
     } else {
       stop(paste("Unsupported pathway enrichment method:", enrichment_method))
     }
@@ -123,14 +165,25 @@ genes_to_pathways <- function(x,
   } else {
     # Regular enrichment analysis
     if (enrichment_method == "GSVA") {
-      enriched_dat <- suppressWarnings(GSVA::gsva(x, gset.idx.list = gene_set_list, mx.diff = TRUE, 
-                                                  verbose = verbose, parallel.sz = parallel, 
-                                                  kcdf = gsva_kcdf,
-                                                  min.sz = min_size, max.sz = max_size))#, rnaseq = rnaseq)) # later version for rnaseq?
+      enriched_dat <- suppressWarnings(
+        GSVA::gsva(
+          x, 
+          gset.idx.list = gene_set_list, 
+          mx.diff = TRUE, 
+          verbose = verbose, 
+          parallel.sz = parallel, 
+          kcdf = gsva_kcdf,
+          min.sz = min_size, 
+          max.sz = max_size))#, rnaseq = rnaseq)) # later version for rnaseq?
     } else if (enrichment_method == "DiffRank") {
       enriched_dat <- COPS::DiffRank(x, gene_set_list, parallel)
     } else if (enrichment_method == "RWRFGSEA") {
-      enriched_dat <- RWRFGSEA(x, gene_set_list = gene_set_list, parallel = parallel, verbose = verbose, ...)
+      enriched_dat <- RWRFGSEA(
+        x, 
+        gene_set_list = gene_set_list, 
+        parallel = parallel, 
+        verbose = verbose, 
+        ...)
     } else {
       stop(paste("Unsupported pathway enrichment method:", enrichment_method))
     }
@@ -162,62 +215,78 @@ genes_to_pathways <- function(x,
 #' Setting \code{parallel} does nothing. 
 #'
 #' @param dat_list list of data.tables corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).
-#' @param cv_index list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}
+#' @param sub_index list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}
 #' @param gene_id_list list of gene name vectors of the corresponding columns in dat_list
 #' @param parallel ignored and set to 1 for spawned subprocesses
 #' @param ... arguments passed on to \code{\link[COPS]{genes_to_pathways}}
 #'
 #' @return \code{list} of \code{data.frame}s with extracted pathway features
 #' @export
-cv_pathway_enrichment <- function(dat_list, 
-                                  cv_index, 
-                                  gene_id_list, 
-                                  parallel = 1, 
-                                  ...) {
+cv_pathway_enrichment <- function(
+    dat_list, 
+    sub_index, 
+    gene_id_list, 
+    parallel = 1, 
+    ...
+) {
   temp_list <- list()
-  for (i in 1:length(cv_index)) {
-    temp <- cv_index[[i]]
-    datname <- names(cv_index)[i]
+  for (i in 1:length(sub_index)) {
+    temp <- sub_index[[i]]
+    datname <- names(sub_index)[i]
     if (is.null(datname)) datname <- i
     temp$datname <- datname
     temp <- merge(dat_list[[datname]], temp, by = "id")
     temp <- split(temp, by = c("run", "fold"))
     temp <- lapply(temp, as.data.frame)
-    temp <- lapply(temp, function(x) list(dat = x, gene_ids = gene_id_list[[i]]))
+    temp <- lapply(
+      temp, 
+      function(x) list(dat = x, gene_ids = gene_id_list[[i]]))
     temp_list <- c(temp_list, temp)
   }
   
   parallel_clust <- setup_parallelization(parallel)
   
-  out <- tryCatch(foreach(i = temp_list, 
-                 .combine = c,
-                 .export = c("genes_to_pathways"), #"dat_list"),
-                 .packages = c("GSVA", "fgsea", "dnet", "msigdbr", "AnnotationDbi", "org.Hs.eg.db")) %dopar% {
-                   sel <- grep("^dim[0-9]+$", colnames(i$dat))
-                   temp <- i$dat[, sel]
-                   colnames(temp) <- i$gene_ids
-                   # Parallel = 1 for subprocesses
-                   pw_temp <- genes_to_pathways(t(temp), parallel = 1, ...)
-                   if(length(pw_temp) == 0) stop("Pathway enrichment failed, empty result.")
-                   pw_temp <- lapply(pw_temp, function(x) {
-                     temp2 <- as.data.frame(t(x))
-                     if (ncol(temp2)>0) {
-                       colnames(temp2) <- paste0("dim", 1:ncol(temp2)) # replace pw names with dimX for compatibility
-                       return(cbind(i$dat[,-sel], temp2))
-                     } else {
-                       return(data.frame())
-                     }
-                   })
-                   # It is possible for the enrichment to return 0 enriched features.
-                   # Here we remove all cv-folds where this happens, which is
-                   # unsafe if reference fold is removed but other folds remain. 
-                   # TODO: investigate this issue further
-                   pw_temp <- pw_temp[sapply(pw_temp, ncol) > 0] 
-                   for (j in 1:length(pw_temp)) {
-                     pw_temp[[j]]$datname <- names(pw_temp)[j]
-                   }
-                   pw_temp
-                 }, finally = close_parallel_cluster(parallel_clust))
+  out <- tryCatch(
+    foreach(
+      i = temp_list, 
+      .combine = c,
+      .export = c("genes_to_pathways"), #"dat_list"),
+      .packages = c(
+        "GSVA", 
+        "fgsea", 
+        "dnet", 
+        "msigdbr", 
+        "AnnotationDbi", 
+        "org.Hs.eg.db")
+      ) %dopar% {
+        sel <- grep("^dim[0-9]+$", colnames(i$dat))
+        temp <- i$dat[, sel]
+        colnames(temp) <- i$gene_ids
+        # Parallel = 1 for subprocesses
+        pw_temp <- genes_to_pathways(t(temp), parallel = 1, ...)
+        if(length(pw_temp) == 0) stop("Pathway enrichment failed, empty result.")
+        pw_temp <- lapply(pw_temp, function(x) {
+         temp2 <- as.data.frame(t(x))
+         if (ncol(temp2)>0) {
+           # replace pw names with dimX for compatibility
+           colnames(temp2) <- paste0("dim", 1:ncol(temp2)) 
+           return(cbind(i$dat[,-sel], temp2))
+         } else {
+           return(data.frame())
+         }
+        })
+        # It is possible for the enrichment to return 0 enriched features.
+        # Here we remove all cv-folds where this happens, which is
+        # unsafe if reference fold is removed but other folds remain. 
+        # TODO: investigate this issue further
+        pw_temp <- pw_temp[sapply(pw_temp, ncol) > 0] 
+        for (j in 1:length(pw_temp)) {
+         pw_temp[[j]]$datname <- names(pw_temp)[j]
+        }
+        pw_temp
+      }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   return(out)
 }
 
@@ -229,9 +298,11 @@ cv_pathway_enrichment <- function(dat_list,
 #' 
 #' @return \code{data.frame} of pathway activities for each sample
 #' @export
-DiffRank <- function(x, 
-                     gene_set_list, 
-                     parallel = 1) {
+DiffRank <- function(
+    x, 
+    gene_set_list, 
+    parallel = 1
+) {
   ranks <- apply(x, 2, function(a) order(order(a)))
   out <- matrix(NA, length(gene_set_list), ncol(x))
   rownames(out) <- names(gene_set_list)
@@ -239,22 +310,26 @@ DiffRank <- function(x,
   
   parallel_clust <- setup_parallelization(parallel)
   
-  out <- tryCatch(foreach(i = gene_set_list, 
-                .combine = rbind,
-                .export = c(),
-                .multicombine = TRUE,
-                .maxcombine = max(length(gene_set_list), 2)) %dopar% {
-    ind <- which(rownames(x) %in% i)
-    # Compare mean ranks of pw genes vs non-pw genes
-    apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean) - apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
-  }, finally = close_parallel_cluster(parallel_clust))
+  out <- tryCatch(
+    foreach(
+      i = gene_set_list, 
+      .combine = rbind,
+      .export = c(),
+      .multicombine = TRUE,
+      .maxcombine = max(length(gene_set_list), 2)
+    ) %dopar% {
+      ind <- which(rownames(x) %in% i)
+      # Compare mean ranks of pw genes vs non-pw genes
+      pw_mean <- apply(ranks[ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
+      npw_mean <- apply(ranks[-ind,,drop=FALSE] - nrow(ranks)/2, 2, mean)
+      pw_mean - npw_mean
+    }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   
   rownames(out) <- names(gene_set_list)
   out <- out[!apply(out, 1, function(a) all(is.na(a))),]
   
   return(out)
-  #return(list(KEGG_DiffRank = out[grep("^KEGG", rownames(out)),], 
-  #            GO_DiffRank = out[grep("^GO_|^GOBP_", rownames(out)),], 
-  #            REACTOME_DiffRank = out[grep("^REACTOME", rownames(out)),]))
 }
 

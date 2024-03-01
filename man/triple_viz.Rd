@@ -29,7 +29,8 @@ umap_viz(
   category,
   category_label,
   umap_neighbors = 20,
-  color_scale = scale_color_brewer(palette = "Dark2")
+  color_scale = scale_color_brewer(palette = "Dark2"),
+  ...
 )
 
 tsne_viz(

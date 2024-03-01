@@ -4,7 +4,7 @@
 \alias{ECMC}
 \title{Enhanced consensus multi-view clustering}
 \usage{
-ECMC(x, a, b, eps = 1e-06, n_threads = FALSE, solver = "MOSEK", maxiter = 5)
+ECMC(x, a, b, eps = 1e-06, maxiter = 10, parallel = 0)
 }
 \arguments{
 \item{x}{list of kernel matrices}

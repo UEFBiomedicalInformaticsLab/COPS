@@ -21,14 +21,16 @@
 #'
 #' @importFrom plyr join
 #' @importFrom data.table data.table rbindlist
-cv_fold <- function(dat_list, 
-                    nfolds = 5, 
-                    nruns = 2, 
-                    stratified_cv = FALSE, 
-                    anti_stratified = FALSE,
-                    cv_stratification_var = NULL,
-                    extra_fold = TRUE, 
-                    ...) {
+cv_fold <- function(
+    dat_list, 
+    nfolds = 5, 
+    nruns = 2, 
+    stratified_cv = FALSE, 
+    anti_stratified = FALSE,
+    cv_stratification_var = NULL,
+    extra_fold = TRUE, 
+    ...
+) {
   out <- list()
   for (i in 1:length(dat_list)) {
     if (any(c("data.table", "data.frame") %in% class(dat_list[[i]]))) {
@@ -42,19 +44,30 @@ cv_fold <- function(dat_list,
     folded <- list()
     for (j in 1:nruns) {
       if (!is.null(cv_stratification_var) & (stratified_cv)) {
-        a_ind <- lapply(table(cv_stratification_var), function(x) sample(1:x, x))
-        b_ind <- sample(1:length(unique(cv_stratification_var)), length(unique(cv_stratification_var)))
-        c_ind <- cumsum(table(cv_stratification_var)[unique(cv_stratification_var)[b_ind]])
+        # Shuffle indices inside each group
+        a_ind <- lapply(
+          table(cv_stratification_var), 
+          function(x) sample(1:x, x))
+        # Shuffle groups
+        b_ind <- sample(
+          1:length(unique(cv_stratification_var)), 
+          length(unique(cv_stratification_var)))
+        # Calculate cumulative size of shuffled groups
+        c_ind <- cumsum(
+          table(cv_stratification_var)[unique(cv_stratification_var)[b_ind]])
+        # Build 
         cv_index <- c()
         for (u in 1:length(b_ind)) {
           un <- unique(cv_stratification_var)[b_ind[u]]
-          cv_index[cv_stratification_var == un] <- a_ind[[un]] + ifelse(u > 1, c_ind[u-1], 0)
+          group_offset <- ifelse(u > 1, c_ind[u-1], 0)
+          cv_index[cv_stratification_var == un] <- a_ind[[un]] + group_offset
         }
         if (anti_stratified) {
-          # Stratified cv folds such that holdout set labels mostly do not match to rest of data
+          # Evenly sized cv folds such that holdout set labels mostly do not match to rest of data
+          # NOTE: different from scikit-learn group CV
           cv_index <- cv_index %/% -(length(cv_stratification_var) %/% -nfolds) + 1
         } else {
-          # Mixed cv folds such that labels are evenly distributed within folds
+          # Evenly sized cv folds such that labels are evenly distributed within folds
           cv_index <- cv_index %% nfolds + 1
         }
       } else {
@@ -68,13 +81,11 @@ cv_fold <- function(dat_list,
       folded[[j]] <- list()
       for (f in 1:(nfolds+extra_fold)) {
         # TODO: fix downstream support so that test set can be included too
-        #tempfold <- dat_list[[i]][cv_index != f, ]
-        #tempfold$fold <- f
-        #tempfold$run <- j
-        #tempfold$cv_index <- cv_index[cv_index != f]
-        folded[[j]][[f]] <- data.table::data.table(fold = f, run = j, 
-                                                   cv_index = cv_index[cv_index != f], 
-                                                   id = id[cv_index != f])
+        folded[[j]][[f]] <- data.table::data.table(
+          fold = f, 
+          run = j, 
+          cv_index = cv_index[cv_index != f], 
+          id = id[cv_index != f])
       }
       folded[[j]] <- data.table::rbindlist(folded[[j]])
     }
@@ -84,13 +95,57 @@ cv_fold <- function(dat_list,
   return(out)
 }
 
-data_preprocess <- function(dat, verbose = FALSE) {
+#' Subsampling permutations of clustering dataset
+#' 
+#' Creates subsamples via bootstrapping. 
+#'
+#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
+#'         duplicated rows of the original data corresponding to different folds.
+#' @export
+bootstrap <- function(
+    dat_list, 
+    nruns = 100, 
+    stratified_cv = FALSE, 
+    anti_stratified = FALSE,
+    cv_stratification_var = NULL,
+    extra_fold = TRUE
+) {
+  
+}
+
+#' Subsampling permutations of clustering dataset
+#' 
+#' Creates subsamples via cross-validation folds or bootstrapping. 
+#'
+#' @param ... arguments passed to \code{\link[COPS]{cv_fold}} or \code{\link[COPS]{bootstrap}}
+#' @param subsampling_strategy either \code{"cv"} or \code{"bootstrap"}
+#'
+#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
+#'         duplicated rows of the original data corresponding to different folds.
+#' @export
+subsampling <- function(
+    ..., 
+    subsampling_strategy = "cv"
+) {
+  if (subsampling_strategy == "cv") {
+    return(cv_fold(...))
+  } else if (subsampling_strategy == "bootstrap") {
+    return(bootstrap(...))
+  } else {
+    stop(paste("Unsupported subsampling strategy:", subsampling_strategy))
+  }
+}
+
+data_preprocess <- function(
+    dat, 
+    verbose = FALSE
+) {
   if ("list" %in% class(dat)) {
     dat_list <- dat
   } else {
     dat_list <- list(dat)
   }
-  if(verbose) print("Processing data sets ..."); flush.console()
+  if(verbose) print_flush("Processing data sets ...")
   
   # Collect gene names for later. 
   # They are required for pathway-based approaches
@@ -117,23 +172,30 @@ data_preprocess <- function(dat, verbose = FALSE) {
 #'
 #' @return matrix of row-wise ecdf values with dimensions matching input
 #' @export
-ecdf_transform <- function(x, 
-                           parallel = 1) {
+ecdf_transform <- function(
+    x, 
+    parallel = 1
+) {
   x_sd <- apply(x, 1, sd)
   parallel_clust <- setup_parallelization(parallel)
-  score <- tryCatch(foreach(i = 1:ncol(x), 
-                   .combine = cbind,
-                   .export = c(),
-                   .multicombine = TRUE,
-                   .maxcombine = max(ncol(x), 2)) %dopar% {
-                     score_i <- x * 0
-                     for (j in (1:ncol(x))[-i]) {
-                       # z-score with respect to each kernel
-                       score_i[,j] <- pnorm((x[,j] - x[,i]) / x_sd)
-                     }
-                     # sum over kernels
-                     apply(score_i, 1, sum) / (ncol(x) - 1) 
-                   }, finally = close_parallel_cluster(parallel_clust))
+  score <- tryCatch(
+    foreach(
+      i = 1:ncol(x), 
+      .combine = cbind,
+      .export = c(),
+      .multicombine = TRUE,
+      .maxcombine = max(ncol(x), 2)
+    ) %dopar% {
+      score_i <- x * 0
+      for (j in (1:ncol(x))[-i]) {
+       # z-score with respect to each kernel
+       score_i[,j] <- pnorm((x[,j] - x[,i]) / x_sd)
+      }
+      # sum over kernels
+      apply(score_i, 1, sum) / (ncol(x) - 1) 
+      }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   out <- score - 0.5
   colnames(out) <- colnames(x)
   return(out)
@@ -180,12 +242,19 @@ jaccard_matrix <- function(x) {
 #'
 #' @return \code{igraph} object
 #' @export
-coexpression_network_unweighted <- function(dat, 
-                                            correlation_method = "spearman", 
-                                            cor_threshold = 0.5) {
+coexpression_network_unweighted <- function(
+    dat, 
+    correlation_method = "spearman", 
+    cor_threshold = 0.5
+) {
   cor_mat <- cor(t(dat), method = correlation_method)
-  coexpr_net <- WGCNA::signumAdjacencyFunction(cor_mat, threshold = cor_threshold)
-  coexpr_net <- igraph::graph_from_adjacency_matrix(coexpr_net, mode = "undirected", weighted = NULL)
+  coexpr_net <- WGCNA::signumAdjacencyFunction(
+    cor_mat, 
+    threshold = cor_threshold)
+  coexpr_net <- igraph::graph_from_adjacency_matrix(
+    coexpr_net, 
+    mode = "undirected", 
+    weighted = NULL)
   return(coexpr_net)
 }
 
@@ -203,26 +272,36 @@ coexpression_network_unweighted <- function(dat,
 #' @return \code{ggplot} object
 #' @export
 #' @importFrom ggplot2 ggplot aes geom_tile theme_bw coord_fixed ggtitle scale_fill_distiller theme element_blank
-plot_similarity_matrix <- function(sim_mat, 
-                                   method = "average", 
-                                   palette = "RdBu", 
-                                   #pos_color = "#6E0700", 
-                                   #neg_color = "#05006E", 
-                                   #midpoint = 0, 
-                                   limits = c(-1,1), 
-                                   palette_direction = 1, 
-                                   title = NULL) {
+plot_similarity_matrix <- function(
+    sim_mat, 
+    method = "average", 
+    palette = "RdBu", 
+    #pos_color = "#6E0700", 
+    #neg_color = "#05006E", 
+    #midpoint = 0, 
+    limits = c(-1,1), 
+    palette_direction = 1, 
+    title = NULL) {
   # Remove NAs before hclust
   sim_mat[is.na(sim_mat)] <- 0
   hc <- hclust(as.dist(-limits[2] - sim_mat), method = method)
   dat <- reshape2::melt(sim_mat[hc$order, rev(hc$order)])
-  ggplot(dat, aes(Var1, Var2, fill = value)) + geom_tile() + theme_bw() + coord_fixed() + ggtitle(title) + 
-    scale_fill_distiller(palette = palette, limits = limits, direction = palette_direction) + 
-    #scale_fill_gradientn(colors = c(pos_color, "#FFFFFF", neg_color), 
-    #                     values = c(0, (limits[1] + midpoint) / limits[1] + limits[2], 1), 
-    #                     limits = limits) + 
-    theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
-          axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
+  ggplot(dat, aes(Var1, Var2, fill = value)) + 
+    geom_tile() + 
+    theme_bw() + 
+    coord_fixed() + 
+    ggtitle(title) + 
+    scale_fill_distiller(
+      palette = palette, 
+      limits = limits, 
+      direction = palette_direction) + 
+    theme(
+      axis.title.x = element_blank(), 
+      axis.text.x = element_blank(), 
+      axis.ticks.x = element_blank(), 
+      axis.title.y = element_blank(), 
+      axis.text.y = element_blank(), 
+      axis.ticks.y = element_blank())
 }
 
 #' Retrieve disease-gene associations from the Open Targets platforms. 
@@ -278,16 +357,22 @@ retrieveDiseaseGenesOT <- function(diseases, fields) {
 #' @importFrom igraph graph_from_edgelist graph_from_adjacency_matrix as_adjacency_matrix
 #' @importFrom biomaRt useEnsembl getBM
 #' @importFrom Matrix rowSums
-getHumanPPIfromSTRINGdb <- function(gene_ids = NULL, 
-                                    cutoff = 700, 
-                                    directed = FALSE, 
-                                    version = "11", 
-                                    gene_id_mart_column = "hgnc_symbol") {
-  string_db <- STRINGdb::STRINGdb$new(version = version, species=9606, score_threshold = cutoff)
+getHumanPPIfromSTRINGdb <- function(
+    gene_ids = NULL, 
+    cutoff = 700, 
+    directed = FALSE, 
+    version = "11", 
+    gene_id_mart_column = "hgnc_symbol"
+) {
+  string_db <- STRINGdb::STRINGdb$new(
+    version = version, 
+    species=9606, 
+    score_threshold = cutoff)
   if(directed) {
-    gene.stringdb <- string_db$map(my_data_frame = gene_ids, 
-                                   my_data_frame_id_col_names='target.gene_info.symbol', 
-                                   removeUnmappedRows=TRUE)
+    gene.stringdb <- string_db$map(
+      my_data_frame = gene_ids, 
+      my_data_frame_id_col_names='target.gene_info.symbol', 
+      removeUnmappedRows=TRUE)
     string_inter <- string_db$get_interactions(gene.stringdb$STRING_id)
     idx_from <- match(x = string_inter$from, table = gene.stringdb$STRING_id)
     idx_to <- match(x = string_inter$to, table = gene.stringdb$STRING_id)
@@ -295,33 +380,38 @@ getHumanPPIfromSTRINGdb <- function(gene_ids = NULL,
     print(idx_to)
     print(gene.stringdb$target.gene_info.symbol[idx_to])
     print(gene.stringdb$target.gene_info.symbol[idx_from])
-    ppi_network <- data.frame(node1=gene.stringdb$target.gene_info.symbol[idx_from], 
-                              node2=gene.stringdb$target.gene_info.symbol[idx_to], 
-                              weight=string_inter$combined_score/1000,stringsAsFactors = FALSE)
-    g.ppi_network <- igraph::graph_from_edgelist(as.matrix(ppi_network[,1:2]), directed=TRUE)
+    ppi_network <- data.frame(
+      node1=gene.stringdb$target.gene_info.symbol[idx_from], 
+      node2=gene.stringdb$target.gene_info.symbol[idx_to], 
+      weight=string_inter$combined_score/1000, 
+      stringsAsFactors = FALSE)
+    g.ppi_network <- igraph::graph_from_edgelist(
+      as.matrix(ppi_network[,1:2]), 
+      directed=TRUE)
   } 
   else {
-    hs_all_proteins = string_db$get_proteins(); rownames(hs_all_proteins) = hs_all_proteins[,1]
+    hs_all_proteins <- string_db$get_proteins() 
+    rownames(hs_all_proteins) <- hs_all_proteins[,1]
     g = string_db$get_subnetwork(hs_all_proteins$protein_external_id)
     # create adjacency matrix
     adj_matrix <- igraph::as_adjacency_matrix(g)
     # map gene ids to protein ids
     # get gene/protein ids via Biomart
-    #mart <- biomaRt::useMart(host = 'grch37.ensembl.org', 
-    #                         biomart='ENSEMBL_MART_ENSEMBL', 
-    #                         dataset='hsapiens_gene_ensembl')
     mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")
     # extract protein ids from the human network
-    protein_ids <- sapply(strsplit(rownames(adj_matrix), '\\.'), function(x) x[2])
-    # get protein to gene id mappings
-    mart_results <- biomaRt::getBM(attributes = c(gene_id_mart_column, "ensembl_peptide_id"),
-                                   #filters = "ensembl_peptide_id", values = protein_ids,
-                                   mart = mart)
+    protein_ids <- sapply(
+      strsplit(rownames(adj_matrix), '\\.'), 
+      function(x) x[2])
+    # get protein to gene id mappings, no need to filter for whole proteome
+    mart_results <- biomaRt::getBM(
+      attributes = c(gene_id_mart_column, "ensembl_peptide_id"),
+      mart = mart)
     ### replace protein ids with gene ids
     ix <- match(protein_ids, mart_results$ensembl_peptide_id)
     ix <- ix[!is.na(ix)]
     newnames <- protein_ids
-    newnames[match(mart_results[ix,'ensembl_peptide_id'], newnames)] <- mart_results[ix, gene_id_mart_column]
+    newname_ind <- match(mart_results[ix,'ensembl_peptide_id'], newnames)
+    newnames[newname_ind] <- mart_results[ix, gene_id_mart_column]
     rownames(adj_matrix) <- newnames
     colnames(adj_matrix) <- newnames
     ppi <- adj_matrix[!duplicated(newnames), !duplicated(newnames)]
@@ -359,27 +449,42 @@ getHumanPPIfromSTRINGdb <- function(gene_ids = NULL,
 #' @importFrom msigdbr msigdbr
 #' @importFrom dplyr filter
 #' @importFrom biomaRt useEnsembl getBM
-expressionToRWFeatures <- function(dat, 
-                                   disease_id, 
-                                   otp_score = "association_score.datatypes.rna_expression", 
-                                   otp_cutoff = 0.0, 
-                                   ppi_cutoff = 700, 
-                                   pw_min.size = 5,
-                                   pw_max.size = 200, 
-                                   dat_gene_key = "SYMBOL", 
-                                   gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"), 
-                                   directed_ppi = FALSE,
-                                   ...) {
-  assoc_score_fields <- paste(paste("&fields=", c('disease.efo_info.label',
-                                                  'disease.efo_info.therapeutic_area',
-                                                  'target.gene_info.symbol',
-                                                  'association_score.overall',
-                                                  'disease.id',
-                                                  'association_score.datatypes'), sep=''), collapse = "")
-  disease_otp <- retrieveDiseaseGenesOT(c(disease_id), assoc_score_fields)[[1]][,-c(10:13)]
+expressionToRWFeatures <- function(
+    dat, 
+    disease_id, 
+    otp_score = "association_score.datatypes.rna_expression", 
+    otp_cutoff = 0.0, 
+    ppi_cutoff = 700, 
+    pw_min.size = 5,
+    pw_max.size = 200, 
+    dat_gene_key = "SYMBOL", 
+    gs_subcats = c("BP", "MF", "CP:KEGG", "CP:REACTOME"), 
+    directed_ppi = FALSE,
+    ...
+) {
+  assoc_score_fields <- paste(
+    paste(
+      "&fields=", 
+      c(
+        'disease.efo_info.label',
+        'disease.efo_info.therapeutic_area',
+        'target.gene_info.symbol',
+        'association_score.overall',
+        'disease.id',
+        'association_score.datatypes'
+      ), 
+      sep=''
+    ), 
+    collapse = "")
+  disease_otp <- retrieveDiseaseGenesOT(
+    c(disease_id), 
+    assoc_score_fields)[[1]][,-c(10:13)]
   gene.diseases <- disease_otp[which(disease_otp[[otp_score]] > otp_cutoff),]
   
-  sdb_res <- STRINGdb::STRINGdb$new(version="10", species=9606, score_threshold = ppi_cutoff)
+  sdb_res <- STRINGdb::STRINGdb$new(
+    version="10", 
+    species=9606, 
+    score_threshold = ppi_cutoff)
   gene.network <- sdb_res$get_graph()
   igraph::V(gene.network)$name <- gsub("^9606\\.", "", igraph::V(gene.network)$name)
   
@@ -389,7 +494,9 @@ expressionToRWFeatures <- function(dat,
   
   # Get pathways information from msigdb (https://www.gsea-msigdb.org/)
   db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
-  db_annots <- dplyr::filter(db_annots, grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
+  db_annots <- dplyr::filter(
+    db_annots, 
+    grepl(paste(gs_subcats, collapse = "|"), gs_subcat))
   
   # Harmonize gene labels
   mart_attributes <- c("ensembl_gene_id", "ensembl_peptide_id", "entrezgene_id")
@@ -399,36 +506,64 @@ expressionToRWFeatures <- function(dat,
   mart <- biomaRt::useEnsembl("ensembl", "hsapiens_gene_ensembl")
   mart_results <- biomaRt::getBM(attributes = mart_attributes, mart = mart)
   
-  ppi_temp <- mart_results$ensembl_gene_id[match(igraph::V(gene.network)$name, 
-                                                 mart_results$ensembl_peptide_id)]
+  ppi_temp <- mart_results$ensembl_gene_id[
+    match(
+      igraph::V(gene.network)$name, 
+      mart_results$ensembl_peptide_id
+    )]
   igraph::V(gene.network)$name[!is.na(ppi_temp)] <- ppi_temp[!is.na(ppi_temp)]
   
-  disease.genes <- mart_results$ensembl_gene_id[match(gene.diseases$entrezId, 
-                                                      mart_results$entrezgene_id)]
+  disease.genes <- mart_results$ensembl_gene_id[
+    match(
+      gene.diseases$entrezId, 
+      mart_results$entrezgene_id
+    )]
   disease.genes <- disease.genes[!is.na(disease.genes)]
   
-  db_annots$ensembl_gene_id <- mart_results$ensembl_gene_id[match(db_annots$entrez_gene, 
-                                                                  mart_results$entrezgene_id)]
+  db_annots$ensembl_gene_id <- mart_results$ensembl_gene_id[
+    match(
+      db_annots$entrez_gene, 
+      mart_results$entrezgene_id
+    )]
   db_annots <- db_annots[!is.na(db_annots$ensembl_gene_id),]
   
   if (dat_gene_key == "SYMBOL") {
-    rownames_ensembl <- mart_results$ensembl_gene_id[match(rownames(dat), mart_results$hgnc_symbol)]
+    rownames_ensembl <- mart_results$ensembl_gene_id[
+      match(
+        rownames(dat), 
+        mart_results$hgnc_symbol
+      )]
     dat <- dat[!is.na(rownames_ensembl),]
     rownames(dat) <- rownames_ensembl[!is.na(rownames_ensembl)]
   } else 
     if (dat_gene_key == "ENTREZ") {
-      rownames_ensembl <-  mart_results$ensembl_gene_id[match(rownames(dat), mart_results$entrez_gene)]
+      rownames_ensembl <-  mart_results$ensembl_gene_id[
+        match(
+          rownames(dat), 
+          mart_results$entrez_gene
+        )]
       dat <- dat[!is.na(rownames_ensembl),]
       rownames(dat) <- rownames_ensembl[!is.na(rownames_ensembl)]
     }
   
   dat <- dat[!duplicated(rownames(dat)),]
   
-  list_db_annots <- lapply(split(db_annots, db_annots$gs_name), function(x) x$ensembl_gene_id)
-  list_db_annots <- list_db_annots[which(sapply(list_db_annots, length) <= pw_max.size & 
-                                           sapply(list_db_annots, length) >= pw_min.size)]
+  list_db_annots <- lapply(
+    split(db_annots, db_annots$gs_name), 
+    function(x) x$ensembl_gene_id)
+  list_db_annots <- list_db_annots[
+    which(
+      sapply(list_db_annots, length) <= pw_max.size & 
+        sapply(list_db_annots, length) >= pw_min.size
+    )]
   
-  out <- RWRFGSEA(dat, gene.network, list_db_annots, disease.genes, ...)
+  out <- RWRFGSEA(
+    dat, 
+    gene.network, 
+    list_db_annots, 
+    disease.genes, 
+    ...
+  )
   return(out)
 }
 
@@ -445,16 +580,45 @@ expressionToRWFeatures <- function(dat,
 #' @export
 #' 
 #' @importFrom ggplot2 ggtitle
-triple_viz <- function(data, category, category_label, tsne_perplexity = 45, umap_neighbors = 20, tsne = FALSE, color_scale = scale_color_brewer(palette = "Dark2")) {
-  p1 <- pca_viz(data, category, category_label, color_scale = color_scale) + ggtitle("PCA")
+triple_viz <- function(
+    data, 
+    category, 
+    category_label, 
+    tsne_perplexity = 45, 
+    umap_neighbors = 20, 
+    tsne = FALSE, 
+    color_scale = scale_color_brewer(palette = "Dark2")
+) {
+  p1 <- pca_viz(
+    data, 
+    category, 
+    category_label, 
+    color_scale = color_scale
+  ) + ggtitle("PCA")
   if (tsne) {
-    p2 <- tsne_viz(data, category, category_label, tsne_perplexity = tsne_perplexity, color_scale = color_scale) + ggtitle("t-SNE")
+    p2 <- tsne_viz(
+      data, 
+      category, 
+      category_label, 
+      tsne_perplexity = tsne_perplexity, 
+      color_scale = color_scale
+    ) + ggtitle("t-SNE")
   } else {
     p2 <- NULL
   }
-  p3 <- umap_viz(data, category, category_label, umap_neighbors = umap_neighbors, color_scale = color_scale) + ggtitle("UMAP")
+  p3 <- umap_viz(
+    data, 
+    category, 
+    category_label, 
+    umap_neighbors = umap_neighbors, 
+    color_scale = color_scale
+  ) + ggtitle("UMAP")
   
-  return(list(PCA = p1, tSNE = p2, UMAP = p3))
+  return(list(
+    PCA = p1, 
+    tSNE = p2, 
+    UMAP = p3
+  ))
 }
 
 #' @describeIn triple_viz Data visualization using PCA
@@ -464,16 +628,30 @@ triple_viz <- function(data, category, category_label, tsne_perplexity = 45, uma
 #' 
 #' @importFrom FactoMineR PCA
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
-pca_viz <- function(data, category, category_label, color_scale = scale_color_brewer(palette = "Dark2")) {
-  res_pca <- FactoMineR::PCA(data, scale.unit = FALSE, ncp = 2, graph = FALSE)
+pca_viz <- function(
+    data, 
+    category, 
+    category_label, 
+    color_scale = scale_color_brewer(palette = "Dark2")
+) {
+  res_pca <- FactoMineR::PCA(
+    data, 
+    scale.unit = FALSE, 
+    ncp = 2, 
+    graph = FALSE)
   res_pca_dat <- as.data.frame(res_pca$ind$coord)
   res_pca_dat <- cbind(res_pca_dat, category)
   colnames(res_pca_dat)[3] <- "category"
   eig_percentages <- res_pca$eig[,"percentage of variance"]
   eig_percentages <- as.character(signif(eig_percentages, 3))
-  p1 <- ggplot(res_pca_dat, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
-    theme_bw() + color_scale + 
-    labs(x = paste0("PC1 (", eig_percentages[1], "%)"), y = paste0("PC2 (", eig_percentages[2], "%)"), color = category_label)
+  p1 <- ggplot(res_pca_dat, aes(Dim.1, Dim.2, color = category)) + 
+    geom_point(shape = "+", size = 3) + 
+    theme_bw() + 
+    color_scale + 
+    labs(
+      x = paste0("PC1 (", eig_percentages[1], "%)"), 
+      y = paste0("PC2 (", eig_percentages[2], "%)"), 
+      color = category_label)
   
   return(p1)
 }
@@ -485,13 +663,29 @@ pca_viz <- function(data, category, category_label, color_scale = scale_color_br
 #' 
 #' @importFrom uwot umap
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
-umap_viz <- function(data, category, category_label, umap_neighbors = 20, color_scale = scale_color_brewer(palette = "Dark2")) {
-  res_umap <- uwot::umap(data, n_neighbors = umap_neighbors, n_components = 2, pca = min(50, dim(data)), verbose = FALSE, init = "normlaplacian")
+umap_viz <- function(
+    data, 
+    category, 
+    category_label, 
+    umap_neighbors = 20, 
+    color_scale = scale_color_brewer(palette = "Dark2"), 
+    ...
+) {
+  res_umap <- uwot::umap(
+    data, 
+    n_neighbors = umap_neighbors, 
+    n_components = 2, 
+    pca = min(50, dim(data)), 
+    verbose = FALSE, 
+    init = "normlaplacian", 
+    ...)
   res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
   res_umap <- cbind(res_umap, category)
   colnames(res_umap)[3] <- "category"
-  p1 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + geom_point(shape = "+", size = 3) + 
-    theme_bw() + color_scale + 
+  p1 <- ggplot(res_umap, aes(Dim.1, Dim.2, color = category)) + 
+    geom_point(shape = "+", size = 3) + 
+    theme_bw() + 
+    color_scale + 
     labs(x = "Z1", y = "Z2", color = category_label)
   
   return(p1)
@@ -504,19 +698,27 @@ umap_viz <- function(data, category, category_label, umap_neighbors = 20, color_
 #' 
 #' @importFrom Rtsne Rtsne
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_brewer theme_bw labs
-tsne_viz <- function(data, category, category_label, tsne_perplexity = 45, color_scale = scale_color_brewer(palette = "Dark2")) {
-  res_tsne <- Rtsne::Rtsne(data,
-                           dims = 2,
-                           perplexity = tsne_perplexity,
-                           initial_dims = min(50, dim(data)),
-                           check_duplicates = FALSE,
-                           pca = TRUE,
-                           partial_pca = TRUE,
-                           verbose = FALSE)$Y
+tsne_viz <- function(
+    data, 
+    category, 
+    category_label, 
+    tsne_perplexity = 45, 
+    color_scale = scale_color_brewer(palette = "Dark2")
+) {
+  res_tsne <- Rtsne::Rtsne(
+    data,
+    dims = 2,
+    perplexity = tsne_perplexity,
+    initial_dims = min(50, dim(data)),
+    check_duplicates = FALSE,
+    pca = TRUE,
+    partial_pca = TRUE,
+    verbose = FALSE)$Y
   res_tsne <- as.data.frame(res_tsne)
   res_tsne <- cbind(res_tsne, category)
   colnames(res_tsne)[3] <- "category"
-  p1 <- ggplot(res_tsne, aes(V1, V2, color = category)) + geom_point(shape = "+", size = 3) + 
+  p1 <- ggplot(res_tsne, aes(V1, V2, color = category)) + 
+    geom_point(shape = "+", size = 3) + 
     theme_bw() + color_scale + 
     labs(x = "Z1", y = "Z2", color = category_label)
   
@@ -590,27 +792,43 @@ cbind_fill <- function(a,b) {
 #' @importFrom plyr ddply
 #' @importFrom ggplot2 ggplot theme_bw scale_fill_brewer theme scale_y_continuous facet_grid
 #' @importFrom scales trans_new log_breaks
-plot_pvalues <- function(x, 
-                         target, 
-                         x_axis_var = NULL, 
-                         color_var = NULL, 
-                         group_var = NULL,
-                         palette = "Dark2",
-                         by = c("Approach", "Embedding", "Clustering", "k"), 
-                         facetx = NULL, 
-                         facety = NULL, 
-                         limits = NULL) {
-  bp_quantiles <- plyr::ddply(x, by, function(a) quantile(a[[target]], probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1), na.rm = TRUE))
-  colnames(bp_quantiles)[length(by) + 1:7] <- c("Q0", "Q0025", "Q025", "Q05", "Q075", "Q0975", "Q1")
+plot_pvalues <- function(
+    x, 
+    target, 
+    x_axis_var = NULL, 
+    color_var = NULL, 
+    group_var = NULL,
+    palette = "Dark2",
+    by = c("Approach", "Embedding", "Clustering", "k"), 
+    facetx = NULL, 
+    facety = NULL, 
+    limits = NULL
+) {
+  q_probs <- c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)
+  q_labs <- c("Q0", "Q0025", "Q025", "Q05", "Q075", "Q0975", "Q1")
+  q_f <- function(a) quantile(a[[target]], probs = q_probs, na.rm = TRUE)
+  bp_quantiles <- plyr::ddply(x, by, q_f)
+  colnames(bp_quantiles)[length(by) + 1:7] <- q_labs
   bp_quantiles$IQR <- log(bp_quantiles$Q075) - log(bp_quantiles$Q025) 
-  bp_quantiles$ymax <- apply(cbind(exp(log(bp_quantiles$Q075) + bp_quantiles$IQR * 1.5), bp_quantiles$Q1), 1, min)
-  bp_quantiles$ymin <- apply(cbind(exp(log(bp_quantiles$Q025) - bp_quantiles$IQR * 1.5), bp_quantiles$Q0), 1, max)
+  bp_quantiles$ymax <- apply(
+    cbind(
+      exp(log(bp_quantiles$Q075) + bp_quantiles$IQR * 1.5), 
+      bp_quantiles$Q1), 
+    1, 
+    min)
+  bp_quantiles$ymin <- apply(
+    cbind(
+      exp(log(bp_quantiles$Q025) - bp_quantiles$IQR * 1.5), 
+      bp_quantiles$Q0), 
+    1, 
+    max)
   if (is.null(limits)) limits <- c(1, 10^floor(min(log10(bp_quantiles$ymin))))
   
   if(!is.null(facetx)) {
     # TODO: check if this works with all configurations
     if (!is.null(facety)) {
-      temp_facets <- facet_grid(bp_quantiles[[facetx]] ~ bp_quantiles[[facety]], scales = "fixed")
+      temp_facets <- facet_grid(
+        bp_quantiles[[facetx]] ~ bp_quantiles[[facety]], scales = "fixed")
     } else {
       temp_facets <- facet_grid( ~ bp_quantiles[[facetx]], scales = "fixed")
     }
@@ -623,23 +841,45 @@ plot_pvalues <- function(x,
   con2 <- !is.null(color_var)
   con3 <- !is.null(group_var)
   
-  if (con1 & con2 & con3) temp_aes <- aes_string(x = x_axis_var, fill = color_var, group = group_var)
-  if (con1 & con2 & !con3) temp_aes <- aes_string(x = x_axis_var, fill = color_var)
-  if (con1 & !con2 & con3) temp_aes <- aes_string(x = x_axis_var, group = group_var)
-  if (con1 & !con2 & !con3) temp_aes <- aes_string(x = x_axis_var)
-  if (!con1 & !con2 & con3) temp_aes <- aes_string(group = group_var)
-  if (!con1 & con2 & con3) temp_aes <- aes_string(group = group_var, fill = color_var)
-  if (!con1 & con2 & !con3) temp_aes <- aes_string(fill = color_var)
+  if (con1 & con2 & con3) temp_aes <- aes_string(
+    x = x_axis_var, 
+    fill = color_var, 
+    group = group_var)
+  if (con1 & con2 & !con3) temp_aes <- aes_string(
+    x = x_axis_var, 
+    fill = color_var)
+  if (con1 & !con2 & con3) temp_aes <- aes_string(
+    x = x_axis_var, 
+    group = group_var)
+  if (con1 & !con2 & !con3) temp_aes <- aes_string
+  (x = x_axis_var)
+  if (!con1 & !con2 & con3) temp_aes <- aes_string(
+    group = group_var)
+  if (!con1 & con2 & con3) temp_aes <- aes_string(
+    group = group_var, 
+    fill = color_var)
+  if (!con1 & con2 & !con3) temp_aes <- aes_string(
+    fill = color_var)
   if (!con1 & !con2 & !con3) temp_aes <- aes_string()
   
   temp <- ggplot(bp_quantiles, temp_aes) + 
-    geom_boxplot(aes(lower = Q025, upper = Q075, middle = Q05, ymin = ymin, ymax = ymax), 
-                 outlier.shape = NA, stat = "identity", lwd = 0.25) + 
-    theme_bw() + scale_fill_brewer(palette = "Dark2") + 
+    geom_boxplot(
+      aes(
+        lower = Q025, 
+        upper = Q075, 
+        middle = Q05, 
+        ymin = ymin, 
+        ymax = ymax
+      ), 
+      outlier.shape = NA, 
+      stat = "identity", 
+      lwd = 0.25) + 
+    theme_bw() + 
+    scale_fill_brewer(palette = "Dark2") + 
     theme(legend.position = "bottom") + 
-    scale_y_continuous(trans = scales::trans_new("reverse_log", function(x) -log(x), 
-                                                 function(y) exp(-y), breaks = scales::log_breaks()), 
-                       limits = limits)
+    scale_y_continuous(
+      trans = nlog10_trans, 
+      limits = limits)
   if (!is.null(temp_facets)) temp <- temp + temp_facets
   return(temp)
 }
@@ -680,8 +920,11 @@ split_by_safe <- function(x, by) {
   return(x_list)
 }
 
-nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x), 
-                                  function(y) exp(-y), breaks = scales::log_breaks())
+nlog10_trans <- scales::trans_new(
+  "reverse_log", 
+  function(x) -log(x), 
+  function(y) exp(-y), 
+  breaks = scales::log_breaks())
 
 #' Pairwise plots for visual Pareto based multi-objective optimization
 #' 
@@ -715,22 +958,21 @@ nlog10_trans <- scales::trans_new("reverse_log", function(x) -log(x),
 #' @importFrom cowplot get_legend
 #' @importFrom gridExtra grid.arrange
 #' @importFrom scales trans_new log_breaks
-pareto_plot <- function(scores, 
-                        plot_palette = pals::watlington(16),
-                        metrics = c("TrainStabilityJaccard", 
-                                    "Silhouette", 
-                                    "Smallest_cluster_size"), 
-                        metrics_scale = rep("identity", length(metrics)), 
-                        color_var = Transform,
-                        shape_var = Clustering,
-                        size_var = k, 
-                        size_range = c(2,6),
-                        color_scale = ggplot2::scale_color_manual(values = plot_palette),
-                        plot_pareto_front = FALSE,
-                        front_color = "black", 
-                        metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL, 
-                        point_args = list()
-                        ) {
+pareto_plot <- function(
+    scores, 
+    plot_palette = pals::watlington(16),
+    metrics = c("TrainStabilityJaccard", "Silhouette", "Smallest_cluster_size"), 
+    metrics_scale = rep("identity", length(metrics)), 
+    color_var = Transform,
+    shape_var = Clustering,
+    size_var = k, 
+    size_range = c(2,6),
+    color_scale = ggplot2::scale_color_manual(values = plot_palette),
+    plot_pareto_front = FALSE,
+    front_color = "black", 
+    metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL, 
+    point_args = list()
+) {
   if (!"data.frame" %in% class(scores)) {
     if (is.null(scores$all)) {
       stop("Please provide a data.frame of scores or COPS::scoring result as input.")
@@ -763,44 +1005,73 @@ pareto_plot <- function(scores,
       i_scale <- switch(metrics_scale[i], identity = "identity", nlog10 = nlog10_trans)
       j_scale <- switch(metrics_scale[j], identity = "identity", nlog10 = nlog10_trans)
       if (plot_pareto_front) {
-        pfs <- pareto_fronts(scores = scores, 
-                             metrics = c(i_name, j_name), 
-                             metric_comparators = metric_comparators[c(i_name, j_name)])
+        pfs <- pareto_fronts(
+          scores = scores, 
+          metrics = c(i_name, j_name), 
+          metric_comparators = metric_comparators[c(i_name, j_name)])
         pfs_name <- paste(i_name, j_name, "front", sep = ".")
         scores[[pfs_name]] <- pfs
       }
-      plot_ij <- ggplot(scores, aes(x = !!ggplot2::ensym(i_name), 
-                                    y = !!ggplot2::ensym(j_name), 
-                                    color = {{color_var}}, 
-                                    shape = {{shape_var}}, 
-                                    size = num({{size_var}}))) + 
-        do.call(geom_point, args = point_args) + theme_bw() + color_scale + 
-        theme(legend.position = "none") + scale_x_continuous(trans = i_scale) + 
+      plot_ij <- ggplot(
+        scores, 
+        aes(
+          x = !!ggplot2::ensym(i_name), 
+          y = !!ggplot2::ensym(j_name), 
+          color = {{color_var}}, 
+          shape = {{shape_var}}, 
+          size = num({{size_var}})
+        )
+      ) + 
+        do.call(geom_point, args = point_args) + 
+        theme_bw() + 
+        color_scale + 
+        theme(legend.position = "none") + 
+        scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
         scale_size(range = size_range)
       if (plot_pareto_front) {
-        front_direction <- ifelse(identical(metric_comparators[[i_name]], .Primitive("<")), "hv", "vh")
-        p_front <- geom_step(aes(!!ggplot2::ensym(i_name), 
-                                 !!ggplot2::ensym(j_name), 
-                                 group = !!ggplot2::ensym(pfs_name)),
-                             data = scores[scores[[pfs_name]] == 1,],
-                             color = front_color, 
-                             direction = front_direction, inherit.aes = FALSE)
+        front_direction <- ifelse(
+          identical(
+            metric_comparators[[i_name]], 
+            .Primitive("<")
+          ), 
+          "hv", 
+          "vh")
+        p_front <- geom_step(
+          aes(
+            !!ggplot2::ensym(i_name), 
+            !!ggplot2::ensym(j_name), 
+            group = !!ggplot2::ensym(pfs_name)
+          ),
+          data = scores[scores[[pfs_name]] == 1,],
+          color = front_color, 
+          direction = front_direction, 
+          inherit.aes = FALSE)
         plot_ij <- plot_ij + p_front
       }
       plot_list <- c(plot_list, list(plot_ij))
     }
   }
   # Create plot for legend extraction
-  legend_plot <- ggplot(scores, aes(x = 1, y = 1, 
-                                    color = {{color_var}},
-                                    shape = {{shape_var}}, 
-                                    size = num({{size_var}}))) + 
-    do.call(geom_point, args = point_args) + theme_bw() + color_scale +
-    theme(legend.box = "horizontal") + scale_size(range = size_range) + 
-    guides(shape = guide_legend(ncol = 1, order = 2), 
-           color = guide_legend(ncol = 1, order = 1),
-           size = guide_legend(ncol = 1, order = 3))
+  legend_plot <- ggplot(
+    scores, 
+    aes(
+      x = 1, 
+      y = 1, 
+      color = {{color_var}},
+      shape = {{shape_var}}, 
+      size = num({{size_var}})
+    )
+  ) + 
+    do.call(geom_point, args = point_args) + 
+    theme_bw() + 
+    color_scale +
+    theme(legend.box = "horizontal") + 
+    scale_size(range = size_range) + 
+    guides(
+      shape = guide_legend(ncol = 1, order = 2), 
+      color = guide_legend(ncol = 1, order = 1),
+      size = guide_legend(ncol = 1, order = 3))
   pareto_legend <- cowplot::get_legend(legend_plot)
   
   # Define layout for comparing metrics
@@ -813,7 +1084,9 @@ pareto_plot <- function(scores,
   
   plot_list <- c(plot_list, list(pareto_legend))
   
-  plot_out <- gridExtra::grid.arrange(grobs = plot_list, layout_matrix = layout)
+  plot_out <- gridExtra::grid.arrange(
+    grobs = plot_list, 
+    layout_matrix = layout)
   
   return(plot_out)
 }
@@ -829,9 +1102,9 @@ pareto_plot <- function(scores,
 #' @return integer vector of Pareto front number for each row of \code{scores}
 #' @export
 pareto_fronts <- function(
-  scores, 
-  metrics, 
-  metric_comparators = get_metric_comparators(metrics)
+    scores, 
+    metrics, 
+    metric_comparators = get_metric_comparators(metrics)
 ) {
   N <- nrow(scores)
   domination <- list()
@@ -886,7 +1159,10 @@ get_metric_comparators <- function(metrics) {
     } else if (grepl("smallest_cluster_size", i, ignore.case = TRUE)) {
       comparators[[i]] <- .Primitive(">")
     } else {
-      stop(paste0("No preset comparator for ", i, ". Please set comparators manually."))
+      stop(paste0(
+        "No preset comparator for ", 
+        i, 
+        ". Please set comparators manually."))
     }
   }
   return(comparators)
@@ -904,16 +1180,31 @@ reorder_method_factors <- function(x) {
   rwrfgsea_ind <- grepl("RWR-FGSEA", x$Approach)
   other_ind <- !(gsva_ind|diff_ind|rwrfgsea_ind)
   pw_settings <- unique(x$Embedding[!other_ind])
-  x$Transform <- factor(x$Transform, c(unique(x$Transform[other_ind]), 
-                                     unique(x$Transform[gsva_ind]),
-                                     unique(x$Transform[diff_ind]),
-                                     unique(x$Transform[rwrfgsea_ind])))
-  x$Embedding <- factor(x$Embedding, c(unique(x$Embedding[other_ind]), 
-                                       unique(x$Embedding[!other_ind])))
-  x$Approach <- factor(x$Approach, c(unique(x$Approach[other_ind]), 
-                                     unique(x$Approach[gsva_ind]),
-                                     unique(x$Approach[diff_ind]),
-                                     unique(x$Approach[rwrfgsea_ind])))
+  x$Transform <- factor(
+    x$Transform, 
+    c(
+      unique(x$Transform[other_ind]), 
+      unique(x$Transform[gsva_ind]),
+      unique(x$Transform[diff_ind]),
+      unique(x$Transform[rwrfgsea_ind])
+    )
+  )
+  x$Embedding <- factor(
+    x$Embedding, 
+    c(
+      unique(x$Embedding[other_ind]), 
+      unique(x$Embedding[!other_ind])
+    )
+  )
+  x$Approach <- factor(
+    x$Approach, 
+    c(
+      unique(x$Approach[other_ind]), 
+      unique(x$Approach[gsva_ind]),
+      unique(x$Approach[diff_ind]),
+      unique(x$Approach[rwrfgsea_ind])
+    )
+  )
   return(x)
 }
 
@@ -963,9 +1254,15 @@ format_scores <- function(x, multi_omic = FALSE) {
     # remove redundant pathway method tags (included in Transform)
     x$Embedding <- gsub("_RWRFGSEA|_GSVA|_DiffRank", "", x$Embedding)
     # format methods and dimension numbers
-    x$Embedding <- paste0(gsub("\\+pca", "+PCA(", x$Embedding), ifelse(grepl("\\+pca", x$Embedding), "d)", ""))
-    x$Embedding <- paste0(gsub("\\+tsne", "+t-SNE(", x$Embedding), ifelse(grepl("\\+tsne", x$Embedding), "d)", ""))
-    x$Embedding <- paste0(gsub("\\+umap", "+UMAP(", x$Embedding), ifelse(grepl("\\+umap", x$Embedding), "d)", ""))
+    x$Embedding <- paste0(
+      gsub("\\+pca", "+PCA(", x$Embedding), 
+      ifelse(grepl("\\+pca", x$Embedding), "d)", ""))
+    x$Embedding <- paste0(
+      gsub("\\+tsne", "+t-SNE(", x$Embedding), 
+      ifelse(grepl("\\+tsne", x$Embedding), "d)", ""))
+    x$Embedding <- paste0(
+      gsub("\\+umap", "+UMAP(", x$Embedding), 
+      ifelse(grepl("\\+umap", x$Embedding), "d)", ""))
     
     # Transform, same as Embedding except that pathway gene sets are appended with 
     # enrichment method name (used for Pareto plots)
@@ -1006,15 +1303,29 @@ format_scores <- function(x, multi_omic = FALSE) {
   return(x)
 }
 
-multi_view_cv_fold <- function(dat_list, nfolds = 5, nruns = 2, ...) {
-  if (!all(Reduce("&", lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)))) {
+multi_view_subsampling <- function(
+    dat_list, 
+    nfolds = 5, 
+    nruns = 2, 
+    ...
+) {
+  colmatch1 <- lapply(dat_list[-1], function(x) x$id == dat_list[[1]]$id)
+  if (!all(Reduce("&", colmatch1))) {
     warning("Colnames in all views do not match.")
     stop("Cross-validation for missing sample views not implemented.")
   }
-  return(cv_fold(dat_list = dat_list[1], nfolds = nfolds, nruns = nruns, ...))
+  return(subsampling(
+    dat_list = dat_list[1], 
+    nfolds = nfolds, 
+    nruns = nruns, 
+    ...))
 }
 
-subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
+subset_data <- function(
+    dat_list, 
+    sub_index, 
+    data_is_kernels = FALSE
+) {
   dat_i <- list()
   non_data_cols <- list()
   if(data_is_kernels) {
@@ -1022,10 +1333,17 @@ subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
       if (sum(grepl("^dim[0-9]+$", colnames(dat_list[[j]]))) > nrow(dat_list[[j]])) {
         stop("Input kernels are not square!")
       }
-      ij_ind <- match(cv_index$id, dat_list[[j]]$id)
-      dat_i[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[ij_ind, paste0("dim", ij_ind)])
-      
-      temp <- merge(cv_index, dat_list[[j]], by = "id")
+      ij_ind <- match(sub_index$id, dat_list[[j]]$id)
+      dat_i[[j]] <- as.matrix(
+        as.data.frame(dat_list[[j]])[
+          ij_ind, 
+          paste0("dim", ij_ind)
+        ]
+      )
+      temp <- merge(
+        sub_index, 
+        dat_list[[j]], 
+        by = "id")
       sel <- grep("^dim[0-9]+$", colnames(temp))
       if ("data.table" %in% class(temp)) {
         non_data_cols[[j]] <- temp[,-..sel]
@@ -1035,7 +1353,7 @@ subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
     }
   } else {
     for (j in 1:length(dat_list)) {
-      dat_i[[j]] <- merge(cv_index, dat_list[[j]], by = "id")
+      dat_i[[j]] <- merge(sub_index, dat_list[[j]], by = "id")
       sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
       if ("data.table" %in% class(dat_i[[j]])) {
         non_data_cols[[j]] <- dat_i[[j]][,-..sel]
@@ -1059,12 +1377,20 @@ subset_cv_data <- function(dat_list, cv_index, data_is_kernels = FALSE) {
 #' @export
 get_kernel_weights <- function(clusters) {
   out <- attributes(clusters)$extra_output$mkkm_mr_weights
-  kernel_names <- lapply(strsplit(out$kernel_mix, split = ";"), 
-                         function(x) sapply(strsplit(x, split = ":"), 
-                                            function(y) y[1]))
-  kernel_weights <- lapply(strsplit(out$kernel_mix, split = ";"), 
-                           function(x) sapply(strsplit(x, split = ":"), 
-                                              function(y) as.numeric(y[2])))
+  kernel_names <- lapply(
+    strsplit(out$kernel_mix, split = ";"), 
+    function(x) sapply(
+      strsplit(x, split = ":"), 
+      function(y) y[1]
+    )
+  )
+  kernel_weights <- lapply(
+    strsplit(out$kernel_mix, split = ";"), 
+    function(x) sapply(
+      strsplit(x, split = ":"), 
+      function(y) as.numeric(y[2])
+    )
+  )
   kernel_weights <- lapply(kernel_weights, t)
   for (i in 1:length(kernel_weights)) {
     colnames(kernel_weights[[i]]) <- kernel_names[[i]]
@@ -1075,3 +1401,23 @@ get_kernel_weights <- function(clusters) {
   return(out)
 }
 
+outer_join_by_closure <- function(by) {
+  joinf <- function(x,y) {
+    by <- intersect(
+      by, 
+      intersect(colnames(x), colnames(y)))
+    return(plyr::join(x, y, by = by, type = "full"))
+  }
+  return(joinf)
+}
+
+# Helper for pipeline verbosity
+time_taken_string <- function(start) {
+  time <- Sys.time() - start
+  paste(sprintf("%.2f", time), attributes(time)$units)
+}
+
+print_flush <- function(str) {
+  print(str)
+  flush.console()
+}

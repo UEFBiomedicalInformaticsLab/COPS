@@ -8,9 +8,17 @@
 #'
 #' @return \code{igraph} object
 #' @export
-knn_g <- function(dat, k = 30, jaccard_kernel = TRUE) {
+knn_g <- function(
+    dat, 
+    k = 30, 
+    jaccard_kernel = TRUE
+) {
   # Distance metric, for now only Euclidean (Minkowski with p=2)
-  dat_dist <- as.matrix(dist(t(dat)), method = "euclidean", diag = TRUE, upper = TRUE)
+  dat_dist <- as.matrix(dist(
+    t(dat), 
+    method = "euclidean", 
+    diag = TRUE, 
+    upper = TRUE))
   # Rank neighbors by distance
   nn_matrix <- apply(dat_dist, 1, function(x) order(order(x)))
   # Don't count edges to self
@@ -20,13 +28,19 @@ knn_g <- function(dat, k = 30, jaccard_kernel = TRUE) {
   
   if (jaccard_kernel) {
     # Compute Jaccard coefficient matrix between columns
-    j_matrix <- COPS::jaccard_matrix(nn_matrix)
+    a_mat <- COPS::jaccard_matrix(nn_matrix)
     # Return as a weighted graph
-    return(igraph::graph_from_adjacency_matrix(j_matrix, "undirected", weighted = TRUE, diag = FALSE))
+    weighted = TRUE
   } else {
     # Return unweighted graph if no kernel was applied
-    return(igraph::graph_from_adjacency_matrix(nn_matrix, "undirected", weighted = FALSE, diag = FALSE))
+    a_mat <- nn_matrix
+    weighted = FALSE
   }
+  return(igraph::graph_from_adjacency_matrix(
+    a_mat, 
+    "undirected", 
+    weighted = weighted, 
+    diag = FALSE))
 }
 
 #' @describeIn knn_g Louvain community detection on KNNG

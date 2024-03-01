@@ -9,14 +9,19 @@
 #' @importFrom igraph betweenness
 node_betweenness_parallel <- function(networks, parallel = 1) {
   parallel_clust <- setup_parallelization(parallel)
-  b_list <- tryCatch(foreach(i = 1:length(networks), 
-                             .combine = c, 
-                             .inorder = FALSE) %dopar% {
-                               res <- igraph::betweenness(networks[[i]])
-                               out <- list()
-                               out[[names(networks)[i]]] <- res
-                               out
-                             }, finally = close_parallel_cluster(parallel_clust))
+  b_list <- tryCatch(
+    foreach(
+      i = 1:length(networks), 
+      .combine = c, 
+      .inorder = FALSE
+      ) %dopar% {
+        res <- igraph::betweenness(networks[[i]])
+        out <- list()
+        out[[names(networks)[i]]] <- res
+        out
+      }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   return(b_list)
 }
 
@@ -48,13 +53,31 @@ weighted_linear_kernel <- function(x, weights) {
 #'
 #' @return kernel \code{matrix}
 #' @export
-PIK <- function(x, L, rwr_smoothing = FALSE, rwr_restart_prob = 0.75, ...) {
+PIK <- function(
+    x, 
+    L, 
+    rwr_smoothing = FALSE, 
+    rwr_restart_prob = 0.75, 
+    ...
+) {
   common_genes <- colnames(L)[colnames(L) %in% colnames(x)]
   if (length(common_genes) > 0) {
-    y <- matrix(0, nrow = nrow(x), ncol = ncol(L), dimnames = list(id = rownames(x), gene = colnames(L)))
+    y <- matrix(
+      0, 
+      nrow = nrow(x), 
+      ncol = ncol(L), 
+      dimnames = list(
+        id = rownames(x), 
+        gene = colnames(L)
+      )
+    )
     y[,common_genes] <- x[,common_genes]
     if (rwr_smoothing) {
-      y <- binary_node_attribute_smoothing_from_adjacency(y, L, rwr_restart_prob = rwr_restart_prob)
+      y <- binary_node_attribute_smoothing_from_adjacency(
+        y, 
+        L, 
+        rwr_restart_prob = rwr_restart_prob
+      )
     }
     out <- (y) %*% L %*% t(y)
   } else {
@@ -79,11 +102,18 @@ PIK_KEGG <- function(x, gene_key = "SYMBOL", ...) {
   
   if (gene_key == "SYMBOL") {
     for (i in 1:length(kegg_pw_net)) {
-      kegg_symbols <-  suppressMessages(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
-                                                              gsub("hsa:", "", names(igraph::V(kegg_pw_net[[i]]))), 
-                                                              gene_key, 
-                                                              "ENTREZID"))
-      kegg_pw_net[[i]] <- igraph::set.vertex.attribute(kegg_pw_net[[i]] , "name", value = kegg_symbols)
+      kegg_symbols <-  suppressMessages(
+        AnnotationDbi::mapIds(
+          org.Hs.eg.db::org.Hs.eg.db, 
+          gsub("hsa:", "", names(igraph::V(kegg_pw_net[[i]]))), 
+          gene_key, 
+          "ENTREZID"
+        )
+      )
+      kegg_pw_net[[i]] <- igraph::set.vertex.attribute(
+        kegg_pw_net[[i]] , 
+        "name", 
+        value = kegg_symbols)
     }
   } else {
     stop(paste("gene_key \"", gene_key, "not supported."))
@@ -98,10 +128,16 @@ PIK_KEGG <- function(x, gene_key = "SYMBOL", ...) {
 #' @export
 KEGG_networks <- function() {
   kpg <- ROntoTools::keggPathwayGraphs("hsa", verbose = FALSE)
-  kpg <- ROntoTools::setEdgeWeights(kpg, 
-                                    edgeTypeAttr = "subtype", 
-                                    edgeWeightByType = list(activation = 1, inhibition = 1, expression = 1, repression = 1), 
-                                    defaultWeight = 1)
+  kpg <- ROntoTools::setEdgeWeights(
+    kpg, 
+    edgeTypeAttr = "subtype", 
+    edgeWeightByType = list(
+      activation = 1, 
+      inhibition = 1, 
+      expression = 1, 
+      repression = 1
+    ), 
+    defaultWeight = 1)
   names(kpg) <- ROntoTools::keggPathwayNames("hsa")[names(kpg)]
   
   kegg_pw_net <- lapply(kpg, igraph::graph_from_graphnel)
@@ -124,37 +160,50 @@ KEGG_networks <- function() {
 PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel = 1, ...) {
   x_genes <- colnames(x)
   parallel_clust <- setup_parallelization(parallel)
-  piks <- tryCatch(foreach(i = 1:length(networks), 
-                           .combine = c, 
-                           .inorder = FALSE,
-                           .packages = c("igraph")) %dopar% {
-                             missing_genes <- igraph::get.vertex.attribute(networks[[i]], "name")[!igraph::get.vertex.attribute(networks[[i]], "name") %in% x_genes]
-                             missing_nodes <- igraph::V(networks[[i]])[missing_genes[!is.na(missing_genes)]]
-                             net <- igraph::delete_vertices(networks[[i]], missing_nodes)
-                             L <- igraph::laplacian_matrix(net, normalized = normalized_laplacian)
-                             L@x[is.nan(L@x)] <- 0
-                             #common_genes <- colnames(L)[colnames(L) %in% colnames(x)]
-                             if (sum(abs(L@x)) > 0) {
-                               out <- PIK(x, L, ...)
-                             } else {
-                               out <- NULL
-                             }
-                             out <- list(out)
-                             names(out) <- names(networks)[i]
-                             out
-                           }, finally = close_parallel_cluster(parallel_clust))
+  piks <- tryCatch(
+    foreach(
+      i = 1:length(networks), 
+      .combine = c, 
+      .inorder = FALSE,
+      .packages = c("igraph")
+      ) %dopar% {
+        v_names <- igraph::get.vertex.attribute(networks[[i]], "name")
+        missing_genes <- v_names[!v_names %in% x_genes]
+        missing_genes <- missing_genes[!is.na(missing_genes)]
+        missing_nodes <- igraph::V(networks[[i]])[missing_genes]
+        net <- igraph::delete_vertices(networks[[i]], missing_nodes)
+        L <- igraph::laplacian_matrix(net, normalized = normalized_laplacian)
+        L@x[is.nan(L@x)] <- 0
+        if (sum(abs(L@x)) > 0) {
+         out <- PIK(x, L, ...)
+        } else {
+         out <- NULL
+        }
+        out <- list(out)
+        names(out) <- names(networks)[i]
+        out
+      }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   piks <- piks[!sapply(piks, is.null)]
   return(piks)
 }
 
-binary_node_attribute_smoothing_from_adjacency <- function(x, A, rwr_restart_prob = 0.75) {
-  g <- igraph::graph_from_adjacency_matrix(as.matrix(A), 
-                                           mode = "undirected", weighted = TRUE)
-  y <- dnet::dRWR(g, 
-                  normalise = "none", 
-                  setSeeds = t(x), 
-                  restart = rwr_restart_prob,
-                  parallel = FALSE)
+binary_node_attribute_smoothing_from_adjacency <- function(
+    x, 
+    A, 
+    rwr_restart_prob = 0.75
+) {
+  g <- igraph::graph_from_adjacency_matrix(
+    as.matrix(A), 
+    mode = "undirected", 
+    weighted = TRUE)
+  y <- dnet::dRWR(
+    g, 
+    normalise = "none", 
+    setSeeds = t(x), 
+    restart = rwr_restart_prob,
+    parallel = FALSE)
   return(t(y))
 }
 
@@ -183,7 +232,6 @@ pathway_gene_subnetworks <- function(gene_network, gene_sets) {
   for (pw_i in names(gene_sets)) {
     sub_net_v <- gene_sets[[pw_i]]
     sub_net_v <- sub_net_v[sub_net_v %in% igraph::V(gene_network)$name]
-    #sub_net_v <- sub_net_v[sub_net_v %in% colnames(x)]
     out[[pw_i]] <- igraph::induced_subgraph(gene_network, sub_net_v, impl = "create_from_scratch")
   }
   return(out)
@@ -218,12 +266,14 @@ PIK_GNGS <- function(x, gene_network, gene_sets, ...) {
 #'
 #' @return a kernel \code{matrix}
 #' @export
-mkkm_mr <- function(K_list, 
-                    k, 
-                    lambda, 
-                    tolerance = 1e-6, 
-                    parallel = 0, 
-                    use_mosek = FALSE) {
+mkkm_mr <- function(
+    K_list, 
+    k, 
+    lambda, 
+    tolerance = 1e-6, 
+    parallel = 0, 
+    use_mosek = FALSE
+) {
   M <- matrix(NA, length(K_list), length(K_list))
   for (i in 1:length(K_list)) {
     for (j in i:length(K_list)) {
@@ -257,18 +307,25 @@ mkkm_mr <- function(K_list,
 # min <K, (I - HHT)>
 # s.t. HTH = I
 # k first eigenvectors is optimal
-mkkm_mr_h_opt <- function(K, k) {
-  #pca <- FactoMineR::PCA(K, scale.unit = FALSE, ncp = k, graph = FALSE)
-  #eig_vecs <- sweep(pca$va$coord, 2, sqrt(pca$eig[1:k, 1]), FUN = "/")
+mkkm_mr_h_opt <- function(
+    K, 
+    k
+) {
   eig_vecs <- eigen(K, symmetric = TRUE)$vectors[,1:k]
-  #t(eig_vecs) %*% (eig_vecs) # ~ Identity
   return(eig_vecs)
 }
 
 # min muT/2 (2 * Z + lambda * M) mu 
 # s.t. sum(mu) = 1, mu_i >= 0
 # Z = diag(<K_i, I - HHT>_i)
-mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0, use_mosek = FALSE) {
+mkkm_mr_mu_opt <- function(
+    K_list, 
+    H, 
+    M, 
+    lambda, 
+    parallel = 0, 
+    use_mosek = FALSE
+) {
   n <- nrow(H)
   HHT <- diag(rep(1, n)) - H %*% t(H)
   Z <- c()
@@ -284,7 +341,12 @@ mkkm_mr_mu_opt <- function(K_list, H, M, lambda, parallel = 0, use_mosek = FALSE
   }
 }
 
-mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
+mkkm_mr_mu_opt_mosek <- function(
+    Z, 
+    M, 
+    lambda, 
+    parallel = 0
+) {
   if (!requireNamespace("Rmosek", quietly = TRUE)) {
     stop("Trying to run MKKM-MR with MOSEK, but Rmosek has not been installed.")
   }
@@ -314,7 +376,12 @@ mkkm_mr_mu_opt_mosek <- function(Z, M, lambda, parallel = 0) {
   return(res$sol$itr$xx)
 }
 
-mkkm_mr_mu_opt_cvxr <- function(Z, M, lambda, parallel = 0) {
+mkkm_mr_mu_opt_cvxr <- function(
+    Z,
+    M, 
+    lambda, 
+    parallel = 0
+) {
   if (!requireNamespace("CVXR", quietly = TRUE)) {
     stop("Trying to run MKKM-MR with CVXR, but CVXR has not been installed.")
   }
@@ -330,7 +397,10 @@ mkkm_mr_mu_opt_cvxr <- function(Z, M, lambda, parallel = 0) {
   return(mu_sol)
 }
 
-mkkm_mr_objective <- function(K_list, mu) {
+mkkm_mr_objective <- function(
+    K_list, 
+    mu
+) {
   obj <- 0
   for (i in 1:(length(K_list)-1)) {
     for (j in (i+1):length(K_list)) {
@@ -347,14 +417,21 @@ mkkm_mr_objective <- function(K_list, mu) {
 #'
 #' @return \code{list} of cluster assignments and k-means objective
 #' @export
-global_kernel_kmeans <- function(K, n_clusters) {
+global_kernel_kmeans <- function(
+    K, 
+    n_clusters
+) {
   k_clusters <- rep(1, nrow(K))
   for (k in 2:n_clusters) {
     res <- list()
     for (i in 1:nrow(K)) {
       k_clusters_init <- k_clusters
       k_clusters_init[i] <- k
-      res[[i]] <- kernel_kmeans_algorithm(K, k, k_clusters_init, maxiter = Inf)
+      res[[i]] <- kernel_kmeans_algorithm(
+        K, 
+        k, 
+        k_clusters_init, 
+        maxiter = Inf)
     }
     best_i <- which.min(sapply(res, function(x) x$E))
     k_clusters <- res[[best_i]]$clusters
@@ -375,7 +452,14 @@ global_kernel_kmeans <- function(K, n_clusters) {
 #'
 #' @return \code{list} of cluster assignments and k-means objective
 #' @export
-kernel_kmeans <- function(K, n_k, n_initializations = 100, maxiter = 1e2, parallel = 1, ...) {
+kernel_kmeans <- function(
+    K, 
+    n_k, 
+    n_initializations = 100, 
+    maxiter = 1e2, 
+    parallel = 1, 
+    ...
+) {
   out <- list(clusters = NA, E = Inf)
   if(n_initializations > ncol(K)) {
     w1 <- "K-means++ is deterministic for a given initialization."
@@ -393,18 +477,28 @@ kernel_kmeans <- function(K, n_k, n_initializations = 100, maxiter = 1e2, parall
   }
   random_seeds <- sample(1:ncol(K), n_initializations, replace = FALSE)
   parallel_clust <- setup_parallelization(parallel)
-  out <- tryCatch(foreach(ri = random_seeds, 
-          .combine = lower_error, 
-          .export = c(), 
-          .packages = c(), 
-          .inorder = FALSE) %dopar% {
-  out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, maxiter = maxiter)
-  out_i
-  }, finally = close_parallel_cluster(parallel_clust))
+  out <- tryCatch(
+    foreach(
+      ri = random_seeds, 
+      .combine = lower_error, 
+      .export = c(), 
+      .packages = c(), 
+      .inorder = FALSE
+    ) %dopar% {
+      out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, maxiter = maxiter)
+      out_i
+    }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   return(out)
 }
 
-kernel_kmeanspp <- function(K, n_k, seed, maxiter = 1e2) {
+kernel_kmeanspp <- function(
+    K, 
+    n_k, 
+    seed, 
+    maxiter = 1e2
+) {
   centroids <- seed
   for (i in 2:n_k) {
     min_similarity <- apply(K[, centroids, drop = FALSE], 1, min)
@@ -416,7 +510,12 @@ kernel_kmeanspp <- function(K, n_k, seed, maxiter = 1e2) {
   return(kernel_kmeans_algorithm(K = K, n_k = n_k, init, maxiter = maxiter))
 }
 
-kernel_kmeans_algorithm <- function(K, n_k, init, maxiter = 1e2) {
+kernel_kmeans_algorithm <- function(
+    K, 
+    n_k, 
+    init, 
+    maxiter = 1e2
+) {
   K_clusters <- init
   diff <- TRUE
   it <- 0
@@ -448,7 +547,10 @@ kernel_kmeans_algorithm <- function(K, n_k, init, maxiter = 1e2) {
   return(out)
 }
 
-kernel_kmeans_spectral_approximation <- function(eigen_vectors, k) {
+kernel_kmeans_spectral_approximation <- function(
+    eigen_vectors, 
+    k
+) {
     init_qr <- qr(t(eigen_vectors[,1:k]), LAPACK = TRUE)
     r_11 <- init_qr$qr[,1:k]
     r_11[lower.tri(r_11)] <- 0

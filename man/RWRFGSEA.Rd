@@ -101,9 +101,6 @@ matrix of enrichment scores
 Runs random walk in a given network starting from seed genes selected from most over/under expressed in the data intersected with 
 known disease genes. The gene affinities are then processed with FGSEA to yield pathway features.
 }
-\details{
-The default behaviour
-}
 \section{Functions}{
 \itemize{
 \item \code{rwr_wrapper()}: Transforms gene-expression values into gene-network node-affinity values
@@ -116,30 +113,62 @@ library(parallel)
 library(COPS)
 
 ad_data <- ad_ge_micro_zscore
-rownames(ad_data) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, rownames(ad_data), "SYMBOL", "ENSEMBL"))
 ad_wgcna_net <- coexpression_network_unweighted(ad_data)
-kegg_annotations <- msigdbr::msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
-list_kegg_annotations <- lapply(split(kegg_annotations, kegg_annotations$gs_name), function(x) x$human_gene_symbol) 
+kegg_annotations <- msigdbr::msigdbr(
+    species = "Homo sapiens", 
+    category = "C2", 
+    subcategory = "CP:KEGG")
+list_kegg_annotations <- lapply(
+    split(kegg_annotations, kegg_annotations$gs_name), 
+    function(x) x$ensembl_gene) 
 
-ad_rwrfgsea_res <- RWRFGSEA(ad_data, ad_wgcna_net, list_kegg_annotations, parallel = 2)
+ad_rwrfgsea_res <- RWRFGSEA(
+    ad_data, 
+    ad_wgcna_net, 
+    list_kegg_annotations[1:3], 
+    parallel = 2)
 
 # Separate genes (e.g. based on DEA)
 set.seed(0)
 # toy example random fold-change
 ad_fc <- sample(c(1,-1), nrow(ad_data), replace = TRUE)
 
-ad_gene_lists <- list(rownames(ad_data)[ad_fc > 0], rownames(ad_data)[ad_fc < 0])
-ad_rwrfgsea_res <- RWRFGSEA(ad_data, ad_wgcna_net, list_kegg_annotations, rwr_genelists = ad_gene_lists, 
-                            rwr_ecdf = TRUE, second_seed_list_reverse_order = TRUE, parallel = 2)
+ad_gene_lists <- list(
+    rownames(ad_data)[ad_fc > 0], 
+    rownames(ad_data)[ad_fc < 0])
+ad_rwrfgsea_res <- RWRFGSEA(
+    ad_data, 
+    ad_wgcna_net, 
+    list_kegg_annotations[1:3], 
+    rwr_genelists = ad_gene_lists, 
+    rwr_ecdf = TRUE, 
+    second_seed_list_reverse_order = TRUE, 
+    parallel = 2)
 
 \dontrun{
 # OTP genes for dermatitis, moderate download size
-assoc_score_fields <- paste(paste0("&fields=", c("target.gene_info.symbol", "association_score.datatypes")), collapse = "")
-disease_otp <- COPS::retrieveDiseaseGenesOT("MONDO_0002406", assoc_score_fields)[[1]]
-otp_genes <- disease_otp$target.gene_info.symbol[disease_otp$association_score.datatypes.genetic_association > 0]
+assoc_score_fields <- paste(
+    paste0(
+        "&fields=", 
+        c("target.gene_info.symbol", "association_score.datatypes")
+    ), 
+    collapse = ""
+)
+disease_otp <- COPS::retrieveDiseaseGenesOT(
+    "MONDO_0002406", 
+    assoc_score_fields)[[1]]
+otp_genes <- disease_otp$target.gene_info.symbol[
+    disease_otp$association_score.datatypes.genetic_association > 0]
 
-ad_rwrfgsea_res <- RWRFGSEA(ad_data, ad_wgcna_net, list_kegg_annotations, disease_genes = otp_genes, rwr_genelists = ad_gene_lists, 
-                            rwr_ecdf = TRUE, second_seed_list_reverse_order = TRUE, parallel = 2)
+ad_rwrfgsea_res <- RWRFGSEA(
+    ad_data, 
+    ad_wgcna_net, 
+    list_kegg_annotations[1:3], 
+    disease_genes = otp_genes, 
+    rwr_genelists = ad_gene_lists, 
+    rwr_ecdf = TRUE, 
+    second_seed_list_reverse_order = TRUE, 
+    parallel = 2)
 }
 
 }

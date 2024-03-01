@@ -6,8 +6,8 @@
 \usage{
 cv_dimred(
   dat_list,
-  cv_index,
-  cv_split_data = TRUE,
+  sub_index,
+  sub_split_data = TRUE,
   parallel = 1,
   by = c("run", "fold"),
   ...
@@ -16,9 +16,9 @@ cv_dimred(
 \arguments{
 \item{dat_list}{A list of data.frames or data.tables.}
 
-\item{cv_index}{A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.}
+\item{sub_index}{A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.}
 
-\item{cv_split_data}{Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.}
+\item{sub_split_data}{Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.}
 
 \item{parallel}{number of parallel threads}
 

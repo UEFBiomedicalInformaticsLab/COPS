@@ -272,7 +272,7 @@ for example.
 
 To download processed TCGA clinical data, we can use the TCGAbiolinks-package. 
 ```{r}
-clinical_data <- TCGAbiolinks::TCGAquery_subtype("BRCA")
+clinical_data <- as.data.frame(TCGAbiolinks::TCGAquery_subtype("BRCA"))
 ```
 
 The <code>cv_survival_evaluation</code> expects a data.frame that contains the 

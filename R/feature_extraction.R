@@ -26,21 +26,24 @@
 #' @importFrom FactoMineR PCA
 #' @importFrom Rtsne Rtsne
 #' @importFrom uwot umap
-dimensionality_reduction <- function(x,
-                                     dimred_methods = c("pca", "umap"), 
-                                     output_dimensions = NULL, 
-                                     pca_dims = c(2),
-                                     umap_dims = c(2),
-                                     tsne_perplexities = c(45),
-                                     tsne_pca = TRUE, 
-                                     umap_neighbors = 20,
-                                     initial_dims = 50,
-                                     ...) {
+dimensionality_reduction <- function(
+    x,
+    dimred_methods = c("pca", "umap"), 
+    output_dimensions = NULL, 
+    pca_dims = c(2),
+    umap_dims = c(2),
+    tsne_perplexities = c(45),
+    tsne_pca = TRUE, 
+    umap_neighbors = 20,
+    initial_dims = 50,
+    ...
+) {
   out <- list()
   if ("none" %in% dimred_methods) {
     out[["none"]] <- x
     dimred_methods <- dimred_methods[dimred_methods != "none"]
   }
+  n_samples <- nrow(x)
   
   for (m in dimred_methods) {
     if (m %in% c("pca", "umap")) {
@@ -61,42 +64,52 @@ dimensionality_reduction <- function(x,
       warning(paste("Unsupported method:", m))
       dims <- c()
     }
-    if (m == "pca") pca_temp <- FactoMineR::PCA(x,
-                                                scale.unit = FALSE,
-                                                ncp = max(dims),
-                                                graph = FALSE)
+    if (m == "pca") pca_temp <- FactoMineR::PCA(
+      x,
+      scale.unit = FALSE,
+      ncp = max(dims),
+      graph = FALSE)
     # Handle everything in the same loop
     for (d in dims) {
       if (m == "pca") {
+        if (ncol(pca_temp$ind$coord) < d) {
+          stop(paste(
+            "Number of extracted PCs was lower than defined parameter.", 
+            "Please ensure that the maximum number of PCs does not exceed", 
+            "the number of non-duplicate data points in each subset."))
+        }
         temp <- pca_temp$ind$coord[,1:d]
         colnames(temp) <- paste0("dim", 1:d)
       } else if (m == "tsne") {
         if (3 * d > dim(x)[1] - 1) stop("t-SNE perplexity is too high.")
         if (tsne_pca) {
-          tsne_pca_temp <- FactoMineR::PCA(x, scale.unit = FALSE, ncp = min(c(initial_dims, dim(x))), graph = FALSE)
+          tsne_pca_temp <- FactoMineR::PCA(
+            x, 
+            scale.unit = FALSE, 
+            ncp = min(c(initial_dims, dim(x))), 
+            graph = FALSE)
           tsne_input <- tsne_pca_temp$ind$coord
         } else {
           tsne_input <- x
         }
-        temp <- Rtsne::Rtsne(tsne_input,
-                             dims = 2,
-                             perplexity = d,
-                             #initial_dims = min(100, dim(x)[2]),
-                             check_duplicates = FALSE,
-                             pca = FALSE,
-                             partial_pca = FALSE,
-                             verbose = FALSE)$Y
+        temp <- Rtsne::Rtsne(
+          tsne_input,
+          dims = 2,
+          perplexity = d,
+          check_duplicates = FALSE,
+          pca = FALSE,
+          partial_pca = FALSE,
+          verbose = FALSE)$Y
         colnames(temp) <- paste0("dim", 1:2)
-        #rownames(temp) <- colnames(x)
       } else if (m == "umap") {
-        temp <- uwot::umap(x,
-                           n_neighbors = umap_neighbors,
-                           n_components = d,
-                           pca = min(c(initial_dims, dim(x))),
-                           verbose = FALSE,
-                           init = "normlaplacian")
+        temp <- uwot::umap(
+          x,
+          n_neighbors = umap_neighbors,
+          n_components = d,
+          pca = min(c(initial_dims, dim(x))),
+          verbose = FALSE,
+          init = "normlaplacian")
         colnames(temp) <- paste0("dim", 1:d)
-        #rownames(temp) <- colnames(x)
       } else {
         # never run
         temp <- NA
@@ -110,8 +123,8 @@ dimensionality_reduction <- function(x,
 #' Dimensionality reduction on cross-validated data sets
 #'
 #' @param dat_list A list of data.frames or data.tables.
-#' @param cv_index A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.
-#' @param cv_split_data Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.
+#' @param sub_index A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.
+#' @param sub_split_data Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.
 #' @param parallel number of parallel threads
 #' @param by column names to split data by such that each split corresponds to one dataset and fold
 #' @param ... Extra arguments are passed to \code{\link{dimensionality_reduction}}.
@@ -121,21 +134,25 @@ dimensionality_reduction <- function(x,
 #'
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table
-cv_dimred <- function(dat_list, 
-                      cv_index, 
-                      cv_split_data = TRUE, 
-                      parallel = 1, 
-                      by = c("run", "fold"), 
-                      ...) {
+cv_dimred <- function(
+    dat_list, 
+    sub_index, 
+    sub_split_data = TRUE, 
+    parallel = 1, 
+    by = c("run", "fold"), 
+    ...
+) {
   temp_list <- list()
-  if (cv_split_data) {
-    for (i in 1:length(cv_index)) {
-      temp <- cv_index[[i]]
-      datname <- names(cv_index)[i]
+  if (sub_split_data) {
+    for (i in 1:length(sub_index)) {
+      temp <- sub_index[[i]]
+      datname <- names(sub_index)[i]
       if (is.null(datname)) datname <- i
       temp$datname <- datname
       temp <- split_by_safe(temp, by)
-      temp <- lapply(temp, function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
+      temp <- lapply(
+        temp, 
+        function(x) as.data.frame(merge(dat_list[[datname]], x, by = "id")))
       temp_list <- c(temp_list, temp)
     }
   } else {
@@ -147,14 +164,19 @@ cv_dimred <- function(dat_list,
   
   parallel_clust <- setup_parallelization(parallel)
   
-  out <- tryCatch(foreach(i = temp_list, 
-                 .combine = c,
-                 .export = c("dimensionality_reduction"), #"dat_list"),
-                 .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")) %dopar% {
-    sel <- grep("^dim[0-9]+$", colnames(i))
-    dr_temp <- dimensionality_reduction(i[,sel], ...)
-    dr_temp <- lapply(dr_temp, function(x) cbind(i[,-sel], as.data.frame(x)))
-    dr_temp
-  }, finally = close_parallel_cluster(parallel_clust))
+  out <- tryCatch(
+    foreach(
+      i = temp_list, 
+      .combine = c,
+      .export = c("dimensionality_reduction"), #"dat_list"),
+      .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")
+      ) %dopar% {
+        sel <- grep("^dim[0-9]+$", colnames(i))
+        dr_temp <- dimensionality_reduction(i[,sel], ...)
+        dr_temp <- lapply(dr_temp, function(x) cbind(i[,-sel], as.data.frame(x)))
+        dr_temp
+      }, 
+    finally = close_parallel_cluster(parallel_clust)
+  )
   return(out)
 }

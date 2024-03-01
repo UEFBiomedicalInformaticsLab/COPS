@@ -69,36 +69,35 @@ library(parallel)
 library(COPS)
 
 ## GSVA example
-ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-                             parallel = 2, gene_key_x = "ENSEMBL", 
-                             gs_subcats = "CP:KEGG")
+ad_gsva <- genes_to_pathways(
+    as.matrix(ad_ge_micro_zscore), 
+    "GSVA", 
+    parallel = 2, 
+    gene_key_x = "ENSEMBL", 
+    gs_subcats = "CP:KEGG")
 # batch-wise
-ad_gsva <- genes_to_pathways(as.matrix(ad_ge_micro_zscore), "GSVA", 
-                             batch_label_pw = ad_studies$GSE, parallel = 2, 
-                             gene_key_x = "ENSEMBL", gs_subcats = "CP:KEGG")
+ad_gsva <- genes_to_pathways(
+    as.matrix(ad_ge_micro_zscore), 
+    "GSVA", 
+    batch_label_pw = ad_studies$GSE, 
+    parallel = 2, 
+    gene_key_x = "ENSEMBL", 
+    gs_subcats = "CP:KEGG")
 
 ## DiffRank example with batch-wise enrichment
-ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-                                 parallel = 2, gene_key_x = "ENSEMBL", 
-                                 gs_subcats = "CP:KEGG")
+ad_diffrank <- genes_to_pathways(
+    ad_ge_micro_zscore, 
+    "DiffRank", 
+    parallel = 2, 
+    gene_key_x = "ENSEMBL", 
+    gs_subcats = "CP:KEGG")
 # batch-wise
-ad_diffrank <- genes_to_pathways(ad_ge_micro_zscore, "DiffRank", 
-                                 batch_label_pw = ad_studies$GSE, 
-                                 parallel = 2, gene_key_x = "ENSEMBL", 
-                                 gs_subcats = "CP:KEGG")
-
-## RWRFGSEA example
-ad_data <- ad_ge_micro_zscore
-rownames(ad_data) <- as.character(AnnotationDbi::mapIds(org.Hs.eg.db::org.Hs.eg.db, 
-                                                        rownames(ad_data), "SYMBOL", "ENSEMBL"))
-ad_wgcna_net <- coexpression_network_unweighted(ad_data)
-kegg_annotations <- msigdbr::msigdbr(species = "Homo sapiens", 
-                                     category = "C2", 
-                                     subcategory = "CP:KEGG")
-list_kegg_annotations <- lapply(split(kegg_annotations, kegg_annotations$gs_name), 
-                                function(x) x$human_gene_symbol) 
-
-ad_rwrfgsea <- genes_to_pathways(ad_data, "RWRFGSEA", gene_set_list = list_kegg_annotations, 
-                                 gene_network = ad_wgcna_net, parallel = 2)
+ad_diffrank <- genes_to_pathways(
+    ad_ge_micro_zscore, 
+    "DiffRank", 
+    batch_label_pw = ad_studies$GSE, 
+    parallel = 2, 
+    gene_key_x = "ENSEMBL", 
+    gs_subcats = "CP:KEGG")
 
 }

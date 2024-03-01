@@ -4,12 +4,12 @@
 \alias{cv_pathway_enrichment}
 \title{Cross-validation wrapped pathway enrichment}
 \usage{
-cv_pathway_enrichment(dat_list, cv_index, gene_id_list, parallel = 1, ...)
+cv_pathway_enrichment(dat_list, sub_index, gene_id_list, parallel = 1, ...)
 }
 \arguments{
 \item{dat_list}{list of data.tables corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).}
 
-\item{cv_index}{list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}}
+\item{sub_index}{list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}}
 
 \item{gene_id_list}{list of gene name vectors of the corresponding columns in dat_list}
 

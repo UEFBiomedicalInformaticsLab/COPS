@@ -1,10 +1,12 @@
 #<HKH,C>+<HKH,D>+asumij(<Ci,HCjH>)+bsumij(<Ci,HDjH>)
 # Solve the ecmc core optimization problem with Rmosek
-ecmc_opt <- function(X, 
-                     ret_sol = FALSE, 
-                     ret_optime = FALSE, 
-                     verbosity = 0,
-                     parallel = 0) {
+ecmc_opt <- function(
+    X, 
+    ret_sol = FALSE, 
+    ret_optime = FALSE, 
+    verbosity = 0,
+    parallel = 0
+) {
   if (!requireNamespace("Rmosek", quietly = TRUE)) {
     stop("Trying to run ECMC with MOSEK, but Rmosek has not been installed.")
   }
@@ -20,10 +22,12 @@ ecmc_opt <- function(X,
   prob$A <- Matrix::Matrix(nrow = n_mat, ncol = 0)
   prob$c <- numeric(0)
   # PSD variable constraint (trace == 1)
-  prob$bc <- rbind(blc=rep(1, n_mat),
-                   buc=rep(1, n_mat))
-  prob$bx <- rbind(blx=numeric(0),
-                   bux=numeric(0))
+  prob$bc <- rbind(
+    blc=rep(1, n_mat),
+    buc=rep(1, n_mat))
+  prob$bx <- rbind(
+    blx=numeric(0),
+    bux=numeric(0))
   # Specify semidefinite matrix variables
   prob$bardim <- n_samples
   # Block triplet format specifying the lower triangular part
@@ -77,10 +81,14 @@ ecmc_opt <- function(X,
   prob$barA$v <- Reduce('c', barA_v)
   
   # Solve the problem
-  r <- Rmosek::mosek(prob, 
-                     list(soldetail = as.integer(ret_sol), 
-                          getinfo = ret_optime,
-                          verbose = verbosity))
+  r <- Rmosek::mosek(
+    prob, 
+    list(
+      soldetail = as.integer(ret_sol), 
+      getinfo = ret_optime,
+      verbose = verbosity
+    )
+  )
   
   # Convergence
   if (r$response$code != 0) {
@@ -94,8 +102,11 @@ ecmc_opt <- function(X,
   out <- list()
   out$solution <- list()
   for (i in 1:n_mat) {
-    out$solution[[i]] <- new("dspMatrix", x = r$sol$itr$barx[[i]], 
-                             uplo="L", Dim=c(n_samples[i],n_samples[i]))
+    out$solution[[i]] <- new(
+      "dspMatrix", 
+      x = r$sol$itr$barx[[i]], 
+      uplo="L", 
+      Dim=c(n_samples[i],n_samples[i]))
   }
   if(ret_sol) out$val <- r$sol$itr$pobjval
   if(ret_optime) out$time <- r$dinfo$OPTIMIZER_TIME
@@ -116,12 +127,14 @@ ecmc_opt <- function(X,
 #'
 #' @return list of kernel matrices, disagreement matrices and solution diagnostics
 #' @export
-ECMC <- function(x, 
-                 a, 
-                 b, 
-                 eps = 1e-6, 
-                 maxiter = 10,
-                 parallel = 0) {
+ECMC <- function(
+    x, 
+    a, 
+    b, 
+    eps = 1e-6, 
+    maxiter = 10,
+    parallel = 0
+) {
   N_col <- sapply(x, ncol)
   N_row <- sapply(x, ncol)
   if (any(c(N_col, N_row) != N_col[1])) stop("Input dimensions do not match.")
@@ -158,7 +171,11 @@ ECMC <- function(x,
       #M[[i]] <- H %*% (x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum) %*% H
       # no need to center if all centered previously
       M[[i]] <- x[[i]] + 2 * a * Reduce("+", C[-i]) - b * D_sum
-      mosek_sol <- ecmc_opt(M[i], ret_sol = TRUE, ret_optime = TRUE, parallel = parallel)
+      mosek_sol <- ecmc_opt(
+        M[i], 
+        ret_sol = TRUE, 
+        ret_optime = TRUE, 
+        parallel = parallel)
       Ct[[i]] <- as.matrix(mosek_sol$solution[[1]])
       solution_vals_ci <- mosek_sol$val
     }
@@ -175,7 +192,10 @@ ECMC <- function(x,
     for (i in 1:length(x)) {
       #N[[i]] <- H %*% (x[[i]] - b * C_sum) %*% H
       N[[i]] <- x[[i]] - b * C_sum
-      mosek_sol <- ecmc_opt(N[i], ret_sol = TRUE, ret_optime = TRUE)
+      mosek_sol <- ecmc_opt(
+        N[i], 
+        ret_sol = TRUE, 
+        ret_optime = TRUE)
       Dt[[i]] <- as.matrix(mosek_sol$solution[[1]])
       solution_vals_di <- mosek_sol$val
     }
@@ -190,21 +210,30 @@ ECMC <- function(x,
     flush.console()
   }
   
-  c_score_1 <- sapply(1:length(x), function(xi) sum((H %*% x[[xi]] %*% H) * C[[xi]]))
-  c_score_2 <- sapply(1:length(x), function(xi) sum((H %*% x[[xi]] %*% H) * (C[[xi]] + D[[xi]])))
+  c_score_1 <- sapply(
+    1:length(x), 
+    function(xi) sum((H %*% x[[xi]] %*% H) * C[[xi]]))
+  c_score_2 <- sapply(
+    1:length(x), 
+    function(xi) sum((H %*% x[[xi]] %*% H) * (C[[xi]] + D[[xi]])))
   consensus_score <- c_score_1 / c_score_2
   
   reconstruction_objective <- 0
   for (i in 1:length(x)) {
-    reconstruction_objective <- reconstruction_objective + sum(x[[i]] * (C[[i]] + D[[i]])) #
+    reconstruction_objective <- reconstruction_objective + 
+      sum(x[[i]] * (C[[i]] + D[[i]])) #
   }
   
-  return(list(C_sum = C_sum, 
-              D_sum = D_sum, 
-              C = C, 
-              D = D, 
-              solution_vals_c = solution_vals_c, 
-              solution_vals_d = solution_vals_d, 
-              consensus_score = consensus_score, 
-              reconstruction_objective = reconstruction_objective))
+  return(
+    list(
+      C_sum = C_sum, 
+      D_sum = D_sum, 
+      C = C, 
+      D = D, 
+      solution_vals_c = solution_vals_c, 
+      solution_vals_d = solution_vals_d, 
+      consensus_score = consensus_score, 
+      reconstruction_objective = reconstruction_objective
+    )
+  )
 }

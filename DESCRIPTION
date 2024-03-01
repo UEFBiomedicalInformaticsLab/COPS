@@ -54,6 +54,7 @@ Imports:
     survival,
     uwot
 Suggests:
+    BiocManager, 
     clusterCrit,
     curatedTCGAData,
     dynamicTreeCut,
