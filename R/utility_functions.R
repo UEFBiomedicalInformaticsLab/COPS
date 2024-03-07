@@ -968,6 +968,7 @@ pareto_plot <- function(
     size_var = k, 
     size_range = c(2,6),
     color_scale = ggplot2::scale_color_manual(values = plot_palette),
+    shape_scale = ggplot2::scale_shape_manual(values = 0:14), 
     plot_pareto_front = FALSE,
     front_color = "black", 
     metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL, 
@@ -1025,6 +1026,7 @@ pareto_plot <- function(
         do.call(geom_point, args = point_args) + 
         theme_bw() + 
         color_scale + 
+        shape_scale +
         theme(legend.position = "none") + 
         scale_x_continuous(trans = i_scale) + 
         scale_y_continuous(trans = j_scale, position = "right") +
@@ -1066,6 +1068,7 @@ pareto_plot <- function(
     do.call(geom_point, args = point_args) + 
     theme_bw() + 
     color_scale +
+    shape_scale +
     theme(legend.box = "horizontal") + 
     scale_size(range = size_range) + 
     guides(
