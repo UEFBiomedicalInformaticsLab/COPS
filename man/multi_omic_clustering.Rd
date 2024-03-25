@@ -41,7 +41,7 @@ multi_omic_clustering(
   kernel_gammas = rep_len(0.5, length(dat_list)),
   pathway_networks = NULL,
   pamogk_restart = 0.7,
-  pamogk_seed_z = "discrete",
+  pamogk_seeds = "discrete",
   pamogk_seed_under_threshold = qnorm(0.025),
   pamogk_seed_over_threshold = qnorm(0.975),
   kkmeans_maxiter = 100,
@@ -171,7 +171,7 @@ networks. Required for pathway kernels.}
 
 \item{pamogk_restart}{Restart probability for PAMOGK RWR.}
 
-\item{pamogk_seed_z}{Seed selection strategy for PAMOGK RWR, one of: 
+\item{pamogk_seeds}{Seed selection strategy for PAMOGK RWR, one of: 
 "discrete", "continuous", "threshold". See details below.}
 
 \item{pamogk_seed_under_threshold}{z-score threshold for under-expressed.}

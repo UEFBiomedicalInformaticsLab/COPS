@@ -71,7 +71,7 @@
 #' @param pathway_networks List of \code{igraph} objects containing pathway 
 #'   networks. Required for pathway kernels. 
 #' @param pamogk_restart Restart probability for PAMOGK RWR. 
-#' @param pamogk_seed_z Seed selection strategy for PAMOGK RWR, one of: 
+#' @param pamogk_seeds Seed selection strategy for PAMOGK RWR, one of: 
 #'   "discrete", "continuous", "threshold". See details below. 
 #' @param pamogk_seed_under_threshold z-score threshold for under-expressed. 
 #' @param pamogk_seed_over_threshold z-score threshold for over-expressed. 
@@ -213,7 +213,7 @@ multi_omic_clustering <- function(
     kernel_gammas = rep_len(0.5, length(dat_list)),
     pathway_networks = NULL,
     pamogk_restart = 0.7,
-    pamogk_seed_z = "discrete", 
+    pamogk_seeds = "discrete", 
     pamogk_seed_under_threshold = qnorm(0.025), 
     pamogk_seed_over_threshold = qnorm(0.975), 
     kkmeans_maxiter = 100,
@@ -378,23 +378,23 @@ multi_omic_clustering <- function(
             rwr_threads <- NULL
           }
           
-          if (pamogk_seed_z == "discrete") {
+          if (pamogk_seeds == "discrete") {
             seed_up <- t(temp) > pamogk_seed_over_threshold
             seed_dn <- t(temp) < pamogk_seed_under_threshold
-          } else if (pamogk_seed_z == "continuous") {
+          } else if (pamogk_seeds == "continuous") {
             seed_up <- t(temp)
             seed_dn <- -t(temp)
             seed_up[seed_up < 0] <- 0
             seed_dn[seed_dn < 0] <- 0
-          } else if (pamogk_seed_z == "threshold") {
+          } else if (pamogk_seeds == "threshold") {
             seed_up <- seed_dn <- t(temp)
             seed_up[seed_up < pamogk_seed_over_threshold] <- 0
             seed_dn[seed_dn > pamogk_seed_under_threshold] <- 0
             seed_dn <- -seed_dn
           } else {
             stop(paste0(
-              "pamogk_seed_z option '", 
-              pamogk_seed_z, 
+              "pamogk_seeds option '", 
+              pamogk_seeds, 
               "' not recognized. "
             ))
           }
