@@ -41,6 +41,9 @@ multi_omic_clustering(
   kernel_gammas = rep_len(0.5, length(dat_list)),
   pathway_networks = NULL,
   pamogk_restart = 0.7,
+  pamogk_seed_z = "discrete",
+  pamogk_seed_under_threshold = qnorm(0.025),
+  pamogk_seed_over_threshold = qnorm(0.975),
   kkmeans_maxiter = 100,
   kkmeans_n_init = 100,
   mkkm_mr_lambda = 1,
@@ -168,6 +171,13 @@ networks. Required for pathway kernels.}
 
 \item{pamogk_restart}{Restart probability for PAMOGK RWR.}
 
+\item{pamogk_seed_z}{Seed selection strategy for PAMOGK RWR, one of: 
+"discrete", "continuous", "threshold". See details below.}
+
+\item{pamogk_seed_under_threshold}{z-score threshold for under-expressed.}
+
+\item{pamogk_seed_over_threshold}{z-score threshold for over-expressed.}
+
 \item{kkmeans_maxiter}{Maximum number of iterations for kernel k-means.}
 
 \item{kkmeans_n_init}{Number of initializations for kernel k-means.}
@@ -252,11 +262,24 @@ Supported kernels:
   \item "PAMOGK" - PAthway Multi-Omics Graph Kernel (Tepeli et al. 2021). 
     Uses z-scores, RWR and shortest paths in pathway networks to create 
     pathway kernels. 
-  \item "PIK" - Pathway Induced Kernel (Manica et al. 2019). Uses pathway network adjacency matrices (specifically normalized Laplacians) to define pathway kernels. 
+  \item "PIK" - Pathway Induced Kernel (Manica et al. 2019). Uses pathway 
+    network adjacency matrices (specifically normalized Laplacians) to define 
+    pathway kernels. 
 }
 Please note that for pathway kernels, the input data must always be mapped to 
 genes and that the names must match with the gene names in the pathways. 
 The default set of pathways is KEGG molecular pathways with gene symbols. 
+
+PAMOGK RWR seed weight options:
+\itemize{
+  \item "discrete" - 1 if |z| > t, 0 otherwise. 
+  \item "continuous" - z
+  \item "threshold" - z if |z| > t, 0 otherwise
+}
+Regardless of the option, the seeds are divided into two sets based on the 
+sign of the z-score. Each set has a separate smoothing step and the end 
+result is two different kernels per pathway per omic. This impacts the 
+RWR label smoothing by changing the initial distribution. 
 
 NMF non-negativity transform may be necessary if non-negativity was not 
 considered while pre-processing the data. There are a few convenience 

@@ -71,6 +71,10 @@
 #' @param pathway_networks List of \code{igraph} objects containing pathway 
 #'   networks. Required for pathway kernels. 
 #' @param pamogk_restart Restart probability for PAMOGK RWR. 
+#' @param pamogk_seed_z Seed selection strategy for PAMOGK RWR, one of: 
+#'   "discrete", "continuous", "threshold". See details below. 
+#' @param pamogk_seed_under_threshold z-score threshold for under-expressed. 
+#' @param pamogk_seed_over_threshold z-score threshold for over-expressed. 
 #' @param kkmeans_maxiter Maximum number of iterations for kernel k-means. 
 #' @param kkmeans_n_init Number of initializations for kernel k-means. 
 #' @param mkkm_mr_lambda Regularization parameter for \code{\link{mkkm_mr}}.
@@ -135,11 +139,24 @@
 #'   \item "PAMOGK" - PAthway Multi-Omics Graph Kernel (Tepeli et al. 2021). 
 #'     Uses z-scores, RWR and shortest paths in pathway networks to create 
 #'     pathway kernels. 
-#'   \item "PIK" - Pathway Induced Kernel (Manica et al. 2019). Uses pathway network adjacency matrices (specifically normalized Laplacians) to define pathway kernels. 
+#'   \item "PIK" - Pathway Induced Kernel (Manica et al. 2019). Uses pathway 
+#'     network adjacency matrices (specifically normalized Laplacians) to define 
+#'     pathway kernels. 
 #' }
 #' Please note that for pathway kernels, the input data must always be mapped to 
 #' genes and that the names must match with the gene names in the pathways. 
 #' The default set of pathways is KEGG molecular pathways with gene symbols. 
+#' 
+#' PAMOGK RWR seed weight options:
+#' \itemize{
+#'   \item "discrete" - 1 if |z| > t, 0 otherwise. 
+#'   \item "continuous" - z
+#'   \item "threshold" - z if |z| > t, 0 otherwise
+#' }
+#' Regardless of the option, the seeds are divided into two sets based on the 
+#' sign of the z-score. Each set has a separate smoothing step and the end 
+#' result is two different kernels per pathway per omic. This impacts the 
+#' RWR label smoothing by changing the initial distribution. 
 #' 
 #' NMF non-negativity transform may be necessary if non-negativity was not 
 #' considered while pre-processing the data. There are a few convenience 
@@ -196,6 +213,9 @@ multi_omic_clustering <- function(
     kernel_gammas = rep_len(0.5, length(dat_list)),
     pathway_networks = NULL,
     pamogk_restart = 0.7,
+    pamogk_seed_z = "discrete", 
+    pamogk_seed_under_threshold = qnorm(0.025), 
+    pamogk_seed_over_threshold = qnorm(0.975), 
     kkmeans_maxiter = 100,
     kkmeans_n_init = 100,
     mkkm_mr_lambda = 1, 
@@ -357,11 +377,33 @@ multi_omic_clustering <- function(
           } else {
             rwr_threads <- NULL
           }
+          
+          if (pamogk_seed_z == "discrete") {
+            seed_up <- t(temp) > pamogk_seed_over_threshold
+            seed_dn <- t(temp) < pamogk_seed_under_threshold
+          } else if (pamogk_seed_z == "continuous") {
+            seed_up <- t(temp)
+            seed_dn <- -t(temp)
+            seed_up[seed_up < 0] <- 0
+            seed_dn[seed_dn < 0] <- 0
+          } else if (pamogk_seed_z == "threshold") {
+            seed_up <- seed_dn <- t(temp)
+            seed_up[seed_up < pamogk_seed_over_threshold] <- 0
+            seed_dn[seed_dn > pamogk_seed_under_threshold] <- 0
+            seed_dn <- -seed_dn
+          } else {
+            stop(paste0(
+              "pamogk_seed_z option '", 
+              pamogk_seed_z, 
+              "' not recognized. "
+            ))
+          }
+          
           for (j in 1:length(pathway_networks)) {
             k_up <- dnet::dRWR(
               pathway_networks[[j]], 
               normalise = "laplacian",
-              setSeeds = t(temp) > qnorm(0.975),
+              setSeeds = seed_up,
               restart = pamogk_restart,
               normalise.affinity.matrix = "none",
               parallel = mvc_threads > 1,
@@ -383,7 +425,7 @@ multi_omic_clustering <- function(
             k_dn <- dnet::dRWR(
               pathway_networks[[j]], 
               normalise = "laplacian",
-              setSeeds = t(temp) < qnorm(0.025),
+              setSeeds = seed_dn,
               restart = pamogk_restart,
               normalise.affinity.matrix = "none",
               parallel = mvc_threads > 1,
