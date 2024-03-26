@@ -40,6 +40,7 @@ multi_omic_clustering(
   kernels_scale_norm = FALSE,
   kernel_gammas = rep_len(0.5, length(dat_list)),
   pathway_networks = NULL,
+  pathway_node_betweenness_endpoints = TRUE,
   pamogk_restart = 0.7,
   pamogk_seeds = "discrete",
   pamogk_seed_under_threshold = qnorm(0.025),
@@ -168,6 +169,10 @@ scaled to unit F-norm. Repeated for each view if length 1.}
 
 \item{pathway_networks}{List of \code{igraph} objects containing pathway 
 networks. Required for pathway kernels.}
+
+\item{pathway_node_betweenness_endpoints}{whether to include shortest path 
+endpoints in betweenness. Including it results in more non-zero weights 
+in BWK and PAMOGK.}
 
 \item{pamogk_restart}{Restart probability for PAMOGK RWR.}
 

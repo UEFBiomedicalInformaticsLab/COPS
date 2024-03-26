@@ -4,7 +4,11 @@
 \alias{node_betweenness_parallel}
 \title{Parallel computation of node betweenness}
 \usage{
-node_betweenness_parallel(networks, parallel = 1)
+node_betweenness_parallel(
+  networks,
+  parallel = 1,
+  pathway_node_betweenness_endpoints = TRUE
+)
 }
 \arguments{
 \item{networks}{\code{list} of \code{igraph} objects}

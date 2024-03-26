@@ -7,7 +7,17 @@
 #' @export
 #'
 #' @importFrom igraph betweenness
-node_betweenness_parallel <- function(networks, parallel = 1) {
+node_betweenness_parallel <- function(
+    networks, 
+    parallel = 1, 
+    pathway_node_betweenness_endpoints = TRUE
+) {
+  if (pathway_node_betweenness_endpoints) {
+    betweenness_fun <- node_betweenness_with_endpoint
+  } else {
+    betweenness_fun <- igraph::betweenness
+  }
+  
   parallel_clust <- setup_parallelization(parallel)
   b_list <- tryCatch(
     foreach(
@@ -23,6 +33,23 @@ node_betweenness_parallel <- function(networks, parallel = 1) {
     finally = close_parallel_cluster(parallel_clust)
   )
   return(b_list)
+}
+
+node_betweenness_with_endpoint <- function(G) {
+  n <- igraph::vcount(G)
+  w <- rep(0, n)
+  for (i in 1:(n-1)) {
+    for (j in 2:n) {
+      sp_ij <- igraph::all_shortest_paths(G, i, j)
+      w_ij <- rep(0, n)
+      for (P in sp_ij$res) {
+        w_ij[P] <- w_ij[P] + 1
+      }
+      w <- w + w_ij / length(sp_ij$res)
+    }
+  }
+  names(w) <- igraph::get.vertex.attribute(G, "name")
+  return(w)
 }
 
 #' Weighted linear kernel

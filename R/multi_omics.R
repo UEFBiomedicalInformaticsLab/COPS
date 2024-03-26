@@ -70,6 +70,9 @@
 #' @param kernel_gammas Numeric vector specifying gamma for the gaussian kernel. 
 #' @param pathway_networks List of \code{igraph} objects containing pathway 
 #'   networks. Required for pathway kernels. 
+#' @param pathway_node_betweenness_endpoints whether to include shortest path 
+#'   endpoints in betweenness. Including it results in more non-zero weights 
+#'   in BWK and PAMOGK. 
 #' @param pamogk_restart Restart probability for PAMOGK RWR. 
 #' @param pamogk_seeds Seed selection strategy for PAMOGK RWR, one of: 
 #'   "discrete", "continuous", "threshold". See details below. 
@@ -212,6 +215,7 @@ multi_omic_clustering <- function(
     kernels_scale_norm = FALSE,
     kernel_gammas = rep_len(0.5, length(dat_list)),
     pathway_networks = NULL,
+    pathway_node_betweenness_endpoints = TRUE, 
     pamogk_restart = 0.7,
     pamogk_seeds = "discrete", 
     pamogk_seed_under_threshold = qnorm(0.025), 
@@ -312,7 +316,10 @@ multi_omic_clustering <- function(
       pathway_networks <- kegg_nets
     }
     if (any(kernels %in% c("BWK", "PAMOGK"))) {
-      nw_weights <- node_betweenness_parallel(pathway_networks, mvc_threads)
+      nw_weights <- node_betweenness_parallel(
+        pathway_networks, 
+        pathway_node_betweenness_endpoints = pathway_node_betweenness_endpoints, 
+        mvc_threads)
       nw_weights <- lapply(nw_weights, sqrt)
     }
     # Construct kernels
