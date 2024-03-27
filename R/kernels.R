@@ -39,20 +39,19 @@ node_betweenness_with_endpoint <- function(G) {
   n <- igraph::vcount(G)
   w <- rep(0, n)
   for (i in 1:(n-1)) {
-    for (j in (i+1):n) {
-      sp_ij <- igraph::all_shortest_paths(G, i, j)
-      if (length(sp_ij$res) > 0) {
-        w_ij <- rep(0, n)
-        for (P in sp_ij$res) {
-          w_ij[P] <- w_ij[P] + 1
-        }
-        w <- w + w_ij / length(sp_ij$res)
+    sp <- igraph::all_shortest_paths(G, i, igraph::V(G)[(i+1):n])
+    if (length(sp$res) > 0) {
+      ends <- as.character(sapply(sp$res, function(x) rev(x)[1]))
+      end_counts <- table(ends)
+      for (j in 1:length(ends)) {
+        w[sp[["res"]][[j]]] <- w[sp[["res"]][[j]]] + 1 / end_counts[ends[j]]
       }
     }
   }
   names(w) <- igraph::get.vertex.attribute(G, "name")
   return(w)
 }
+
 
 #' Weighted linear kernel
 #'
