@@ -39,13 +39,15 @@ node_betweenness_with_endpoint <- function(G) {
   n <- igraph::vcount(G)
   w <- rep(0, n)
   for (i in 1:(n-1)) {
-    for (j in 2:n) {
+    for (j in (i+1):n) {
       sp_ij <- igraph::all_shortest_paths(G, i, j)
-      w_ij <- rep(0, n)
-      for (P in sp_ij$res) {
-        w_ij[P] <- w_ij[P] + 1
+      if (length(sp_ij$res) > 0) {
+        w_ij <- rep(0, n)
+        for (P in sp_ij$res) {
+          w_ij[P] <- w_ij[P] + 1
+        }
+        w <- w + w_ij / length(sp_ij$res)
       }
-      w <- w + w_ij / length(sp_ij$res)
     }
   }
   names(w) <- igraph::get.vertex.attribute(G, "name")
