@@ -25,7 +25,7 @@ node_betweenness_parallel <- function(
       .combine = c, 
       .inorder = FALSE
       ) %dopar% {
-        res <- igraph::betweenness(networks[[i]])
+        res <- betweenness_fun(networks[[i]])
         out <- list()
         out[[names(networks)[i]]] <- res
         out
