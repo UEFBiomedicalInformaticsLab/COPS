@@ -35,7 +35,7 @@ node_betweenness_parallel <- function(
   return(b_list)
 }
 
-node_betweenness_with_endpoint <- function(G) {
+node_betweenness_with_endpoint3 <- function(G) {
   n <- igraph::vcount(G)
   w <- rep(0, n)
   for (i in 1:(n-1)) {
@@ -52,6 +52,38 @@ node_betweenness_with_endpoint <- function(G) {
   return(w)
 }
 
+node_betweenness_with_endpoint2 <- function(G) {
+  n <- igraph::vcount(G)
+  w <- rep(0, n)
+  #names(w) <- igraph::as_ids(igraph::V(G))
+  for (i in 1:(n-1)) {
+    sp <- igraph::all_shortest_paths(G, i, igraph::V(G)[(i+1):n])
+    if (length(sp$res) > 0) {
+      ends <- as.character(sapply(sp$res, function(x) rev(x)[1]))
+      end_counts <- table(ends)
+      plengths <- sapply(sp$res, length)
+      ec_reps <- rep(end_counts[ends], plengths)
+      sp_unlist <- unlist(lapply(sp$res, as.character))
+      sp_sum <- tapply(1 / ec_reps, sp_unlist, sum)
+      if (any(is.na(sp_sum))) stop("grr")
+      w[as.integer(names(sp_sum))] <- w[as.integer(names(sp_sum))] + sp_sum
+    }
+  }
+  names(w) <- igraph::get.vertex.attribute(G, "name")
+  return(w)
+}
+
+node_betweenness_with_endpoint <- function(G) {
+  # Get betweenness without endpoints
+  w <- igraph::betweenness(G)
+  # Endpoints can be added by considering reachability
+  # Get reachability via distances
+  d <- igraph::distances(G)
+  # Don't count self
+  diag(d) <- Inf
+  r <- apply(!is.infinite(d), 1, sum)
+  return(w + r)
+}
 
 #' Weighted linear kernel
 #'
