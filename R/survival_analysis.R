@@ -97,7 +97,8 @@ cv_survival_evaluation <- function(
          cluster_significance = NA,
          concordance_index = NA)
       }
-      if (length(table(temp$cluster)) > 1) {
+      cluster_sizes <- table(temp$cluster)
+      if (length(cluster_sizes) > 1 & all(cluster_sizes > 1)) {
         covariates_in_temp <- sapply(
           survival_covariate_names, 
           function(x) length(table(temp[[x]])) > 1)
