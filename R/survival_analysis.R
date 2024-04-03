@@ -136,7 +136,7 @@ cv_survival_evaluation <- function(
               error = function(e) {warning(e);return(NA)})
             list(p_val = p_val, ci = ci)
           }, 
-          error = function(e) warning(e)
+          error = function(e) {warning(e);return(list(p_val = NA, ci = NA))}
         )
         out_i$cluster_significance <- out_i_vals[["p_val"]]
         out_i$concordance_index <- out_i_vals[["ci"]]
