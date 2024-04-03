@@ -120,10 +120,16 @@ cv_survival_evaluation <- function(
         if (all(!covariates_in_temp)) {
          model_formula0 <- paste(model_formula0, "+ 1")
         }
-        model0 <- survival::coxph(as.formula(model_formula0), data = temp)
-        res <- anova(model, model0, test="LRT")
-        p_col <- which(colnames(res) %in% c("P(>|Chi|)", "Pr(>|Chi|)"))
-        out_i$cluster_significance <- res[2, p_col]
+        p_val <- tryCatch(
+          {
+            model0 <- survival::coxph(as.formula(model_formula0), data = temp)
+            res <- anova(model, model0, test="LRT")
+            p_col <- which(colnames(res) %in% c("P(>|Chi|)", "Pr(>|Chi|)"))
+            res[2, p_col]
+          }, 
+          error = function(e) {warning(e);return(NA)}
+        )
+        out_i$cluster_significance <- p_val
         ci <- survival::concordance(model)
         out_i$concordance_index <- ci[["concordance"]]
       }
