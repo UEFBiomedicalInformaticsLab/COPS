@@ -109,31 +109,38 @@ cv_survival_evaluation <- function(
             collapse = " + "
           )
         )
-        model <- survival::coxph(as.formula(model_formula), data = temp)
-        model_formula0 <- paste0(
-          "survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
-          paste(
-            survival_covariate_names[covariates_in_temp], 
-            collapse = " + "
-          )
-        )
-        if (all(!covariates_in_temp)) {
-         model_formula0 <- paste(model_formula0, "+ 1")
-        }
-        p_val <- tryCatch(
+        out_i_vals <- tryCatch(
           {
-            model0 <- survival::coxph(as.formula(model_formula0), data = temp)
-            res <- anova(model, model0, test="LRT")
-            p_col <- which(colnames(res) %in% c("P(>|Chi|)", "Pr(>|Chi|)"))
-            res[2, p_col]
+            model <- survival::coxph(as.formula(model_formula), data = temp)
+            model_formula0 <- paste0(
+              "survival::Surv(", survival_time_col, ", ",  survival_event_col, ") ~ ", 
+              paste(
+                survival_covariate_names[covariates_in_temp], 
+                collapse = " + "
+              )
+            )
+            if (all(!covariates_in_temp)) {
+              model_formula0 <- paste(model_formula0, "+ 1")
+            }
+            p_val <- tryCatch(
+              {
+                model0 <- survival::coxph(as.formula(model_formula0), data = temp)
+                res <- anova(model, model0, test="LRT")
+                p_col <- which(colnames(res) %in% c("P(>|Chi|)", "Pr(>|Chi|)"))
+                res[2, p_col]
+              }, 
+              error = function(e) {warning(e);return(NA)}
+            )
+            ci <- tryCatch(
+              survival::concordance(model)[["concordance"]], 
+              error = function(e) {warning(e);return(NA)})
+            list(p_val = p_val, ci = ci)
           }, 
-          error = function(e) {warning(e);return(NA)}
+          error = function(e) warning(e)
         )
-        out_i$cluster_significance <- p_val
-        ci <- survival::concordance(model)
-        out_i$concordance_index <- ci[["concordance"]]
+        out_i$cluster_significance <- out_i_vals[["p_val"]]
+        out_i$concordance_index <- out_i_vals[["ci"]]
       }
-      
       out_i
     }, 
     finally = close_parallel_cluster(parallel_clust)
