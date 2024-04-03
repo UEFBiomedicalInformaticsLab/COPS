@@ -216,6 +216,7 @@ multi_omic_clustering <- function(
     kernel_gammas = rep_len(0.5, length(dat_list)),
     pathway_networks = NULL,
     pathway_node_betweenness_endpoints = TRUE, 
+    pathway_first_shortest_path = FALSE, 
     pamogk_restart = 0.7,
     pamogk_seeds = "discrete", 
     pamogk_seed_under_threshold = qnorm(0.025), 
@@ -318,8 +319,9 @@ multi_omic_clustering <- function(
     if (any(kernels %in% c("BWK", "PAMOGK"))) {
       nw_weights <- node_betweenness_parallel(
         pathway_networks, 
+        mvc_threads, 
         pathway_node_betweenness_endpoints = pathway_node_betweenness_endpoints, 
-        mvc_threads)
+        pathway_first_shortest_path = pathway_first_shortest_path)
       nw_weights <- lapply(nw_weights, sqrt)
     }
     # Construct kernels

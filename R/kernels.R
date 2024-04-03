@@ -10,9 +10,12 @@
 node_betweenness_parallel <- function(
     networks, 
     parallel = 1, 
-    pathway_node_betweenness_endpoints = TRUE
+    pathway_node_betweenness_endpoints = TRUE, 
+    pathway_first_shortest_path = FALSE
 ) {
-  if (pathway_node_betweenness_endpoints) {
+  if (pathway_first_shortest_path) {
+    betweenness_fun <- node_betweenness_first_path_only
+  } else if (pathway_node_betweenness_endpoints) {
     betweenness_fun <- node_betweenness_with_endpoint
   } else {
     betweenness_fun <- igraph::betweenness
@@ -33,6 +36,28 @@ node_betweenness_parallel <- function(
     finally = close_parallel_cluster(parallel_clust)
   )
   return(b_list)
+}
+
+node_betweenness_first_path_only <- function(G) {
+  n <- igraph::vcount(G)
+  w <- rep(0, n)
+  #names(w) <- igraph::as_ids(igraph::V(G))
+  for (i in 1:(n-1)) {
+    sp <- igraph::shortest_paths(G, i, igraph::V(G)[(i+1):n])
+    if (length(sp$vpath) > 0) {
+      #ends <- as.character(sapply(sp$vpath, function(x) rev(x)[1]))
+      #end_counts <- table(ends)
+      plengths <- sapply(sp$vpath, length)
+      #ec_reps <- rep(end_counts[ends], plengths)
+      sp_unlist <- unlist(lapply(sp$vpath, as.character))
+      #sp_sum <- tapply(1 / ec_reps, sp_unlist, sum)
+      sp_sum <- table(sp_unlist)
+      #if (any(is.na(sp_sum))) stop("grr")
+      w[as.integer(names(sp_sum))] <- w[as.integer(names(sp_sum))] + sp_sum
+    }
+  }
+  names(w) <- igraph::get.vertex.attribute(G, "name")
+  return(w)
 }
 
 node_betweenness_with_endpoint3 <- function(G) {
