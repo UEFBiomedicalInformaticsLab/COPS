@@ -411,6 +411,7 @@ multi_omic_clustering <- function(
           dn_gene_ind <- seed_dn > 0
           for (j in 1:length(pathway_networks)) {
             pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(pathway_networks[[j]]))
+            if (!any(pw_gene_ind)) next
             any_up_gene <- apply(up_gene_ind[pw_gene_ind,], 2, any)
             # Skip pathways where some samples have 0 seeds, because this can
             # cause issues in RWR and result in invalid kernels. 
