@@ -413,9 +413,8 @@ multi_omic_clustering <- function(
             pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(pathway_networks[[j]]))
             if (!any(pw_gene_ind)) next
             any_up_gene <- apply(up_gene_ind[pw_gene_ind,], 2, any)
-            # Skip pathways where some samples have 0 seeds, because this can
-            # cause issues in RWR and result in invalid kernels. 
-            if (all(any_up_gene)) {
+            # Skip pathways where only one sample has seeds
+            if (sum(any_up_gene)>1) {
               k_up <- dnet::dRWR(
                 pathway_networks[[j]], 
                 normalise = "laplacian",
@@ -441,7 +440,7 @@ multi_omic_clustering <- function(
             }
             # Same check for down genes
             any_dn_gene <- apply(dn_gene_ind[pw_gene_ind,], 2, any)
-            if (all(any_dn_gene)) {
+            if (sum(any_dn_gene)>1) {
               k_dn <- dnet::dRWR(
                 pathway_networks[[j]], 
                 normalise = "laplacian",
