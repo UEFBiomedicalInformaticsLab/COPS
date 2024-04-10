@@ -412,7 +412,7 @@ multi_omic_clustering <- function(
           for (j in 1:length(pathway_networks)) {
             pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(pathway_networks[[j]]))
             if (!any(pw_gene_ind)) next
-            any_up_gene <- apply(up_gene_ind[pw_gene_ind,], 2, any)
+            any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
             # Skip pathways where only one sample has seeds
             if (sum(any_up_gene)>1) {
               k_up <- dnet::dRWR(
@@ -439,7 +439,7 @@ multi_omic_clustering <- function(
               }
             }
             # Same check for down genes
-            any_dn_gene <- apply(dn_gene_ind[pw_gene_ind,], 2, any)
+            any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
             if (sum(any_dn_gene)>1) {
               k_dn <- dnet::dRWR(
                 pathway_networks[[j]], 
