@@ -7,7 +7,8 @@
 node_betweenness_parallel(
   networks,
   parallel = 1,
-  pathway_node_betweenness_endpoints = TRUE
+  pathway_node_betweenness_endpoints = TRUE,
+  pathway_first_shortest_path = FALSE
 )
 }
 \arguments{

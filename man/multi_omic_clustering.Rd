@@ -7,7 +7,7 @@
 multi_omic_clustering(
   dat_list,
   meta_data = NULL,
-  multi_omic_methods = "iClusterPlus",
+  multi_omic_methods = "ANF",
   n_clusters = 2,
   distance_metric = "euclidean",
   correlation_method = "spearman",
@@ -41,15 +41,18 @@ multi_omic_clustering(
   kernel_gammas = rep_len(0.5, length(dat_list)),
   pathway_networks = NULL,
   pathway_node_betweenness_endpoints = TRUE,
+  pathway_first_shortest_path = FALSE,
   pamogk_restart = 0.7,
   pamogk_seeds = "discrete",
   pamogk_seed_under_threshold = qnorm(0.025),
   pamogk_seed_over_threshold = qnorm(0.975),
+  kkmeans_algorithm = "qr_decomposition",
+  kkmeans_refine = TRUE,
   kkmeans_maxiter = 100,
   kkmeans_n_init = 100,
+  kkmeans_tol = 1e-08,
   mkkm_mr_lambda = 1,
   mkkm_mr_tolerance = 1e-08,
-  mkkm_mr_initialization = TRUE,
   mkkm_mr_mosek = FALSE,
   ecmc_a = 1,
   ecmc_b = 1,
@@ -183,16 +186,19 @@ in BWK and PAMOGK.}
 
 \item{pamogk_seed_over_threshold}{z-score threshold for over-expressed.}
 
-\item{kkmeans_maxiter}{Maximum number of iterations for kernel k-means.}
+\item{kkmeans_algorithm}{See \code{\link{kernel_kmeans}}.}
 
-\item{kkmeans_n_init}{Number of initializations for kernel k-means.}
+\item{kkmeans_refine}{See \code{\link{kernel_kmeans}}.}
+
+\item{kkmeans_maxiter}{See \code{\link{kernel_kmeans}}.}
+
+\item{kkmeans_n_init}{See \code{\link{kernel_kmeans}}.}
+
+\item{kkmeans_tol}{See \code{\link{kernel_kmeans}}.}
 
 \item{mkkm_mr_lambda}{Regularization parameter for \code{\link{mkkm_mr}}.}
 
 \item{mkkm_mr_tolerance}{Convergence threshold for \code{\link{mkkm_mr}}.}
-
-\item{mkkm_mr_initialization}{If set, uses \code{\link{mkkm_mr}} result to 
-initialize kernel k-means, otherwise runs kernel k-means++ on combined kernel.}
 
 \item{mkkm_mr_mosek}{If set, uses \code{Rmosek} for convex optimization 
 instead of \code{CVXR} for \code{\link{mkkm_mr}}.}
@@ -242,10 +248,7 @@ Supported methods:
   \item "iClusterBayes" -  code{\link[iClusterPlus]{iClusterBayes}}. Supports only up to 6 views
   \item "IntNMF" - Integrative Non-negative Matrix Factorization 
     \code{\link[IntNMF]{nmf.mnnals}}.
-  \item "kkmeans" - kernel k-means initialized on spectral approximation, 
-    uses average kernel. 
-  \item "kkmeanspp" - kernel k-means++ initialized randomly 
-    \code{kkmeans_n_init} times, uses average kernel.
+  \item "average_kernel" - kernel k-means with average kernel. 
   \item "mkkm_mr" - Multiple Kernel K-Means with Matrix-induced Regularization 
     \code{\link{mkkm_mr}}.
   \item "ECMC" - Enhanced Consensus Multi-view Clustering \code{\link{ECMC}}.

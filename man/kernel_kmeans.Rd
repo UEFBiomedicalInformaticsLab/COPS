@@ -7,8 +7,12 @@
 kernel_kmeans(
   K,
   n_k,
-  n_initializations = 100,
-  maxiter = 100,
+  algorithm = "spectral_qr",
+  spectral_qr_refine = TRUE,
+  kernel_eigen_vectors = NULL,
+  max_iter = 100,
+  num_init = 100,
+  tol = 1e-08,
   parallel = 1,
   ...
 )
@@ -18,11 +22,17 @@ kernel_kmeans(
 
 \item{n_k}{number of clusters}
 
-\item{n_initializations}{number of initializations}
+\item{algorithm}{one of "spectral", "spectral_qr", or "kernelized"}
 
-\item{maxiter}{maximum number of k-means iterations}
+\item{spectral_qr_refine}{refine QR result with kernelized k-means}
 
-\item{parallel}{number of parallel threads for running different initializations}
+\item{kernel_eigen_vectors}{eigenvectors of the kernel matrix can be pre-computed}
+
+\item{max_iter}{maximum number of iterations}
+
+\item{num_init}{number of kmeans++ initializations for kernelized k-means and spectral clustering}
+
+\item{tol}{delta error convergence threshold for spectral clustering}
 
 \item{...}{ignored}
 }
@@ -30,5 +40,14 @@ kernel_kmeans(
 \code{list} of cluster assignments and k-means objective
 }
 \description{
-K-means++ with set number of iterations.
+Kernel k-means with different algorithm options. Spectral relaxation uses 
+standard randomly initialized k-means on the eigen vectors of the kernel matrix 
+while the QR decomposition of the eigen vectors yields a single solution 
+directly. The last option is to use the kernel matrix to optimize average 
+distances without utilizing the spectral relaxation.
+}
+\details{
+The \code{tol} parameter is only used by the spectral relaxation algorithm 
+which makes use of \code{\link[ClusterR]{KMeans_rcpp}}. Other iterative 
+algorithms are considered converged only if cluster assignments do not change.
 }

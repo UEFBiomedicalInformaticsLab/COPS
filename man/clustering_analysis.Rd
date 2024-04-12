@@ -14,7 +14,7 @@ clustering_analysis(
   hierarchical_linkage = "complete",
   kmeans_num_init = 100,
   kmeans_max_iters = 100,
-  kmeans_tol = 1e-04,
+  kmeans_tol = 1e-08,
   gmm_modelNames = NULL,
   gmm_shrinkage = 0.01,
   knn_neighbours = 30,
@@ -24,8 +24,11 @@ clustering_analysis(
   kernel_center = TRUE,
   kernel_normalize = TRUE,
   kernel_scale_norm = FALSE,
+  kkmeans_algorithm = "spectral_qr",
+  kkmeans_refine = TRUE,
   kkmeans_maxiter = 100,
   kkmeans_n_init = 100,
+  kkmeans_tol = 1e-08,
   ...
 )
 }

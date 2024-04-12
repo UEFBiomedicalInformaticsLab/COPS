@@ -78,12 +78,13 @@
 #'   "discrete", "continuous", "threshold". See details below. 
 #' @param pamogk_seed_under_threshold z-score threshold for under-expressed. 
 #' @param pamogk_seed_over_threshold z-score threshold for over-expressed. 
-#' @param kkmeans_maxiter Maximum number of iterations for kernel k-means. 
-#' @param kkmeans_n_init Number of initializations for kernel k-means. 
+#' @param kkmeans_algorithm See \code{\link{kernel_kmeans}}.
+#' @param kkmeans_refine See \code{\link{kernel_kmeans}}.
+#' @param kkmeans_tol See \code{\link{kernel_kmeans}}.
+#' @param kkmeans_maxiter See \code{\link{kernel_kmeans}}.
+#' @param kkmeans_n_init See \code{\link{kernel_kmeans}}.
 #' @param mkkm_mr_lambda Regularization parameter for \code{\link{mkkm_mr}}.
 #' @param mkkm_mr_tolerance Convergence threshold for \code{\link{mkkm_mr}}.
-#' @param mkkm_mr_initialization If set, uses \code{\link{mkkm_mr}} result to 
-#'   initialize kernel k-means, otherwise runs kernel k-means++ on combined kernel.
 #' @param mkkm_mr_mosek If set, uses \code{Rmosek} for convex optimization 
 #'   instead of \code{CVXR} for \code{\link{mkkm_mr}}.
 #' @param ecmc_a Regularization parameter for \code{\link{ECMC}}.
@@ -117,10 +118,7 @@
 #'   \item "iClusterBayes" -  code{\link[iClusterPlus]{iClusterBayes}}. Supports only up to 6 views
 #'   \item "IntNMF" - Integrative Non-negative Matrix Factorization 
 #'     \code{\link[IntNMF]{nmf.mnnals}}.
-#'   \item "kkmeans" - kernel k-means initialized on spectral approximation, 
-#'     uses average kernel. 
-#'   \item "kkmeanspp" - kernel k-means++ initialized randomly 
-#'     \code{kkmeans_n_init} times, uses average kernel.
+#'   \item "average_kernel" - kernel k-means with average kernel. 
 #'   \item "mkkm_mr" - Multiple Kernel K-Means with Matrix-induced Regularization 
 #'     \code{\link{mkkm_mr}}.
 #'   \item "ECMC" - Enhanced Consensus Multi-view Clustering \code{\link{ECMC}}.
@@ -182,7 +180,7 @@
 multi_omic_clustering <- function(
     dat_list, 
     meta_data = NULL,
-    multi_omic_methods = "iClusterPlus",
+    multi_omic_methods = "ANF",
     n_clusters = 2, 
     distance_metric = "euclidean", 
     correlation_method = "spearman",
@@ -221,12 +219,14 @@ multi_omic_clustering <- function(
     pamogk_seeds = "discrete", 
     pamogk_seed_under_threshold = qnorm(0.025), 
     pamogk_seed_over_threshold = qnorm(0.975), 
-    kkmeans_maxiter = 100,
-    kkmeans_n_init = 100,
+    kkmeans_algorithm = "qr_decomposition", 
+    kkmeans_refine = TRUE, 
+    kkmeans_maxiter = 100, 
+    kkmeans_n_init = 100, 
+    kkmeans_tol = 1e-8, 
     mkkm_mr_lambda = 1, 
     mkkm_mr_tolerance = 1e-8, 
-    mkkm_mr_initialization = TRUE, 
-    mkkm_mr_mosek = FALSE,
+    mkkm_mr_mosek = FALSE, 
     ecmc_a = 1, 
     ecmc_b = 1, 
     ecmc_eps = 1e-6,
@@ -664,42 +664,31 @@ multi_omic_clustering <- function(
       res <- c(res, list(k_res))
     }
   }
-  if ("kkmeans" %in% multi_omic_methods) {
-    # Average kernel
+  if ("average_kernel" %in% multi_omic_methods) {
     multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
-    eigs <- eigen(multi_omic_kernels, symmetric = TRUE)
-    for (k in n_clusters) {
-      k_res <- tryCatch({
-        init <- kernel_kmeans_spectral_approximation(eigs$vectors, k = k)
-        temp_res <- kernel_kmeans_algorithm(
-          multi_omic_kernels, 
-          n_k = k, 
-          init = init, 
-          maxiter = kkmeans_maxiter)
-        temp_res <- data.frame(
-          m = "kkmeans", 
-          k = k, 
-          cluster = temp_res$clusters)
-        if (ncol(meta_data[[1]]) > 0) temp_res <- cbind(meta_data[[1]], temp_res)
-        temp_res
-      }, error = function(e) {warning(e); return(NULL)})
-      if(!is.null(k_res)) if(nrow(k_res) > 1) res <- c(res, list(k_res))
+    if (kkmeans_algorithm %in% c("spectral", "spectral_qr")) {
+      eigs <- eigen(multi_omic_kernels, symmetric = TRUE)$vectors
+    } else {
+      eigs <- NULL
     }
-  }
-  if ("kkmeanspp" %in% multi_omic_methods) {
-    # Average kernel
-    multi_omic_kernels <- Reduce('+', multi_omic_kernels) / length(multi_omic_kernels)
     for (k in n_clusters) {
       k_res <- tryCatch({
         temp_res <- kernel_kmeans(
-          multi_omic_kernels, 
-          k, 
-          n_initializations = kkmeans_n_init, 
-          maxiter = kkmeans_maxiter)
+          K = multi_omic_kernels, 
+          n_k = k, 
+          algorithm = kkmeans_algorithm, 
+          spectral_qr_refine = kkmeans_refine, 
+          kernel_eigen_vectors = eigs, 
+          max_iter = kkmeans_maxiter, 
+          num_init = kkmeans_n_init, 
+          tol = kkmeans_tol, 
+          parallel = mvc_threads
+        )
         temp_res <- data.frame(
-          m = "kkmeanspp", 
+          m = "kkmeans", 
           k = k, 
-          cluster = temp_res$clusters)
+          cluster = temp_res$clusters
+        )
         if (ncol(meta_data[[1]]) > 0) temp_res <- cbind(meta_data[[1]], temp_res)
         temp_res
       }, error = function(e) {warning(e); return(NULL)})
@@ -722,24 +711,17 @@ multi_omic_clustering <- function(
             tolerance = mkkm_mr_tolerance, 
             parallel = mvc_threads,
             use_mosek = mkkm_mr_mosek)
-          if (mkkm_mr_initialization) {
-            init <- kernel_kmeans_spectral_approximation(
-              optimal_kernel$H,
-              k = k)
-            temp_res <- kernel_kmeans_algorithm(
-              optimal_kernel$K, 
-              n_k = k, 
-              init = init, 
-              maxiter = kkmeans_maxiter)
-          } else {
-            # Run k-means++ (random initialization)
-            temp_res <- kernel_kmeans(
-              optimal_kernel$K, 
-              n_k = k, 
-              n_initializations = kkmeans_n_init, 
-              maxiter = kkmeans_maxiter,
-              parallel = mvc_threads)
-          }
+          temp_res <- kernel_kmeans(
+            K = optimal_kernel$K, 
+            n_k = k, 
+            algorithm = kkmeans_algorithm, 
+            spectral_qr_refine = kkmeans_refine, 
+            kernel_eigen_vectors = optimal_kernel$H, 
+            max_iter = kkmeans_maxiter, 
+            num_init = kkmeans_n_init, 
+            tol = kkmeans_tol, 
+            parallel = mvc_threads
+          )
           temp_res <- data.frame(
             m = "mkkm_mr", 
             k = k, 
@@ -806,30 +788,23 @@ multi_omic_clustering <- function(
               )
             )
           )
-          if (mkkm_mr_initialization) {
-            init <- kernel_kmeans_spectral_approximation(optimal_kernel$H, k = k)
-            temp_res <- kernel_kmeans_algorithm(
-              optimal_kernel$K, 
-              n_k = k, 
-              init = init, 
-              maxiter = kkmeans_maxiter)
-          } else {
-            # Run k-means++ (random initialization)
-            temp_res <- kernel_kmeans(
-              optimal_kernel$K, 
-              n_k = k, 
-              n_initializations = kkmeans_n_init, 
-              maxiter = kkmeans_maxiter,
-              parallel = mvc_threads)
-          }
+          Kk <- optimal_kernel$K
+          eigs_k <- optimal_kernel$H
         } else {
-          init <- kernel_kmeans_spectral_approximation(eigs$vectors, k = k)
-          temp_res <- kernel_kmeans_algorithm(
-            consensus_res$C_sum, 
-            n_k = k, 
-            init = init, 
-            maxiter = kkmeans_maxiter)
+          Kk <- consensus_res$C_sum
+          eigs_k <- NULL
         }
+        temp_res <- kernel_kmeans(
+          K = Kk, 
+          n_k = k, 
+          algorithm = kkmeans_algorithm, 
+          spectral_qr_refine = kkmeans_refine, 
+          kernel_eigen_vectors = eigs_k, 
+          max_iter = kkmeans_maxiter, 
+          num_init = kkmeans_n_init, 
+          tol = kkmeans_tol, 
+          parallel = mvc_threads
+        )
         temp_res <- data.frame(
           m = "ecmc",
           k = k, 

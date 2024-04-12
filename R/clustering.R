@@ -57,7 +57,7 @@ clustering_analysis <- function(
     hierarchical_linkage = "complete",
     kmeans_num_init = 100,
     kmeans_max_iters = 100,
-    kmeans_tol = 0.0001,
+    kmeans_tol = 1e-8,
     gmm_modelNames = NULL,  
     gmm_shrinkage = 0.01, 
     knn_neighbours = 30, 
@@ -67,8 +67,11 @@ clustering_analysis <- function(
     kernel_center = TRUE,
     kernel_normalize = TRUE,
     kernel_scale_norm = FALSE,
+    kkmeans_algorithm = "spectral_qr", 
+    kkmeans_refine = TRUE, 
     kkmeans_maxiter = 100,
     kkmeans_n_init = 100,
+    kkmeans_tol = 1e-8,
     ...
 ) {
   temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]
@@ -256,7 +259,7 @@ clustering_analysis <- function(
             cluster = clust_k)
           )
       }
-    } else if (cluster_methods_expanded[i] %in% c("kkmeans", "kkmeanspp")) {
+    } else if (cluster_methods_expanded[i] == "kkmeans") {
       for (kernel_i in kernel) {
         if (kernel_i == "linear") {
           temp_kernel <- temp %*% t(temp)
@@ -280,37 +283,37 @@ clustering_analysis <- function(
           stop(paste0("Kernel \"", kernel_i, "\" is not supported."))
         }
         for (k_i in 1:length(temp_kernel)) {
-          if (cluster_methods_expanded[i] == "kkmeans") {
-            approximation <- eigen(temp_kernel, symmetric = TRUE)$vectors
-            for (k in n_clusters) {
-              temp_res <- kernel_kmeans_algorithm(
-                K = temp_kernel[[k_i]], 
-                n_k = k, 
-                init = apply(approximation[,1:k], 1, which.max), 
-                maxiter = kkmeans_maxiter)
-            }
-          } else if (cluster_methods_expanded[i] == "kkmeanspp") {
-            for (k in n_clusters) {
-              temp_res <- kernel_kmeans(
-                K = temp_kernel[[k_i]], 
-                n_k = k, 
-                n_initializations = kkmeans_n_init, 
-                maxiter = kkmeans_maxiter)
-            }
+          if (kkmeans_algorithm %in% c("spectral", "spectral_qr")) {
+            eigs <- eigen(temp_kernel[[k_i]], symmetric = TRUE)$vectors
+          } else {
+            eigs <- NULL
           }
-          method_string <- paste0(
-            kernel_i, 
-            ifelse(kernel_i %in% c("gaussian", "rbf"), 
-                   paste0("_", kernel_gamma[k_i]), ""), 
-            "_", cluster_methods_expanded[i])
-          clusters <- rbind(
-            clusters, 
-            data.frame(
-              id = rownames(temp), 
-              m = method_string, 
-              k = k, 
-              cluster = temp_res$clusters)
+          for (k in n_clusters) {
+            temp_res <- kernel_kmeans(
+              K = temp_kernel[[k_i]], 
+              n_k = k, 
+              algorithm = kkmeans_algorithm, 
+              spectral_qr_refine = kkmeans_refine, 
+              kernel_eigen_vectors = eigs, 
+              max_iter = kkmeans_maxiter, 
+              num_init = kkmeans_n_init, 
+              tol = kkmeans_tol, 
+              parallel = 1
             )
+            method_string <- paste0(
+              kernel_i, 
+              ifelse(kernel_i %in% c("gaussian", "rbf"), 
+                     paste0("_", kernel_gamma[k_i]), ""), 
+              "_", cluster_methods_expanded[i])
+            clusters <- rbind(
+              clusters, 
+              data.frame(
+                id = rownames(temp), 
+                m = method_string, 
+                k = k, 
+                cluster = temp_res$clusters)
+            )
+          }
         }
       } 
     } else {
@@ -319,9 +322,11 @@ clustering_analysis <- function(
   }
   
   # Combine outputs with metadata
-  out <- plyr::join(dat[!grepl("^dim[0-9]+$", colnames(dat))], 
-                                  clusters, 
-                                  by = "id")
+  out <- plyr::join(
+    dat[!grepl("^dim[0-9]+$", colnames(dat))], 
+    clusters, 
+    by = "id"
+  )
   out <- out[!is.na(out$cluster),] # potential issue with reference fold missing later
   return(out)
 }
@@ -515,12 +520,6 @@ cv_clusteval <- function(
       lapply(list(...), function(x) x$clusters))
     bound_list$metrics <- data.table::rbindlist(
       lapply(list(...), function(x) x$metrics))
-    #bound_list$chisq_pval <- data.table::rbindlist(
-    #  lapply(list(...), function(x) x$chisq_pval))
-    #bound_list$batch_association <- data.table::rbindlist(
-    #  lapply(list(...), function(x) x$batch_association))
-    #bound_list$subtype_association <- data.table::rbindlist(
-    #  lapply(list(...), function(x) x$subtype_association))
     bound_list$cluster_sizes <- data.table::rbindlist(
       lapply(list(...), function(x) x$cluster_sizes), fill = TRUE)
     return(bound_list)

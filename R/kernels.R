@@ -516,7 +516,7 @@ global_kernel_kmeans <- function(
         K, 
         k, 
         k_clusters_init, 
-        maxiter = Inf)
+        max_iter = Inf)
     }
     best_i <- which.min(sapply(res, function(x) x$E))
     k_clusters <- res[[best_i]]$clusters
@@ -526,13 +526,24 @@ global_kernel_kmeans <- function(
 
 #' Kernel k-means 
 #' 
-#' K-means++ with set number of iterations. 
+#' Kernel k-means with different algorithm options. Spectral relaxation uses 
+#' standard randomly initialized k-means on the eigen vectors of the kernel matrix 
+#' while the QR decomposition of the eigen vectors yields a single solution 
+#' directly. The last option is to use the kernel matrix to optimize average 
+#' distances without utilizing the spectral relaxation. 
+#' 
+#' The \code{tol} parameter is only used by the spectral relaxation algorithm 
+#' which makes use of \code{\link[ClusterR]{KMeans_rcpp}}. Other iterative 
+#' algorithms are considered converged only if cluster assignments do not change. 
 #'
 #' @param K kernel \code{matrix}
 #' @param n_k number of clusters
-#' @param n_initializations number of initializations
-#' @param maxiter maximum number of k-means iterations
-#' @param parallel number of parallel threads for running different initializations
+#' @param algorithm one of "spectral", "spectral_qr", or "kernelized"
+#' @param spectral_qr_refine refine QR result with kernelized k-means
+#' @param kernel_eigen_vectors eigenvectors of the kernel matrix can be pre-computed
+#' @param max_iter maximum number of iterations
+#' @param num_init number of kmeans++ initializations for kernelized k-means and spectral clustering
+#' @param tol delta error convergence threshold for spectral clustering
 #' @param ... ignored
 #'
 #' @return \code{list} of cluster assignments and k-means objective
@@ -540,18 +551,88 @@ global_kernel_kmeans <- function(
 kernel_kmeans <- function(
     K, 
     n_k, 
-    n_initializations = 100, 
-    maxiter = 1e2, 
+    algorithm = "spectral_qr", 
+    spectral_qr_refine = TRUE, 
+    kernel_eigen_vectors = NULL, 
+    max_iter = 100,
+    num_init = 100, 
+    tol = 1e-8, 
+    parallel = 1, 
+    ...
+) {
+  if (algorithm == "spectral_qr") {
+    if (is.null(kernel_eigen_vectors)) {
+      kernel_eigen_vectors <- eigen(K, symmetric = TRUE)$vectors
+    }
+    res <- kernel_kmeans_spectral_approximation(
+      kernel_eigen_vectors, 
+      k = n_k
+    )
+    if (spectral_qr_refine) {
+      res <- kernel_kmeans_algorithm(
+        K = K, 
+        n_k = n_k, 
+        init = res, 
+        max_iter = max_iter
+      )
+    }
+    return(res)
+  } 
+  if (algorithm == "spectral") {
+    if (is.null(kernel_eigen_vectors)) {
+      kernel_eigen_vectors <- eigen(K, symmetric = TRUE)$vectors
+    }
+    res <- ClusterR::KMeans_rcpp(
+      data = kernel_eigen_vectors, 
+      clusters = n_k, 
+      num_init = num_init, 
+      max_iters = max_iter,
+      tol = tol)
+    return(res)
+  } 
+  if (algorithm == "kernelized") {
+    res <- kernelized_kmeans(
+      K = K, 
+      n_k = n_k, 
+      num_init = num_init, 
+      max_iter = max_iter, 
+      parallel = parallel
+    )
+    return(res)
+  }
+  stop(paste("Undefined kernel k-mean algorithm:", algorithm))
+}
+
+
+
+#' Kernelized k-means 
+#' 
+#' K-means++ without spectral relaxation. 
+#'
+#' @param K kernel \code{matrix}
+#' @param n_k number of clusters
+#' @param num_init number of initializations
+#' @param max_iter maximum number of k-means iterations
+#' @param parallel number of parallel threads for running different initializations
+#' @param ... ignored
+#'
+#' @return \code{list} of cluster assignments and k-means objective
+#' @export
+kernelized_kmeans <- function(
+    K, 
+    n_k, 
+    num_init = 100, 
+    max_iter = 1e2, 
     parallel = 1, 
     ...
 ) {
   out <- list(clusters = NA, E = Inf)
-  if(n_initializations > ncol(K)) {
-    w1 <- "K-means++ is deterministic for a given initialization."
+  if(num_init > ncol(K)) {
+    w1 <- "K-means++ is deterministic for a given initial point."
     w2 <- "Specified initializations exceed the number of data points."
     w3 <- "Setting it to the number of data points ..."
     warning(paste(w1, w2, w3))
-    n_initializations <- ncol(K)
+    num_init <- ncol(K)
   }
   lower_error <- function(x, y) {
     if(x$E <= y$E) {
@@ -560,7 +641,7 @@ kernel_kmeans <- function(
       return(y)
     }
   }
-  random_seeds <- sample(1:ncol(K), n_initializations, replace = FALSE)
+  random_seeds <- sample(1:ncol(K), num_init, replace = FALSE)
   parallel_clust <- setup_parallelization(parallel)
   out <- tryCatch(
     foreach(
@@ -570,8 +651,12 @@ kernel_kmeans <- function(
       .packages = c(), 
       .inorder = FALSE
     ) %dopar% {
-      out_i <- kernel_kmeanspp(K = K, n_k = n_k, seed = ri, maxiter = maxiter)
-      out_i
+      kernel_kmeanspp(
+        K = K, 
+        n_k = n_k, 
+        seed = ri, 
+        max_iter = max_iter
+      )
     }, 
     finally = close_parallel_cluster(parallel_clust)
   )
@@ -582,7 +667,7 @@ kernel_kmeanspp <- function(
     K, 
     n_k, 
     seed, 
-    maxiter = 1e2
+    max_iter = 1e2
 ) {
   centroids <- seed
   for (i in 2:n_k) {
@@ -592,21 +677,29 @@ kernel_kmeanspp <- function(
     centroids <- c(centroids, ci)
   }
   init <- apply(K[,centroids, drop = FALSE], 1, which.max)
-  return(kernel_kmeans_algorithm(K = K, n_k = n_k, init, maxiter = maxiter))
+  return(
+    kernel_kmeans_algorithm(
+      K = K, 
+      n_k = n_k, 
+      init, 
+      max_iter = max_iter
+    )
+  )
 }
 
 kernel_kmeans_algorithm <- function(
     K, 
     n_k, 
     init, 
-    maxiter = 1e2
+    max_iter = 1e2, 
+    ...
 ) {
   K_clusters <- init
   diff <- TRUE
   it <- 0
   K_dist <- matrix(NA, nrow(K), n_k)
   while (diff) {
-    if (it > maxiter) {
+    if (it > max_iter) {
       warning("Kernel k-means did not converge.")
       break()
     }
