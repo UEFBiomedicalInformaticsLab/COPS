@@ -219,7 +219,7 @@ multi_omic_clustering <- function(
     pamogk_seeds = "discrete", 
     pamogk_seed_under_threshold = qnorm(0.025), 
     pamogk_seed_over_threshold = qnorm(0.975), 
-    kkmeans_algorithm = "qr_decomposition", 
+    kkmeans_algorithm = "spectral_qr", 
     kkmeans_refine = TRUE, 
     kkmeans_maxiter = 100, 
     kkmeans_n_init = 100, 
