@@ -219,6 +219,7 @@ multi_omic_clustering <- function(
     pamogk_seeds = "discrete", 
     pamogk_seed_under_threshold = qnorm(0.025), 
     pamogk_seed_over_threshold = qnorm(0.975), 
+    pamogk_rwr_verbose = FALSE, 
     kkmeans_algorithm = "spectral_qr", 
     kkmeans_refine = TRUE, 
     kkmeans_maxiter = 100, 
@@ -409,20 +410,30 @@ multi_omic_clustering <- function(
           }
           up_gene_ind <- seed_up > 0
           dn_gene_ind <- seed_dn > 0
+          
+          if (pamogk_rwr_verbose) {
+            rwr_wrapper <- function(x) return(x)
+          } else {
+            rwr_wrapper <- function(x) return(suppressMessages(suppressWarnings(x)))
+          }
+          
           for (j in 1:length(pathway_networks)) {
             pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(pathway_networks[[j]]))
             if (!any(pw_gene_ind)) next
             any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
             # Skip pathways where only one sample has seeds
             if (sum(any_up_gene)>1) {
-              k_up <- dnet::dRWR(
+              
+              k_up <- rwr_wrapper(dnet::dRWR(
                 pathway_networks[[j]], 
                 normalise = "laplacian",
                 setSeeds = seed_up,
                 restart = pamogk_restart,
                 normalise.affinity.matrix = "none",
                 parallel = mvc_threads > 1,
-                multicores = rwr_threads)
+                multicores = rwr_threads, 
+                verbose = pamogk_rwr_verbose
+              ))
               rownames(k_up) <- names(igraph::V(pathway_networks[[j]]))
               colnames(k_up) <- rownames(temp)
               k_up <- weighted_linear_kernel(as.matrix(k_up), nw_weights[[j]])
@@ -441,14 +452,16 @@ multi_omic_clustering <- function(
             # Same check for down genes
             any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
             if (sum(any_dn_gene)>1) {
-              k_dn <- dnet::dRWR(
+              k_dn <- rwr_wrapper(dnet::dRWR(
                 pathway_networks[[j]], 
                 normalise = "laplacian",
                 setSeeds = seed_dn,
                 restart = pamogk_restart,
                 normalise.affinity.matrix = "none",
                 parallel = mvc_threads > 1,
-                multicores = rwr_threads)
+                multicores = rwr_threads, 
+                verbose = pamogk_rwr_verbose
+              ))
               rownames(k_dn) <- names(igraph::V(pathway_networks[[j]]))
               colnames(k_dn) <- rownames(temp)
               k_dn <- weighted_linear_kernel(as.matrix(k_dn), nw_weights[[j]])

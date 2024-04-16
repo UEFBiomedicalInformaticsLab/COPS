@@ -409,7 +409,8 @@ mkkm_mr_mu_opt <- function(
     M, 
     lambda, 
     parallel = 0, 
-    use_mosek = FALSE
+    use_mosek = FALSE, 
+    mosek_verbosity = 0L
 ) {
   n <- nrow(H)
   HHT <- diag(rep(1, n)) - H %*% t(H)
@@ -420,9 +421,24 @@ mkkm_mr_mu_opt <- function(
   Z <- diag(Z)
   
   if (use_mosek) {
-    return(mkkm_mr_mu_opt_mosek(Z, M, lambda, parallel = parallel))
+    return(
+      mkkm_mr_mu_opt_mosek(
+        Z, 
+        M, 
+        lambda, 
+        parallel = parallel, 
+        mosek_verbosity = mosek_verbosity
+      )
+    )
   } else {
-    return(mkkm_mr_mu_opt_cvxr(Z, M, lambda, parallel = parallel))
+    return(
+      mkkm_mr_mu_opt_cvxr(
+        Z, 
+        M, 
+        lambda, 
+        parallel = parallel
+      )
+    )
   }
 }
 
@@ -430,7 +446,8 @@ mkkm_mr_mu_opt_mosek <- function(
     Z, 
     M, 
     lambda, 
-    parallel = 0
+    parallel = 0, 
+    mosek_verbosity = 0L
 ) {
   if (!requireNamespace("Rmosek", quietly = TRUE)) {
     stop("Trying to run MKKM-MR with MOSEK, but Rmosek has not been installed.")
@@ -457,7 +474,7 @@ mkkm_mr_mu_opt_mosek <- function(
   prob$qobj$j <- l
   prob$qobj$v <- (2*Z + lambda * M)[cbind(k,l)]
   
-  res <- Rmosek::mosek(prob)
+  res <- Rmosek::mosek(prob, opts = list(verbose = mosek_verbosity))
   return(res$sol$itr$xx)
 }
 
