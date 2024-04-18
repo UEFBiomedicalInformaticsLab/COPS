@@ -357,7 +357,8 @@ mkkm_mr <- function(
     lambda, 
     tolerance = 1e-6, 
     parallel = 0, 
-    use_mosek = FALSE
+    use_mosek = FALSE, 
+    mkkm_mr_maxiter = 1e2
 ) {
   M <- matrix(NA, length(K_list), length(K_list))
   for (i in 1:length(K_list)) {
@@ -368,10 +369,9 @@ mkkm_mr <- function(
   }
   mu <- rep(1, length(K_list)) / length(K_list)
   objective <- NA
-  objective_t <- Inf # at least two iterations (initial soution + 1 iteration)
-  first <- TRUE
-  while(first | log(objective) - log(objective_t) > tolerance) {
-    first <- FALSE
+  objective_t <- Inf # at least two iterations (initial solution + 1 iteration)
+  it <- 1
+  while(it <= mkkm_mr_maxiter & (it == 1 | log(objective) - log(objective_t) > tolerance)) {
     K <- K_list[[1]] * mu[1]**2
     for (i in 2:length(K_list)) {
       K <- K + K_list[[i]] * mu[i]**2
@@ -757,8 +757,387 @@ kernel_kmeans_spectral_approximation <- function(
     return(init)
 }
 
-# Utilities
-#' Kernel centering
+#' Multi-omic kernels
+#'
+#' Process a set of omics observations into kernels
+#'
+#' @param dat_list List of input \code{data.frame}s for input.
+#' @param kernels Character vector of kernel names to use for different views. 
+#'   See details. 
+#' @param kernels_center Logical vector specifying which kernels should be 
+#'   centered. Repeated for each view if length 1.
+#' @param kernels_normalize Logical vector specifying which kernels should be 
+#'   normalized Repeated for each view if length 1.
+#' @param kernels_scale_norm Logical vector specifying which kernels should be 
+#'   scaled to unit F-norm. Repeated for each view if length 1.
+#' @param kernel_gammas Numeric vector specifying gamma for the gaussian kernel. 
+#' @param pathway_networks List of \code{igraph} objects containing pathway 
+#'   networks. Required for pathway kernels. 
+#' @param pathway_node_betweenness_endpoints whether to include shortest path 
+#'   endpoints in betweenness. Including it results in more non-zero weights 
+#'   in BWK and PAMOGK. 
+#' @param pamogk_restart Restart probability for PAMOGK RWR. 
+#' @param pamogk_seeds Seed selection strategy for PAMOGK RWR, one of: 
+#'   "discrete", "continuous", "threshold". See details below. 
+#' @param pamogk_seed_under_threshold z-score threshold for under-expressed. 
+#' @param pamogk_seed_over_threshold z-score threshold for over-expressed. 
+#' @param pamogk_rwr_verbose See \code{\link[dnet]{dRWR}}
+#' @param zero_var_removal If set, removes all zero variance features 
+#'   from the data. It is called fold-wise, because this is assumed to be run 
+#'   inside CV. 
+#' @param mvc_threads Number of threads to use for supported operations. 
+#' @param ... Extra arguments are ignored. 
+#'
+#' @return \code{list} of kernels
+#' 
+#' Supported kernels: 
+#' \itemize{
+#'   \item "linear" - Linear kernel based on standard dot product. 
+#'   \item "gaussian", "rbf" - Gaussian kernel, a.k.a. radial basis function.
+#'   \item "jaccard" - Kernel based on Jaccard index. Used for binary features. 
+#'   \item "tanimoto" - For now, this is identical to "jaccard".
+#'   \item "BWK" - Betweenness Weighted Kernel. Uses pathway networks to compute 
+#'     betweenness centrality which is used to weight features in a linear 
+#'     pathway kernels. 
+#'   \item "PAMOGK" - PAthway Multi-Omics Graph Kernel (Tepeli et al. 2021). 
+#'     Uses z-scores, RWR and shortest paths in pathway networks to create 
+#'     pathway kernels. 
+#'   \item "PIK" - Pathway Induced Kernel (Manica et al. 2019). Uses pathway 
+#'     network adjacency matrices (specifically normalized Laplacians) to define 
+#'     pathway kernels. 
+#' }
+#' Please note that for pathway kernels, the input data must always be mapped to 
+#' genes and that the names must match with the gene names in the pathways. 
+#' The default set of pathways is KEGG molecular pathways with gene symbols. 
+#' 
+#' PAMOGK RWR seed weight options:
+#' \itemize{
+#'   \item "discrete" - 1 if |z| > t, 0 otherwise. 
+#'   \item "continuous" - z
+#'   \item "threshold" - z if |z| > t, 0 otherwise
+#' }
+#' Regardless of the option, the seeds are divided into two sets based on the 
+#' sign of the z-score. Each set has a separate smoothing step and the end 
+#' result is two different kernels per pathway per omic. This impacts the 
+#' RWR label smoothing by changing the initial distribution. 
+#' 
+#' @export
+get_multi_omic_kernels <- function(
+    dat_list, 
+    kernels = rep_len("linear", length(dat_list)),
+    kernels_center = TRUE,
+    kernels_normalize = TRUE,
+    kernels_scale_norm = FALSE,
+    kernel_gammas = rep_len(0.5, length(dat_list)),
+    pathway_networks = NULL,
+    pathway_node_betweenness_endpoints = TRUE, 
+    pathway_first_shortest_path = FALSE, 
+    pamogk_restart = 0.7,
+    pamogk_seeds = "discrete", 
+    pamogk_seed_under_threshold = qnorm(0.025), 
+    pamogk_seed_over_threshold = qnorm(0.975), 
+    pamogk_rwr_verbose = FALSE, 
+    gene_id_list = NULL, 
+    zero_var_removal = TRUE, 
+    mvc_threads = 1, 
+    preprocess_data = FALSE, 
+    experimental_parallelization = FALSE, 
+    ...
+) {
+  if (preprocess_data) {
+    dat_processed <- data_preprocess(dat_list)
+    dat_list <- dat_processed[["dat_list"]]
+    gene_id_list <- dat_processed[["gene_id_list"]]
+    
+    meta_data <- list()
+    for (j in 1:length(dat_list)) {
+      sel <- grep("^dim[0-9]+$", colnames(dat_list[[j]]))
+      if ("data.table" %in% class(dat_list[[j]])) {
+        meta_data[[j]] <- dat_list[[j]][,-..sel]
+      } else {
+        meta_data[[j]] <- dat_list[[j]][,-sel]
+      }
+      dat_list[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[,sel])
+    }
+  }
+  if (zero_var_removal) {
+    dat_list <- lapply(dat_list, function(x) x[,apply(x, 2, var) > 0])
+  }
+  if (length(kernels_center) != length(dat_list)) {
+    kernels_center <- rep_len(kernels_center, length(dat_list))
+  }
+  if (length(kernels_normalize) != length(dat_list)) {
+    kernels_normalize <- rep_len(kernels_normalize, length(dat_list))
+  }
+  if (length(kernels_scale_norm) != length(dat_list)) {
+    kernels_scale_norm <- rep_len(kernels_scale_norm, length(dat_list))
+  }
+  # Pathway-based kernels need pathway networks
+  if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &
+      is.null(pathway_networks)) {
+    w1 <- "No pathway networks specified for pathway kernel."
+    w2 <- "Defaulting to KEGG pathways mapped to gene symbols."
+    warning(paste(w1, w2))
+    kegg_nets <- KEGG_networks()
+    for (net_i in 1:length(kegg_nets)) {
+      kegg_entrez <- gsub("hsa:", "", names(igraph::V(kegg_nets[[net_i]])))
+      kegg_symbol <- AnnotationDbi::mapIds(
+        org.Hs.eg.db::org.Hs.eg.db, 
+        kegg_entrez, 
+        "SYMBOL", 
+        "ENTREZID")
+      kegg_nets[[net_i]] <- igraph::set.vertex.attribute(
+        kegg_nets[[net_i]], 
+        "name", 
+        value = kegg_symbol)
+    }
+    pathway_networks <- kegg_nets
+  }
+  if (any(kernels %in% c("BWK", "PAMOGK"))) {
+    nw_weights <- node_betweenness_parallel(
+      pathway_networks, 
+      mvc_threads, 
+      pathway_node_betweenness_endpoints = pathway_node_betweenness_endpoints, 
+      pathway_first_shortest_path = pathway_first_shortest_path)
+    nw_weights <- lapply(nw_weights, sqrt)
+  }
+  # Construct kernels
+  multi_omic_kernels <- list()
+  for (i in 1:length(dat_list)) {
+    if (kernels[i] == "linear") {
+      temp <- dat_list[[i]] %*% t(dat_list[[i]])
+      if (kernels_center[i]) temp <- center_kernel(temp)
+      if (kernels_normalize[i]) temp <- normalize_kernel(temp)
+      if (kernels_scale_norm[i]) temp <- scale_kernel_norm(temp)
+      temp <- list(temp)
+      names(temp) <- names(dat_list)[i]
+      multi_omic_kernels <- c(multi_omic_kernels, temp)
+    } else if (kernels[i] %in% c("gaussian", "rbf")) {
+      temp <- exp(- kernel_gammas[i] * as.matrix(dist(dat_list[[i]]))**2)
+      temp <- list(temp)
+      names(temp) <- names(dat_list)[i]
+      multi_omic_kernels <- c(multi_omic_kernels, temp)
+    } else if (kernels[i] %in% c("jaccard", "tanimoto")) {
+      temp <- jaccard_matrix(t(dat_list[[i]]))
+      temp[is.nan(temp)] <- 0
+      diag(temp) <- 1
+      if (kernels_center[i]) temp <- center_kernel(temp)
+      if (kernels_normalize[i]) temp <- normalize_kernel(temp)
+      if (kernels_scale_norm[i]) temp <- scale_kernel_norm(temp)
+      temp <- list(temp)
+      names(temp) <- names(dat_list)[i]
+      multi_omic_kernels <- c(multi_omic_kernels, temp)
+    } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
+      gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list[[i]])))
+      temp <- dat_list[[i]]
+      colnames(temp) <- gene_id_list[[i]][gene_col_ind]
+      if (kernels[i] == "PIK") {
+        temp <- scale(temp, scale = TRUE) # z-scores
+        temp <- PIK_from_networks(temp, pathway_networks, parallel = mvc_threads)
+        names(temp) <- paste0(names(dat_list)[i], "_", names(temp))
+        temp <- lapply(temp, as.matrix)
+        if (kernels_normalize[i]) {
+          temp <- lapply(temp, normalize_kernel)
+          temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
+        }
+        if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
+      } else if (kernels[i] == "BWK") {
+        temp <- t(temp)
+        temp <- lapply(nw_weights, function(w) weighted_linear_kernel(temp, w))
+        names(temp) <- paste0(names(dat_list)[i], "_", names(temp))
+        temp <- temp[!sapply(temp, is.null)]
+        temp <- lapply(temp, as.matrix)
+        temp <- temp[which(sapply(temp, function(x) var(as.vector(x))) > 0)]
+        if (kernels_center[i]) temp <- lapply(temp, center_kernel)
+        if (kernels_normalize[i]) {
+          temp <- lapply(temp, normalize_kernel)
+          temp <- lapply(temp, function(x) {x[is.na(x)]  <- 0;return(x)})
+        }
+        if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
+        multi_omic_kernels <- c(multi_omic_kernels, temp)
+      } else if (kernels[i] == "PAMOGK") {
+        temp <- scale(temp, scale = TRUE) # z-scores
+        if (mvc_threads > 1) {
+          rwr_threads <- mvc_threads
+        } else {
+          rwr_threads <- NULL
+        }
+        
+        if (pamogk_seeds == "discrete") {
+          seed_up <- t(temp) > pamogk_seed_over_threshold
+          seed_dn <- t(temp) < pamogk_seed_under_threshold
+        } else if (pamogk_seeds == "continuous") {
+          seed_up <- t(temp)
+          seed_dn <- -t(temp)
+          seed_up[seed_up < 0] <- 0
+          seed_dn[seed_dn < 0] <- 0
+        } else if (pamogk_seeds == "threshold") {
+          seed_up <- seed_dn <- t(temp)
+          seed_up[seed_up < pamogk_seed_over_threshold] <- 0
+          seed_dn[seed_dn > pamogk_seed_under_threshold] <- 0
+          seed_dn <- -seed_dn
+        } else {
+          stop(paste0(
+            "pamogk_seeds option '", 
+            pamogk_seeds, 
+            "' not recognized. "
+          ))
+        }
+        up_gene_ind <- seed_up > 0
+        dn_gene_ind <- seed_dn > 0
+        
+        if (pamogk_rwr_verbose) {
+          rwr_wrapper <- function(x) return(x)
+        } else {
+          rwr_wrapper <- function(x) return(suppressMessages(suppressWarnings(x)))
+        }
+        if (experimental_parallelization) {
+          parallel_clust <- setup_parallelization(mvc_threads)
+          multi_omic_kernels_j <- tryCatch(
+            foreach(
+              jnet = pathway_networks, 
+              jnw = nw_weights, 
+              .combine = c
+            ) %dopar% {
+              kernels_j <- list()
+              pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(jnet))
+              if (!any(pw_gene_ind)) next
+              any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
+              # Skip pathways where only one sample has seeds
+              if (sum(any_up_gene)>1) {
+                k_up <- rwr_wrapper(dnet::dRWR(
+                  jnet, 
+                  normalise = "laplacian",
+                  setSeeds = seed_up,
+                  restart = pamogk_restart,
+                  normalise.affinity.matrix = "none",
+                  #parallel = mvc_threads > 1,
+                  #multicores = rwr_threads, 
+                  verbose = pamogk_rwr_verbose
+                ))
+                rownames(k_up) <- names(igraph::V(jnet))
+                colnames(k_up) <- rownames(temp)
+                k_up <- weighted_linear_kernel(as.matrix(k_up), jnw)
+                if (!is.null(k_up)) {
+                  if (var(as.vector(k_up)) > 0) {
+                    if (kernels_center[i]) k_up <- center_kernel(k_up)
+                    if (kernels_normalize[i]) {
+                      k_up <- normalize_kernel(k_up)
+                      k_up[is.na(k_up)] <- 0
+                    }
+                    if (kernels_scale_norm[i]) k_up <- scale_kernel_norm(k_up)
+                    kernels_j <- c(kernels_j, list(k_up))
+                  }
+                }
+              }
+              # Same check for down genes
+              any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
+              if (sum(any_dn_gene)>1) {
+                k_dn <- rwr_wrapper(dnet::dRWR(
+                  jnet, 
+                  normalise = "laplacian",
+                  setSeeds = seed_dn,
+                  restart = pamogk_restart,
+                  normalise.affinity.matrix = "none",
+                  #parallel = mvc_threads > 1,
+                  #multicores = rwr_threads, 
+                  verbose = pamogk_rwr_verbose
+                ))
+                rownames(k_dn) <- names(igraph::V(jnet))
+                colnames(k_dn) <- rownames(temp)
+                k_dn <- weighted_linear_kernel(as.matrix(k_dn), jnw)
+                if (!is.null(k_dn)) {
+                  if (var(as.vector(k_dn)) > 0) {
+                    if (kernels_center[i]) k_dn <- center_kernel(k_dn)
+                    if (kernels_normalize[i]) {
+                      k_dn <- normalize_kernel(k_dn)
+                      k_dn[is.na(k_dn)] <- 0
+                    }
+                    if (kernels_scale_norm[i]) k_dn <- scale_kernel_norm(k_dn)
+                    kernels_j <- c(kernels_j, list(k_dn))
+                  }
+                }
+              }
+              kernels_j
+            }, 
+            finally = close_parallel_cluster(parallel_clust)
+          )
+          multi_omic_kernels <- c(multi_omic_kernels, multi_omic_kernels_j)
+        } else {
+          for (j in 1:length(pathway_networks)) {
+            pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(pathway_networks[[j]]))
+            if (!any(pw_gene_ind)) next
+            any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
+            # Skip pathways where only one sample has seeds
+            if (sum(any_up_gene)>1) {
+              
+              k_up <- rwr_wrapper(dnet::dRWR(
+                pathway_networks[[j]], 
+                normalise = "laplacian",
+                setSeeds = seed_up,
+                restart = pamogk_restart,
+                normalise.affinity.matrix = "none",
+                parallel = mvc_threads > 1,
+                multicores = rwr_threads, 
+                verbose = pamogk_rwr_verbose
+              ))
+              rownames(k_up) <- names(igraph::V(pathway_networks[[j]]))
+              colnames(k_up) <- rownames(temp)
+              k_up <- weighted_linear_kernel(as.matrix(k_up), nw_weights[[j]])
+              if (!is.null(k_up)) {
+                if (var(as.vector(k_up)) > 0) {
+                  if (kernels_center[i]) k_up <- center_kernel(k_up)
+                  if (kernels_normalize[i]) {
+                    k_up <- normalize_kernel(k_up)
+                    k_up[is.na(k_up)] <- 0
+                  }
+                  if (kernels_scale_norm[i]) k_up <- scale_kernel_norm(k_up)
+                  multi_omic_kernels <- c(multi_omic_kernels, list(k_up))
+                }
+              }
+            }
+            # Same check for down genes
+            any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
+            if (sum(any_dn_gene)>1) {
+              k_dn <- rwr_wrapper(dnet::dRWR(
+                pathway_networks[[j]], 
+                normalise = "laplacian",
+                setSeeds = seed_dn,
+                restart = pamogk_restart,
+                normalise.affinity.matrix = "none",
+                parallel = mvc_threads > 1,
+                multicores = rwr_threads, 
+                verbose = pamogk_rwr_verbose
+              ))
+              rownames(k_dn) <- names(igraph::V(pathway_networks[[j]]))
+              colnames(k_dn) <- rownames(temp)
+              k_dn <- weighted_linear_kernel(as.matrix(k_dn), nw_weights[[j]])
+              if (!is.null(k_dn)) {
+                if (var(as.vector(k_dn)) > 0) {
+                  if (kernels_center[i]) k_dn <- center_kernel(k_dn)
+                  if (kernels_normalize[i]) {
+                    k_dn <- normalize_kernel(k_dn)
+                    k_dn[is.na(k_dn)] <- 0
+                  }
+                  if (kernels_scale_norm[i]) k_dn <- scale_kernel_norm(k_dn)
+                  multi_omic_kernels <- c(multi_omic_kernels, list(k_dn))
+                }
+              }
+            }
+          }
+        }
+      } 
+    } else {
+      stop(paste0("Kernel \"", kernels[i], "\" is not supported."))
+    }
+  }
+  return(multi_omic_kernels)
+}
+
+#' Kernel clustering utilities
+#' 
+#' Centering should be applied before normalization. 
 #'
 #' @param x kernel matrix
 #'
@@ -769,9 +1148,9 @@ center_kernel <- function(x) {
   return(H %*% x %*% H)
 }
 
-#' Kernel normalization to unit norm
+#' @describeIn center_kernel Normalize kernel space to unit norm
 #'
-#' @param x  kernel matrix
+#' @param x kernel matrix
 #'
 #' @return normalized kernel matrix
 #' @export
@@ -780,7 +1159,12 @@ normalize_kernel <- function(x) {
   return(D %*% x %*% D)
 }
 
+#' @describeIn center_kernel Scale kernel to unit Frobenius norm
+#'
+#' @param x kernel matrix
+#'
+#' @return normalized kernel matrix
+#' @export
 scale_kernel_norm <- function(x) {
   return(x / Matrix::norm(x, "F"))
 }
-

@@ -34,19 +34,10 @@ multi_omic_clustering(
   mofa_environment = NULL,
   mofa_lib_path = NULL,
   anf_neighbors = 20,
-  kernels = rep_len("linear", length(dat_list)),
   kernels_center = TRUE,
   kernels_normalize = TRUE,
   kernels_scale_norm = FALSE,
-  kernel_gammas = rep_len(0.5, length(dat_list)),
-  pathway_networks = NULL,
-  pathway_node_betweenness_endpoints = TRUE,
-  pathway_first_shortest_path = FALSE,
-  pamogk_restart = 0.7,
-  pamogk_seeds = "discrete",
-  pamogk_seed_under_threshold = qnorm(0.025),
-  pamogk_seed_over_threshold = qnorm(0.975),
-  kkmeans_algorithm = "qr_decomposition",
+  kkmeans_algorithm = "spectral_qr",
   kkmeans_refine = TRUE,
   kkmeans_maxiter = 100,
   kkmeans_n_init = 100,
@@ -156,9 +147,6 @@ See \code{\link[MOFA2]{get_default_training_options}}.}
 
 \item{anf_neighbors}{Number of neighbours to use in knn-graph.}
 
-\item{kernels}{Character vector of kernel names to use for different views. 
-See details.}
-
 \item{kernels_center}{Logical vector specifying which kernels should be 
 centered. Repeated for each view if length 1.}
 
@@ -167,24 +155,6 @@ normalized Repeated for each view if length 1.}
 
 \item{kernels_scale_norm}{Logical vector specifying which kernels should be 
 scaled to unit F-norm. Repeated for each view if length 1.}
-
-\item{kernel_gammas}{Numeric vector specifying gamma for the gaussian kernel.}
-
-\item{pathway_networks}{List of \code{igraph} objects containing pathway 
-networks. Required for pathway kernels.}
-
-\item{pathway_node_betweenness_endpoints}{whether to include shortest path 
-endpoints in betweenness. Including it results in more non-zero weights 
-in BWK and PAMOGK.}
-
-\item{pamogk_restart}{Restart probability for PAMOGK RWR.}
-
-\item{pamogk_seeds}{Seed selection strategy for PAMOGK RWR, one of: 
-"discrete", "continuous", "threshold". See details below.}
-
-\item{pamogk_seed_under_threshold}{z-score threshold for under-expressed.}
-
-\item{pamogk_seed_over_threshold}{z-score threshold for over-expressed.}
 
 \item{kkmeans_algorithm}{See \code{\link{kernel_kmeans}}.}
 
@@ -233,6 +203,9 @@ Required for pathway kernels.}
 \code{\link{COPS}}-pipeline, this should be disabled.}
 
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} when using MOFA.}
+
+\item{kernels}{Character vector of kernel names to use for different views. 
+See details.}
 }
 \value{
 \code{data.frame} of clustering results
@@ -258,36 +231,7 @@ Supported methods:
     \code{\link{clustering_analysis}}.
 }
 
-Supported kernels: 
-\itemize{
-  \item "linear" - Linear kernel based on standard dot product. 
-  \item "gaussian", "rbf" - Gaussian kernel, a.k.a. radial basis function.
-  \item "jaccard" - Kernel based on Jaccard index. Used for binary features. 
-  \item "tanimoto" - For now, this is identical to "jaccard".
-  \item "BWK" - Betweenness Weighted Kernel. Uses pathway networks to compute 
-    betweenness centrality which is used to weight features in a linear 
-    pathway kernels. 
-  \item "PAMOGK" - PAthway Multi-Omics Graph Kernel (Tepeli et al. 2021). 
-    Uses z-scores, RWR and shortest paths in pathway networks to create 
-    pathway kernels. 
-  \item "PIK" - Pathway Induced Kernel (Manica et al. 2019). Uses pathway 
-    network adjacency matrices (specifically normalized Laplacians) to define 
-    pathway kernels. 
-}
-Please note that for pathway kernels, the input data must always be mapped to 
-genes and that the names must match with the gene names in the pathways. 
-The default set of pathways is KEGG molecular pathways with gene symbols. 
-
-PAMOGK RWR seed weight options:
-\itemize{
-  \item "discrete" - 1 if |z| > t, 0 otherwise. 
-  \item "continuous" - z
-  \item "threshold" - z if |z| > t, 0 otherwise
-}
-Regardless of the option, the seeds are divided into two sets based on the 
-sign of the z-score. Each set has a separate smoothing step and the end 
-result is two different kernels per pathway per omic. This impacts the 
-RWR label smoothing by changing the initial distribution. 
+For supported kernels see \code{\link{get_multi_omic_kernels}}: 
 
 NMF non-negativity transform may be necessary if non-negativity was not 
 considered while pre-processing the data. There are a few convenience 

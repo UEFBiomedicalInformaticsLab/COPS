@@ -2,16 +2,33 @@
 % Please edit documentation in R/kernels.R
 \name{center_kernel}
 \alias{center_kernel}
-\title{Kernel centering}
+\alias{normalize_kernel}
+\alias{scale_kernel_norm}
+\title{Kernel clustering utilities}
 \usage{
 center_kernel(x)
+
+normalize_kernel(x)
+
+scale_kernel_norm(x)
 }
 \arguments{
 \item{x}{kernel matrix}
 }
 \value{
 centered kernel matrix
+
+normalized kernel matrix
+
+normalized kernel matrix
 }
 \description{
-Kernel centering
+Centering should be applied before normalization.
 }
+\section{Functions}{
+\itemize{
+\item \code{normalize_kernel()}: Normalize kernel space to unit norm
+
+\item \code{scale_kernel_norm()}: Scale kernel to unit Frobenius norm
+
+}}
