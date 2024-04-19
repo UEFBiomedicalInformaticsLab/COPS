@@ -368,25 +368,29 @@ mkkm_mr <- function(
     }
   }
   mu <- rep(1, length(K_list)) / length(K_list)
-  objective <- NA
+  objective_tm <- NA
   objective_t <- Inf # at least two iterations (initial solution + 1 iteration)
-  it <- 1
-  while(it <= mkkm_mr_maxiter & (it == 1 | log(objective) - log(objective_t) > tolerance)) {
+  for(it in 1:mkkm_mr_maxiter) {
     K <- K_list[[1]] * mu[1]**2
     for (i in 2:length(K_list)) {
       K <- K + K_list[[i]] * mu[i]**2
     }
     H <- mkkm_mr_h_opt(K, k)
+    K_target <- diag(nrow(H)) - H %*% t(H)
+    objective_tm <- objective_t
+    objective_t <- sum(K*K_target) + lambda / 2 * t(mu) %*% M %*% mu
+    
+    stop_con <- (objective_tm - objective_t) / objective_t > tolerance
+    if (it > 1 & stop_con) break
+    
     mu <- mkkm_mr_mu_opt(K_list, H, M, lambda, parallel, use_mosek)
-    objective <- objective_t
-    objective_t <- t(mu) %*% M %*% mu
   }
   K <- K_list[[1]] * mu[1]**2
   for (i in 2:length(K_list)) {
     K <- K + K_list[[i]] * mu[i]**2
   }
   H <- mkkm_mr_h_opt(K, k)
-  return(list(K = K, H = H, mu = mu, objective = objective))
+  return(list(K = K, H = H, mu = mu, objective = objective_t))
 }
 
 # min <K, (I - HHT)>
