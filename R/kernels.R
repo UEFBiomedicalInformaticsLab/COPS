@@ -358,7 +358,8 @@ mkkm_mr <- function(
     tolerance = 1e-6, 
     parallel = 0, 
     use_mosek = FALSE, 
-    mkkm_mr_maxiter = 1e2
+    mkkm_mr_maxiter = 1e2, 
+    no_stop = FALSE
 ) {
   M <- matrix(NA, length(K_list), length(K_list))
   for (i in 1:length(K_list)) {
@@ -379,8 +380,8 @@ mkkm_mr <- function(
     K_target <- diag(nrow(H)) - H %*% t(H)
     objective[it+1] <- sum(K*K_target) + lambda / 2 * t(mu) %*% M %*% mu
     
-    stop_con <- (objective[it] - objective[it+1]) / objective[it+1] > tolerance
-    if (stop_con) break
+    stop_con <- (objective[it] - objective[it+1]) / objective[it+1] < tolerance
+    if (stop_con & !no_stop) break
     
     mu <- mkkm_mr_mu_opt(K_list, H, M, lambda, parallel, use_mosek)
   }
