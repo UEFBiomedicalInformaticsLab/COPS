@@ -215,7 +215,7 @@ multi_omic_clustering <- function(
   }
   extra_output <- NULL # For returning things like view weights
   if (zero_var_removal & !data_is_kernels) {
-    dat_list <- lapply(dat_list, function(x) x[,apply(x, 2, var) > 0])
+    dat_list <- lapply(dat_list, function(x) x[, apply(x, 2, var) > 0, drop = FALSE])
   }
   if (standardize_data) {
     dat_list <- lapply(dat_list, scale)
