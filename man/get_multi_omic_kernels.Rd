@@ -22,6 +22,8 @@ get_multi_omic_kernels(
   gene_id_list = NULL,
   zero_var_removal = TRUE,
   mvc_threads = 1,
+  preprocess_data = FALSE,
+  experimental_parallelization = FALSE,
   ...
 )
 }
