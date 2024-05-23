@@ -57,6 +57,7 @@ Suggests:
     BiocManager, 
     clusterCrit,
     curatedTCGAData,
+    diceR, 
     dynamicTreeCut,
     ggh4x,
     knitr,

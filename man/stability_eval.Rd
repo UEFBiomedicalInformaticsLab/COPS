@@ -2,11 +2,20 @@
 % Please edit documentation in R/evaluation_metrics.R
 \name{stability_eval}
 \alias{stability_eval}
+\alias{stability_eval_pac}
 \title{Clustering stability evaluation}
 \usage{
 stability_eval(
   clusters,
   by = c("datname", "drname", "run", "k", "m"),
+  parallel = 1,
+  reference_fold = NULL,
+  ...
+)
+
+stability_eval_pac(
+  clusters,
+  by = c("datname", "drname", "k", "m"),
   parallel = 1,
   reference_fold = NULL,
   ...
@@ -33,3 +42,9 @@ Performs stability analysis on cross-validated clusterings.
 \details{
 Default settings work with \code{\link{cv_clusteval}} output 'clusters'.
 }
+\section{Functions}{
+\itemize{
+\item \code{stability_eval_pac()}: Stability evaluation with Proportion of Ambiguously 
+Clustered pairs (PAC)
+
+}}

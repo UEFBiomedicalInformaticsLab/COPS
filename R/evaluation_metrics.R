@@ -85,7 +85,6 @@ silhouette_adjusted <- function(
 #' @export
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table is.data.table rbindlist setDT setDTthreads
-#'
 stability_eval <- function(
     clusters,
     by = c("datname", "drname", "run", "k", "m"),
@@ -227,6 +226,62 @@ stability_eval <- function(
     }, 
     finally = close_parallel_cluster(parallel_clust))
   return(as.data.frame(stability))
+}
+
+#' @describeIn stability_eval Stability evaluation with Proportion of Ambiguously 
+#' Clustered pairs (PAC)
+#'
+#' @export
+stability_eval_pac <- function(
+    clusters,
+    by = c("datname", "drname", "k", "m"),
+    parallel = 1, 
+    reference_fold = NULL,
+    ...
+) {
+  by <- by[by %in% colnames(clusters)]
+  dicer_package <- requireNamespace("diceR", quietly = TRUE)
+  if (!dicer_package) stop("Using PAC requires the optional package 'diceR'.")
+  if (is.null(reference_fold)) {
+    if (!"cv_index" %in% colnames(clusters)) {
+      warning("Could not determine the reference fold number.")
+      reference_fold <- c()
+    } else {
+      reference_fold <- unique(clusters[["fold"]])
+      reference_fold <- reference_fold[!reference_fold %in% unique(clusters$cv_index)]
+    }
+    if (inherits(clusters, "data.table")) {
+      nonref_ind <- !clusters[,fold] %in% reference_fold
+      clusters <- clusters[nonref_ind]
+    } else {
+      clusters <- clusters[!(clusters[["fold"]] %in% reference_fold),]
+    }
+  }
+  
+  temp_list <- COPS:::split_by_safe(clusters, by)
+  by2 = c("fold", "run")
+  by2 <- by2[by2 %in% colnames(clusters)]
+  
+  parallel_clust <- COPS:::setup_parallelization(parallel)
+  stability_pac <- tryCatch(foreach(
+    temp = temp_list,
+    .combine = function(...) data.table::rbindlist(list(...)),
+    .export = c("reference_fold"),
+    .packages = c("data.table", "diceR"),
+    .multicombine = TRUE,
+    .maxcombine = max(length(temp_list), 2)) %dopar% {
+      uids <- unique(temp[,id])
+      samples <- 1:length(uids)
+      names(samples) <- uids
+      clusti <- split(temp, by = by2)
+      prototype <- rep(NA, length(samples))
+      clusti <- lapply(clusti, function(x) {prototype[samples[x[,id]]] <- x[,cluster]; return(prototype)})
+      conmat <- diceR::consensus_matrix(Reduce(cbind, clusti))
+      paci <- diceR::PAC(conmat)
+      data.frame(as.data.frame(temp)[1, by], PAC = paci)
+      #data.frame(temp[1, by], PAC = paci)
+    }, finally = COPS:::close_parallel_cluster(parallel_clust))
+  return(stability_pac)
 }
 
 #' Feature batch-effect analysis
