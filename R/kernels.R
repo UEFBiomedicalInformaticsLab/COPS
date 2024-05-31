@@ -767,6 +767,9 @@ kernel_kmeans_spectral_approximation <- function(
 #' Process a set of omics observations into kernels
 #'
 #' @param dat_list List of input \code{data.frame}s for input.
+#' @param data_is_kernels If \code{TRUE}, input data is assumed to be kernel matrices. 
+#'   Otherwise kernels are computed based on input data and the 
+#'   \code{kernels} parameter. 
 #' @param kernels Character vector of kernel names to use for different views. 
 #'   See details. 
 #' @param kernels_center Logical vector specifying which kernels should be 
@@ -829,6 +832,7 @@ kernel_kmeans_spectral_approximation <- function(
 #' @export
 get_multi_omic_kernels <- function(
     dat_list, 
+    data_is_kernels = FALSE, 
     kernels = rep_len("linear", length(dat_list)),
     kernels_center = TRUE,
     kernels_normalize = TRUE,
@@ -845,7 +849,7 @@ get_multi_omic_kernels <- function(
     gene_id_list = NULL, 
     zero_var_removal = TRUE, 
     mvc_threads = 1, 
-    preprocess_data = FALSE, 
+    preprocess_data = TRUE, 
     experimental_parallelization = FALSE, 
     ...
 ) {
@@ -854,20 +858,19 @@ get_multi_omic_kernels <- function(
     dat_list <- dat_processed[["dat_list"]]
     gene_id_list <- dat_processed[["gene_id_list"]]
     
-    meta_data <- list()
     for (j in 1:length(dat_list)) {
       sel <- grep("^dim[0-9]+$", colnames(dat_list[[j]]))
-      if ("data.table" %in% class(dat_list[[j]])) {
-        meta_data[[j]] <- dat_list[[j]][,-..sel]
-      } else {
-        meta_data[[j]] <- dat_list[[j]][,-sel]
+      
+      if (data_is_kernels & length(sel) > nrow(dat_list[[j]])) {
+        stop("Input kernels are not square!")
       }
       dat_list[[j]] <- as.matrix(as.data.frame(dat_list[[j]])[,sel])
     }
   }
-  if (zero_var_removal) {
+  if (zero_var_removal & !data_is_kernels) {
     dat_list <- lapply(dat_list, function(x) x[,apply(x, 2, var) > 0])
   }
+  # Centering, normalization and scaling within subsets
   if (length(kernels_center) != length(dat_list)) {
     kernels_center <- rep_len(kernels_center, length(dat_list))
   }
@@ -876,6 +879,19 @@ get_multi_omic_kernels <- function(
   }
   if (length(kernels_scale_norm) != length(dat_list)) {
     kernels_scale_norm <- rep_len(kernels_scale_norm, length(dat_list))
+  }
+  if (data_is_kernels) {
+    multi_omic_kernels <- dat_list
+    multi_omic_kernels[kernels_center] <- lapply(
+      multi_omic_kernels[kernels_center],
+      center_kernel)
+    multi_omic_kernels[kernels_normalize] <- lapply(
+      multi_omic_kernels[kernels_normalize],
+      normalize_kernel)
+    multi_omic_kernels[kernels_scale_norm] <- lapply(
+      multi_omic_kernels[kernels_scale_norm],
+      scale_kernel_norm)
+    return(multi_omic_kernels)
   }
   # Pathway-based kernels need pathway networks
   if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &

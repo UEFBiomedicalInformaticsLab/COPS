@@ -34,9 +34,6 @@ multi_omic_clustering(
   mofa_environment = NULL,
   mofa_lib_path = NULL,
   anf_neighbors = 20,
-  kernels_center = TRUE,
-  kernels_normalize = TRUE,
-  kernels_scale_norm = FALSE,
   kkmeans_algorithm = "spectral_qr",
   kkmeans_refine = TRUE,
   kkmeans_maxiter = 100,
@@ -147,15 +144,6 @@ See \code{\link[MOFA2]{get_default_training_options}}.}
 
 \item{anf_neighbors}{Number of neighbours to use in knn-graph.}
 
-\item{kernels_center}{Logical vector specifying which kernels should be 
-centered. Repeated for each view if length 1.}
-
-\item{kernels_normalize}{Logical vector specifying which kernels should be 
-normalized Repeated for each view if length 1.}
-
-\item{kernels_scale_norm}{Logical vector specifying which kernels should be 
-scaled to unit F-norm. Repeated for each view if length 1.}
-
 \item{kkmeans_algorithm}{See \code{\link{kernel_kmeans}}.}
 
 \item{kkmeans_refine}{See \code{\link{kernel_kmeans}}.}
@@ -185,9 +173,9 @@ instead of \code{CVXR} for \code{\link{mkkm_mr}}.}
 obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
   kernel k-means.}
 
-\item{data_is_kernels}{If set, input data is assumed to be kernel matrices. 
+\item{data_is_kernels}{If \code{TRUE}, input data is assumed to be kernel matrices. 
 Otherwise kernels are computed based on input data and the 
-\code{kernels} parameter.}
+\code{kernels} parameter of \code{\link{get_multi_omic_kernels}}.}
 
 \item{zero_var_removal}{If set, removes all zero variance features 
 from the data. It is called fold-wise, because this is assumed to be run 
@@ -202,10 +190,9 @@ Required for pathway kernels.}
 \item{preprocess_data}{If the input data has already been processed by the 
 \code{\link{COPS}}-pipeline, this should be disabled.}
 
-\item{...}{Arguments are passed to \code{\link{clustering_analysis}} when using MOFA.}
-
-\item{kernels}{Character vector of kernel names to use for different views. 
-See details.}
+\item{...}{Arguments are passed to \code{\link{clustering_analysis}} 
+when using MOFA and \code{\link{get_multi_omic_kernels}} when using kernel 
+methods.}
 }
 \value{
 \code{data.frame} of clustering results

@@ -59,14 +59,6 @@
 #' @param mofa_lib_path Path to libpython. May be required if using non-default 
 #'   \code{mofa_environment}. 
 #' @param anf_neighbors Number of neighbours to use in knn-graph. 
-#' @param kernels Character vector of kernel names to use for different views. 
-#'   See details. 
-#' @param kernels_center Logical vector specifying which kernels should be 
-#'   centered. Repeated for each view if length 1.
-#' @param kernels_normalize Logical vector specifying which kernels should be 
-#'   normalized Repeated for each view if length 1.
-#' @param kernels_scale_norm Logical vector specifying which kernels should be 
-#'   scaled to unit F-norm. Repeated for each view if length 1.
 #' @param kkmeans_algorithm See \code{\link{kernel_kmeans}}.
 #' @param kkmeans_refine See \code{\link{kernel_kmeans}}.
 #' @param kkmeans_tol See \code{\link{kernel_kmeans}}.
@@ -83,9 +75,9 @@
 #' @param ecmc_mkkm_mr If set, uses \code{\link{mkkm_mr}} on consensus kernels 
 #'   obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
 #'     kernel k-means. 
-#' @param data_is_kernels If set, input data is assumed to be kernel matrices. 
+#' @param data_is_kernels If \code{TRUE}, input data is assumed to be kernel matrices. 
 #'   Otherwise kernels are computed based on input data and the 
-#'   \code{kernels} parameter. 
+#'   \code{kernels} parameter of \code{\link{get_multi_omic_kernels}}. 
 #' @param zero_var_removal If set, removes all zero variance features 
 #'   from the data. It is called fold-wise, because this is assumed to be run 
 #'   inside CV. 
@@ -95,7 +87,9 @@
 #'   Required for pathway kernels. 
 #' @param preprocess_data If the input data has already been processed by the 
 #'   \code{\link{COPS}}-pipeline, this should be disabled. 
-#' @param ... Arguments are passed to \code{\link{clustering_analysis}} when using MOFA. 
+#' @param ... Arguments are passed to \code{\link{clustering_analysis}} 
+#'   when using MOFA and \code{\link{get_multi_omic_kernels}} when using kernel 
+#'   methods. 
 #'
 #' @return \code{data.frame} of clustering results
 #' 
@@ -167,9 +161,6 @@ multi_omic_clustering <- function(
     mofa_environment = NULL,
     mofa_lib_path = NULL,
     anf_neighbors = 20,
-    kernels_center = TRUE,
-    kernels_normalize = TRUE,
-    kernels_scale_norm = FALSE,
     kkmeans_algorithm = "spectral_qr", 
     kkmeans_refine = TRUE, 
     kkmeans_maxiter = 100, 
@@ -221,36 +212,11 @@ multi_omic_clustering <- function(
     dat_list <- lapply(dat_list, scale)
   }
   if (any(multi_omic_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
-    # In fold centering and normalization
-    if (length(kernels_center) != length(dat_list)) {
-      kernels_center <- rep_len(kernels_center, length(dat_list))
-    }
-    if (length(kernels_normalize) != length(dat_list)) {
-      kernels_normalize <- rep_len(kernels_normalize, length(dat_list))
-    }
-    if (length(kernels_scale_norm) != length(dat_list)) {
-      kernels_scale_norm <- rep_len(kernels_scale_norm, length(dat_list))
-    }
-  }
-  if (data_is_kernels) {
-    multi_omic_kernels <- dat_list
-    multi_omic_kernels[kernels_center] <- lapply(
-      multi_omic_kernels[kernels_center],
-      center_kernel)
-    multi_omic_kernels[kernels_normalize] <- lapply(
-      multi_omic_kernels[kernels_normalize],
-      normalize_kernel)
-    multi_omic_kernels[kernels_scale_norm] <- lapply(
-      multi_omic_kernels[kernels_scale_norm],
-      scale_kernel_norm)
-  } else if (any(multi_omic_methods %in% c("kkmeans", "kkmeanspp", "mkkm_mr", "ECMC"))) {
     multi_omic_kernels <- get_multi_omic_kernels(
       dat_list, 
-      kernels_center = kernels_center, 
-      kernels_normalize = kernels_normalize, 
-      kernels_scale_norm = kernels_scale_norm, 
+      data_is_kernels = data_is_kernels, 
       gene_id_list = gene_id_list, 
-      preprocess_data = preprocess_data,
+      preprocess_data = FALSE,
       mvc_threads = mvc_threads, 
       ...
     )

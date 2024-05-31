@@ -6,6 +6,7 @@
 \usage{
 get_multi_omic_kernels(
   dat_list,
+  data_is_kernels = FALSE,
   kernels = rep_len("linear", length(dat_list)),
   kernels_center = TRUE,
   kernels_normalize = TRUE,
@@ -22,13 +23,17 @@ get_multi_omic_kernels(
   gene_id_list = NULL,
   zero_var_removal = TRUE,
   mvc_threads = 1,
-  preprocess_data = FALSE,
+  preprocess_data = TRUE,
   experimental_parallelization = FALSE,
   ...
 )
 }
 \arguments{
 \item{dat_list}{List of input \code{data.frame}s for input.}
+
+\item{data_is_kernels}{If \code{TRUE}, input data is assumed to be kernel matrices. 
+Otherwise kernels are computed based on input data and the 
+\code{kernels} parameter.}
 
 \item{kernels}{Character vector of kernel names to use for different views. 
 See details.}
