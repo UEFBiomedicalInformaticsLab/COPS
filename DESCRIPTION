@@ -1,7 +1,7 @@
 Package: COPS
 Type: Package
 Title: Clustering algorithms for Omics-driven Patient Stratification
-Version: 1.0.0
+Version: 1.1.0
 Author: Teemu Rintala, Vittorio Fortino
 Maintainer: Teemu Rintala <teemu.rintala@uef.fi>
 Description: Clustering algorithms for Omics-driven Patient Stratification provides 
@@ -68,7 +68,6 @@ Suggests:
     SingleCellExperiment,
     Spectrum,
     SummarizedExperiment,
-    TCGAutils,
     TCGAbiolinks,
     WGCNA
 VignetteBuilder: knitr

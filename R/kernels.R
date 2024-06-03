@@ -2,6 +2,10 @@
 #'
 #' @param networks \code{list} of \code{igraph} objects
 #' @param parallel number of threads
+#' @param pathway_node_betweenness_endpoints If \code{TRUE}, includes path endpoints 
+#'   in shortest path ensuring that all non-isolated nodes have betweenness > 0.
+#' @param pathway_first_shortest_path If \code{TRUE}, uses only the first found 
+#'   path in each breadth first search between node pairs of each network. 
 #'
 #' @return \code{list} of betweenness centrality vectors
 #' @export
@@ -346,8 +350,12 @@ PIK_GNGS <- function(x, gene_network, gene_sets, ...) {
 #' @param k number of clusters
 #' @param lambda \code{numeric} regularization parameter
 #' @param tolerance \code{numeric} stopping criterion value
-#' @param parallel number of parallel threads used by the SDP solver
-#' @param use_mosek if \code{TRUE} the optimization will be run with \code{Rmosek} instead of \code{CVXR},
+#' @param parallel number of parallel threads used by the quadratic solver
+#' @param use_mosek If \code{TRUE}, the optimization will be run with 
+#'   \code{Rmosek} instead of \code{CVXR}. 
+#' @param mkkm_mr_maxiter maximum number of iterations, usually the algorithm 
+#'   converges soon after 2 iterations
+#' @param no_stop If \code{TRUE}, always runs \code{mkkm_mr_maxiter} iterations
 #'
 #' @return a kernel \code{matrix}
 #' @export
@@ -358,7 +366,7 @@ mkkm_mr <- function(
     tolerance = 1e-6, 
     parallel = 0, 
     use_mosek = FALSE, 
-    mkkm_mr_maxiter = 1e2, 
+    mkkm_mr_maxiter = 10, 
     no_stop = FALSE
 ) {
   M <- matrix(NA, length(K_list), length(K_list))
@@ -566,6 +574,7 @@ global_kernel_kmeans <- function(
 #' @param max_iter maximum number of iterations
 #' @param num_init number of kmeans++ initializations for kernelized k-means and spectral clustering
 #' @param tol delta error convergence threshold for spectral clustering
+#' @param parallel number of threads for \code{\link{kernelized_kmeans}}
 #' @param ... ignored
 #'
 #' @return \code{list} of cluster assignments and k-means objective
@@ -587,7 +596,7 @@ kernel_kmeans <- function(
       kernel_eigen_vectors <- eigen(K, symmetric = TRUE)$vectors
     }
     res <- kernel_kmeans_spectral_approximation(
-      kernel_eigen_vectors, 
+      kernel_eigen_vectors[,1:n_k], 
       k = n_k
     )
     if (spectral_qr_refine) {
@@ -605,7 +614,7 @@ kernel_kmeans <- function(
       kernel_eigen_vectors <- eigen(K, symmetric = TRUE)$vectors
     }
     res <- ClusterR::KMeans_rcpp(
-      data = kernel_eigen_vectors, 
+      data = kernel_eigen_vectors[,1:n_k], 
       clusters = n_k, 
       num_init = num_init, 
       max_iters = max_iter,
@@ -781,19 +790,23 @@ kernel_kmeans_spectral_approximation <- function(
 #' @param kernel_gammas Numeric vector specifying gamma for the gaussian kernel. 
 #' @param pathway_networks List of \code{igraph} objects containing pathway 
 #'   networks. Required for pathway kernels. 
-#' @param pathway_node_betweenness_endpoints whether to include shortest path 
-#'   endpoints in betweenness. Including it results in more non-zero weights 
-#'   in BWK and PAMOGK. 
-#' @param pamogk_restart Restart probability for PAMOGK RWR. 
-#' @param pamogk_seeds Seed selection strategy for PAMOGK RWR, one of: 
-#'   "discrete", "continuous", "threshold". See details below. 
-#' @param pamogk_seed_under_threshold z-score threshold for under-expressed. 
-#' @param pamogk_seed_over_threshold z-score threshold for over-expressed. 
-#' @param pamogk_rwr_verbose See \code{\link[dnet]{dRWR}}
+#' @param pathway_node_betweenness_endpoints see \code{\link{node_betweenness_parallel}}
+#' @param pathway_first_shortest_path see \code{\link{node_betweenness_parallel}}
+#' @param kernel_rwr_restart Restart probability for RWR, applies to both RWR-BWK and PAMOGK. 
+#' @param kernel_rwr_seeds Seed selection strategy for RWR, one of: 
+#'   "discrete", "continuous", or "threshold". Applies to both RWR-BWK and PAMOGK. 
+#'   See details below. 
+#' @param kernel_rwr_seed_under_threshold z-score threshold for under-expressed, applies to both RWR-BWK and PAMOGK. 
+#' @param kernel_rwr_seed_over_threshold z-score threshold for over-expressed, applies to both RWR-BWK and PAMOGK. 
+#' @param kernel_rwr_verbose See \code{\link[dnet]{dRWR}}, applies to both RWR-BWK and PAMOGK.
+#' @param gene_id_list If data has been pre-processed by the \code{COPS} pipeline, 
+#'   the genes of each omic need to be provided as a list. 
 #' @param zero_var_removal If set, removes all zero variance features 
 #'   from the data. It is called fold-wise, because this is assumed to be run 
 #'   inside CV. 
 #' @param mvc_threads Number of threads to use for supported operations. 
+#' @param preprocess_data If \code{TRUE}, applies \code{\link{data_preprocess}}.
+#' @param pathway_rwr_parallelization parallelizes pathway network RWR (experimental)
 #' @param ... Extra arguments are ignored. 
 #'
 #' @return \code{list} of kernels
@@ -807,6 +820,7 @@ kernel_kmeans_spectral_approximation <- function(
 #'   \item "BWK" - Betweenness Weighted Kernel. Uses pathway networks to compute 
 #'     betweenness centrality which is used to weight features in a linear 
 #'     pathway kernels. 
+#'   \item "RWR-BWK" - BWK with RWR and z-score based seeding similar to PAMOGK.
 #'   \item "PAMOGK" - PAthway Multi-Omics Graph Kernel (Tepeli et al. 2021). 
 #'     Uses z-scores, RWR and shortest paths in pathway networks to create 
 #'     pathway kernels. 
@@ -841,16 +855,16 @@ get_multi_omic_kernels <- function(
     pathway_networks = NULL,
     pathway_node_betweenness_endpoints = TRUE, 
     pathway_first_shortest_path = FALSE, 
-    pamogk_restart = 0.7,
-    pamogk_seeds = "discrete", 
-    pamogk_seed_under_threshold = qnorm(0.025), 
-    pamogk_seed_over_threshold = qnorm(0.975), 
-    pamogk_rwr_verbose = FALSE, 
+    kernel_rwr_restart = 0.7,
+    kernel_rwr_seeds = "discrete", 
+    kernel_rwr_seed_under_threshold = qnorm(0.025), 
+    kernel_rwr_seed_over_threshold = qnorm(0.975), 
+    kernel_rwr_verbose = FALSE, 
     gene_id_list = NULL, 
     zero_var_removal = TRUE, 
     mvc_threads = 1, 
     preprocess_data = TRUE, 
-    experimental_parallelization = FALSE, 
+    pathway_rwr_parallelization = FALSE, 
     ...
 ) {
   if (preprocess_data) {
@@ -977,7 +991,7 @@ get_multi_omic_kernels <- function(
         }
         if (kernels_scale_norm[i]) temp <- lapply(temp, scale_kernel_norm)
         multi_omic_kernels <- c(multi_omic_kernels, temp)
-      } else if (kernels[i] == "PAMOGK") {
+      } else if (kernels[i] %in% c("RWR-BWK", "PAMOGK")) {
         temp <- scale(temp, scale = TRUE) # z-scores
         if (mvc_threads > 1) {
           rwr_threads <- mvc_threads
@@ -985,35 +999,35 @@ get_multi_omic_kernels <- function(
           rwr_threads <- NULL
         }
         
-        if (pamogk_seeds == "discrete") {
-          seed_up <- t(temp) > pamogk_seed_over_threshold
-          seed_dn <- t(temp) < pamogk_seed_under_threshold
-        } else if (pamogk_seeds == "continuous") {
+        if (kernel_rwr_seeds == "discrete") {
+          seed_up <- t(temp) > kernel_rwr_seed_over_threshold
+          seed_dn <- t(temp) < kernel_rwr_seed_under_threshold
+        } else if (kernel_rwr_seeds == "continuous") {
           seed_up <- t(temp)
           seed_dn <- -t(temp)
           seed_up[seed_up < 0] <- 0
           seed_dn[seed_dn < 0] <- 0
-        } else if (pamogk_seeds == "threshold") {
+        } else if (kernel_rwr_seeds == "threshold") {
           seed_up <- seed_dn <- t(temp)
-          seed_up[seed_up < pamogk_seed_over_threshold] <- 0
-          seed_dn[seed_dn > pamogk_seed_under_threshold] <- 0
+          seed_up[seed_up < kernel_rwr_seed_over_threshold] <- 0
+          seed_dn[seed_dn > kernel_rwr_seed_under_threshold] <- 0
           seed_dn <- -seed_dn
         } else {
           stop(paste0(
-            "pamogk_seeds option '", 
-            pamogk_seeds, 
+            "kernel_rwr_seeds option '", 
+            kernel_rwr_seeds, 
             "' not recognized. "
           ))
         }
         up_gene_ind <- seed_up > 0
         dn_gene_ind <- seed_dn > 0
         
-        if (pamogk_rwr_verbose) {
+        if (kernel_rwr_verbose) {
           rwr_wrapper <- function(x) return(x)
         } else {
           rwr_wrapper <- function(x) return(suppressMessages(suppressWarnings(x)))
         }
-        if (experimental_parallelization) {
+        if (pathway_rwr_parallelization) {
           parallel_clust <- setup_parallelization(mvc_threads)
           multi_omic_kernels_j <- tryCatch(
             foreach(
@@ -1031,11 +1045,11 @@ get_multi_omic_kernels <- function(
                   jnet, 
                   normalise = "laplacian",
                   setSeeds = seed_up,
-                  restart = pamogk_restart,
+                  restart = kernel_rwr_restart,
                   normalise.affinity.matrix = "none",
                   #parallel = mvc_threads > 1,
                   #multicores = rwr_threads, 
-                  verbose = pamogk_rwr_verbose
+                  verbose = kernel_rwr_verbose
                 ))
                 rownames(k_up) <- names(igraph::V(jnet))
                 colnames(k_up) <- rownames(temp)
@@ -1059,11 +1073,11 @@ get_multi_omic_kernels <- function(
                   jnet, 
                   normalise = "laplacian",
                   setSeeds = seed_dn,
-                  restart = pamogk_restart,
+                  restart = kernel_rwr_restart,
                   normalise.affinity.matrix = "none",
                   #parallel = mvc_threads > 1,
                   #multicores = rwr_threads, 
-                  verbose = pamogk_rwr_verbose
+                  verbose = kernel_rwr_verbose
                 ))
                 rownames(k_dn) <- names(igraph::V(jnet))
                 colnames(k_dn) <- rownames(temp)
@@ -1097,11 +1111,11 @@ get_multi_omic_kernels <- function(
                 pathway_networks[[j]], 
                 normalise = "laplacian",
                 setSeeds = seed_up,
-                restart = pamogk_restart,
+                restart = kernel_rwr_restart,
                 normalise.affinity.matrix = "none",
                 parallel = mvc_threads > 1,
                 multicores = rwr_threads, 
-                verbose = pamogk_rwr_verbose
+                verbose = kernel_rwr_verbose
               ))
               rownames(k_up) <- names(igraph::V(pathway_networks[[j]]))
               colnames(k_up) <- rownames(temp)
@@ -1125,11 +1139,11 @@ get_multi_omic_kernels <- function(
                 pathway_networks[[j]], 
                 normalise = "laplacian",
                 setSeeds = seed_dn,
-                restart = pamogk_restart,
+                restart = kernel_rwr_restart,
                 normalise.affinity.matrix = "none",
                 parallel = mvc_threads > 1,
                 multicores = rwr_threads, 
-                verbose = pamogk_rwr_verbose
+                verbose = kernel_rwr_verbose
               ))
               rownames(k_dn) <- names(igraph::V(pathway_networks[[j]]))
               colnames(k_dn) <- rownames(temp)

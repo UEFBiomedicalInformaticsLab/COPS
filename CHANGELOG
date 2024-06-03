@@ -1,0 +1,15 @@
+v1.1.0 Improved options for pathway kernel clustering and Pareto scatter plots
+- Custom node betweenness algorithm for BWK pathway kernel
+- BWK first BFS shortest path and end node inclusion
+- RWR-BWK: implemented discrete, continuous, and thresholded continuous seeding
+- Kernel clustering improvements, including more spectral algorithm options
+- Improved MKKM-MR, including fixes and more control over convergence
+- pareto_plot now supports extensive customization of shape and color aesthetics
+
+v1.0.0 Initial release version
+- Single-omics clustering and evaluation pipeline 
+- Multi-omics clustering and evaluation pipeline 
+- Stability, survival, clinical, and batch-effect evaluation 
+- Cross-validation based subsampling 
+- Novel pathway kernel method BWK and implementations of PAMOGK and PIMKL 
+- Novel pathway enrichment method RWR-FGSEA 

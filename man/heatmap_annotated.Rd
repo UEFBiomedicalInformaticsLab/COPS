@@ -17,7 +17,7 @@ heatmap_annotated(
   row_names_side = "left",
   legend_names = NULL,
   color_breaks = NULL,
-  col_dat = circlize::colorRamp2(color_breaks, c("blue", "white", "red")),
+  heatmap_color_function = circlize::colorRamp2(color_breaks, c("blue", "white", "red")),
   ...
 )
 }
@@ -44,10 +44,11 @@ heatmap_annotated(
 
 \item{legend_names}{names to use for \code{dat} color legends}
 
-\item{color_breaks}{manual color breaks in form \code{c(min, middle, max)}, 
-passed to \link[circlize]{colorRamp2}}
+\item{color_breaks}{manual color breaks in form \code{c(min, middle, max)}}
 
-\item{...}{other arguments passed to \link[ComplexHeatmap]{Heatmap}}
+\item{heatmap_color_function}{passed to \code{\link[ComplexHeatmap]{Heatmap}} as \code{col}}
+
+\item{...}{other arguments passed to \code{\link[ComplexHeatmap]{Heatmap}}}
 }
 \value{
 \code{\link[ComplexHeatmap]{`HeatmapList-class`}}

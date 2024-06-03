@@ -29,8 +29,8 @@ umap_viz(
   category,
   category_label,
   umap_neighbors = 20,
-  color_scale = scale_color_brewer(palette = "Dark2"),
-  ...
+  max_pcs = 50,
+  color_scale = scale_color_brewer(palette = "Dark2")
 )
 
 tsne_viz(
@@ -53,6 +53,10 @@ tsne_viz(
 \item{umap_neighbors}{UMAP neighbours parameter}
 
 \item{tsne}{whether to use t-SNE}
+
+\item{color_scale}{color scale used for \code{category}}
+
+\item{max_pcs}{maximum number of PCs (limited by data) to extract for UMAP}
 }
 \value{
 list of plots
@@ -64,7 +68,7 @@ list of plots
 \code{ggplot} object
 }
 \description{
-Data visualization using PCA, t-SNE and UMAP
+Generates scatter plots from 2D embeddings.
 }
 \section{Functions}{
 \itemize{

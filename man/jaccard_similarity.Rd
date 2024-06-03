@@ -4,12 +4,12 @@
 \alias{jaccard_similarity}
 \title{Jaccard similarity coefficient between two partitions}
 \usage{
-jaccard_similarity(x, y)
+jaccard_similarity(a, b)
 }
 \arguments{
-\item{x}{group indicators corresponding to a data partition}
+\item{a}{group indicators corresponding to a data partition}
 
-\item{y}{group indicators corresponding to another data partition}
+\item{b}{group indicators corresponding to another data partition}
 }
 \value{
 Jaccard similarity coefficient

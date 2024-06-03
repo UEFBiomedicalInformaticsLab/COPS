@@ -106,9 +106,9 @@ heatmap_annotations <- function(
 #' @param show_row_dend whether to include row dendrogram
 #' @param row_names_side where row names should be located
 #' @param legend_names names to use for \code{dat} color legends
-#' @param color_breaks manual color breaks in form \code{c(min, middle, max)}, 
-#'   passed to \link[circlize]{colorRamp2}
-#' @param ... other arguments passed to \link[ComplexHeatmap]{Heatmap} 
+#' @param color_breaks manual color breaks in form \code{c(min, middle, max)}
+#' @param heatmap_color_function passed to \code{\link[ComplexHeatmap]{Heatmap}} as \code{col}
+#' @param ... other arguments passed to \code{\link[ComplexHeatmap]{Heatmap}} 
 #'
 #' @return \code{\link[ComplexHeatmap]{`HeatmapList-class`}}
 #' @export
@@ -127,7 +127,7 @@ heatmap_annotated <- function(
     row_names_side = "left", 
     legend_names = NULL, 
     color_breaks = NULL,
-    col_dat = circlize::colorRamp2(color_breaks, c("blue", "white", "red")), 
+    heatmap_color_function = circlize::colorRamp2(color_breaks, c("blue", "white", "red")), 
     ...
 ) {
   if (!"list" %in% class(dat)) dat <- list(dat)
@@ -159,7 +159,7 @@ heatmap_annotated <- function(
         show_column_dend = show_column_dend,
         show_row_dend = show_row_dend,
         row_names_side = row_names_side,
-        col = col_dat,
+        col = heatmap_color_function,
         ...
       ))
     )

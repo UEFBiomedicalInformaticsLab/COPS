@@ -2,19 +2,64 @@
 % Please edit documentation in R/utility_functions.R
 \name{subsampling}
 \alias{subsampling}
+\alias{cv_fold}
+\alias{bootstrap}
 \title{Subsampling permutations of clustering dataset}
 \usage{
 subsampling(..., subsampling_strategy = "cv")
+
+cv_fold(
+  dat_list,
+  nfolds = 5,
+  nruns = 2,
+  stratified_cv = FALSE,
+  anti_stratified = FALSE,
+  cv_stratification_var = NULL,
+  extra_fold = TRUE,
+  ...
+)
+
+bootstrap(dat_list, nruns = 100, ...)
 }
 \arguments{
-\item{...}{arguments passed to \code{\link[COPS]{cv_fold}} or \code{\link[COPS]{bootstrap}}}
+\item{...}{extra arguments are ignored}
 
-\item{subsampling_strategy}{either \code{"cv"} or \code{"bootstrap"}}
+\item{subsampling_strategy}{either \code{"cv"} or \code{"bootstrap"} (not implemented)}
+
+\item{dat_list}{list of datasets, each either data.table or data.frame 
+(samples x features) with an "id" column or expression matrix (genes x samples) 
+with named columns}
+
+\item{nfolds}{number of cross-validation folds}
+
+\item{nruns}{number of cross-validation replicates}
+
+\item{stratified_cv}{if \code{TRUE}, perform stratified sampling for folds}
+
+\item{anti_stratified}{if \code{TRUE}, maximize separation of batch labels 
+within folds, opposite of stratified sampling}
+
+\item{cv_stratification_var}{labels used for stratification}
+
+\item{extra_fold}{if \code{TRUE}, generates an extra fold (nfolds+1) that 
+corresponds to the full dataset}
 }
 \value{
 list of data.frames with added columns "fold", "run" and "cv_index" as well as 
         duplicated rows of the original data corresponding to different folds.
+
+list of \code{data.frame}s with added columns "fold", "run" and "cv_index" as well as 
+        duplicated rows of the original data corresponding to different folds.
+
+list of \code{data.frame}s
 }
 \description{
 Creates subsamples via cross-validation folds or bootstrapping.
 }
+\section{Functions}{
+\itemize{
+\item \code{cv_fold()}: Cross-validation based subsampling
+
+\item \code{bootstrap()}: Subsampling via bootstrapping.
+
+}}

@@ -34,6 +34,8 @@ kernel_kmeans(
 
 \item{tol}{delta error convergence threshold for spectral clustering}
 
+\item{parallel}{number of threads for \code{\link{kernelized_kmeans}}}
+
 \item{...}{ignored}
 }
 \value{

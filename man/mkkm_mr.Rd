@@ -11,7 +11,7 @@ mkkm_mr(
   tolerance = 1e-06,
   parallel = 0,
   use_mosek = FALSE,
-  mkkm_mr_maxiter = 100,
+  mkkm_mr_maxiter = 10,
   no_stop = FALSE
 )
 }
@@ -24,9 +24,15 @@ mkkm_mr(
 
 \item{tolerance}{\code{numeric} stopping criterion value}
 
-\item{parallel}{number of parallel threads used by the SDP solver}
+\item{parallel}{number of parallel threads used by the quadratic solver}
 
-\item{use_mosek}{if \code{TRUE} the optimization will be run with \code{Rmosek} instead of \code{CVXR},}
+\item{use_mosek}{If \code{TRUE}, the optimization will be run with 
+\code{Rmosek} instead of \code{CVXR}.}
+
+\item{mkkm_mr_maxiter}{maximum number of iterations, usually the algorithm 
+converges soon after 2 iterations}
+
+\item{no_stop}{If \code{TRUE}, always runs \code{mkkm_mr_maxiter} iterations}
 }
 \value{
 a kernel \code{matrix}

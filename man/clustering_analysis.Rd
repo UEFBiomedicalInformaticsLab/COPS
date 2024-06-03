@@ -23,7 +23,6 @@ clustering_analysis(
   kernel_gamma = 1,
   kernel_center = TRUE,
   kernel_normalize = TRUE,
-  kernel_scale_norm = FALSE,
   kkmeans_algorithm = "spectral_qr",
   kkmeans_refine = TRUE,
   kkmeans_maxiter = 100,
@@ -69,13 +68,17 @@ clustering_analysis(
 
 \item{kernel_normalize}{normalize kernels to L2 norm 1 if TRUE}
 
-\item{kernel_scale_norm}{scale kernel matrices to Frobenious norm 1 if TRUE}
+\item{kkmeans_algorithm}{See \code{\link{kernel_kmeans}} options.}
+
+\item{kkmeans_refine}{See \code{\link{kernel_kmeans}}.}
 
 \item{kkmeans_maxiter}{maximum number of iterations for kernel k-means}
 
 \item{kkmeans_n_init}{number of random initializations for kernel k-means++}
 
-\item{...}{extra arguments are ignored currently}
+\item{kkmeans_tol}{delta error convergence threshold for spectral clustering}
+
+\item{...}{extra arguments are ignored}
 }
 \value{
 Returns a \code{list} containing clusters, metrics, and

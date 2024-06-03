@@ -41,9 +41,16 @@ for translating p-values to negative log10}
 
 \item{color_scale}{can be used instead of \code{plot_palette} to control colors}
 
-\item{plot_pareto_front}{Whether to plot a step-function showing the first Pareto front for each pair of metrics.}
+\item{shape_scale}{can be used to control point shapes}
+
+\item{plot_pareto_front}{If \code{TRUE}, plots a step-function showing the first 
+Pareto front for each pair of metrics.}
+
+\item{front_color}{color of pairwise Pareto front step-function.}
 
 \item{metric_comparators}{Required if \code{plot_pareto_front==TRUE}, see details below.}
+
+\item{point_args}{list of additional arguments passed to \code{\link[ggplot2]{geom_point}}}
 }
 \value{
 \code{\link[gridExtra]{grid.arrange}} result

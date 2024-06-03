@@ -1,6 +1,27 @@
-#' Cross-validation fold permutation
+#' Subsampling permutations of clustering dataset
 #' 
-#' Creates cross-validation folds of data for downstream analysis. 
+#' Creates subsamples via cross-validation folds or bootstrapping. 
+#'
+#' @param ... arguments passed to \code{\link[COPS]{cv_fold}} or \code{\link[COPS]{bootstrap}}
+#' @param subsampling_strategy either \code{"cv"} or \code{"bootstrap"} (not implemented)
+#'
+#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
+#'         duplicated rows of the original data corresponding to different folds.
+#' @export
+subsampling <- function(
+    ..., 
+    subsampling_strategy = "cv"
+) {
+  if (subsampling_strategy == "cv") {
+    return(cv_fold(...))
+  } else if (subsampling_strategy == "bootstrap") {
+    return(bootstrap(...))
+  } else {
+    stop(paste("Unsupported subsampling strategy:", subsampling_strategy))
+  }
+}
+
+#' @describeIn subsampling Cross-validation based subsampling
 #'
 #' @param dat_list list of datasets, each either data.table or data.frame 
 #'   (samples x features) with an "id" column or expression matrix (genes x samples) 
@@ -15,7 +36,7 @@
 #'   corresponds to the full dataset
 #' @param ... extra arguments are ignored
 #'
-#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
+#' @return list of \code{data.frame}s with added columns "fold", "run" and "cv_index" as well as 
 #'         duplicated rows of the original data corresponding to different folds.
 #' @export
 #'
@@ -95,45 +116,16 @@ cv_fold <- function(
   return(out)
 }
 
-#' Subsampling permutations of clustering dataset
-#' 
-#' Creates subsamples via bootstrapping. 
+#' @describeIn subsampling Subsampling via bootstrapping. 
 #'
-#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
-#'         duplicated rows of the original data corresponding to different folds.
+#' @return list of \code{data.frame}s
 #' @export
 bootstrap <- function(
     dat_list, 
     nruns = 100, 
-    stratified_cv = FALSE, 
-    anti_stratified = FALSE,
-    cv_stratification_var = NULL,
-    extra_fold = TRUE
+    ...
 ) {
-  
-}
-
-#' Subsampling permutations of clustering dataset
-#' 
-#' Creates subsamples via cross-validation folds or bootstrapping. 
-#'
-#' @param ... arguments passed to \code{\link[COPS]{cv_fold}} or \code{\link[COPS]{bootstrap}}
-#' @param subsampling_strategy either \code{"cv"} or \code{"bootstrap"}
-#'
-#' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 
-#'         duplicated rows of the original data corresponding to different folds.
-#' @export
-subsampling <- function(
-    ..., 
-    subsampling_strategy = "cv"
-) {
-  if (subsampling_strategy == "cv") {
-    return(cv_fold(...))
-  } else if (subsampling_strategy == "bootstrap") {
-    return(bootstrap(...))
-  } else {
-    stop(paste("Unsupported subsampling strategy:", subsampling_strategy))
-  }
+  stop("Not implemented.")
 }
 
 data_preprocess <- function(
@@ -203,16 +195,24 @@ ecdf_transform <- function(
 
 #' Jaccard similarity coefficient between two partitions
 #'
-#' @param x group indicators corresponding to a data partition
-#' @param y group indicators corresponding to another data partition
+#' @param a group indicators corresponding to a data partition
+#' @param b group indicators corresponding to another data partition
 #'
 #' @return Jaccard similarity coefficient
 #' @export
-jaccard_similarity <- function(x, y) {
-  if (length(x) != length(y)) stop("Unequal input lenghts!")
-  A <- sweep(t(x)[rep(1, length(x)),], 1, x, "==")
-  B <- sweep(t(y)[rep(1, length(y)),], 1, y, "==")
-  return((sum(A & B) - length(x)) / (sum(A | B) - length(x)))
+jaccard_similarity <- function(a, b) {
+  if (length(a) != length(b)) {
+    stop("Input vectors are not same length.")
+  }
+  a_blocks <- as.double(table(a))
+  b_blocks <- as.double(table(b))
+  i_blocks <- as.double(table(a,b))
+  l <- length(a)
+  a_sqsum <- sum(a_blocks * a_blocks)
+  b_sqsum <- sum(b_blocks * b_blocks)
+  i_sqsum <- sum(i_blocks * i_blocks)
+  out <- (i_sqsum - l) / (a_sqsum + b_sqsum - i_sqsum - l)
+  return(out)
 }
 
 #' Jaccard index between indicator matrix columns
@@ -568,6 +568,8 @@ expressionToRWFeatures <- function(
 }
 
 #' Data visualization using PCA, t-SNE and UMAP
+#' 
+#' Generates scatter plots from 2D embeddings.
 #'
 #' @param data \code{matrix} with samples on rows
 #' @param category \code{factor} for coloring
@@ -575,6 +577,7 @@ expressionToRWFeatures <- function(
 #' @param tsne_perplexity t-SNE perplexity parameter
 #' @param umap_neighbors UMAP neighbours parameter
 #' @param tsne whether to use t-SNE
+#' @param color_scale color scale used for \code{category}
 #'
 #' @return list of plots
 #' @export
@@ -658,6 +661,8 @@ pca_viz <- function(
 
 #' @describeIn triple_viz Data visualization using UMAP
 #'
+#' @param max_pcs maximum number of PCs (limited by data) to extract for UMAP
+#'
 #' @return \code{ggplot} object
 #' @export
 #' 
@@ -668,17 +673,16 @@ umap_viz <- function(
     category, 
     category_label, 
     umap_neighbors = 20, 
-    color_scale = scale_color_brewer(palette = "Dark2"), 
-    ...
+    max_pcs = 50, 
+    color_scale = scale_color_brewer(palette = "Dark2")
 ) {
   res_umap <- uwot::umap(
     data, 
     n_neighbors = umap_neighbors, 
     n_components = 2, 
-    pca = min(50, dim(data)), 
+    pca = min(max_pcs, dim(data)), 
     verbose = FALSE, 
-    init = "normlaplacian", 
-    ...)
+    init = "normlaplacian")
   res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
   res_umap <- cbind(res_umap, category)
   colnames(res_umap)[3] <- "category"
@@ -947,8 +951,12 @@ nlog10_trans <- scales::trans_new(
 #' @param size_var column name in \code{scores} for size
 #' @param size_range controls the range of point sizes
 #' @param color_scale can be used instead of \code{plot_palette} to control colors
-#' @param plot_pareto_front Whether to plot a step-function showing the first Pareto front for each pair of metrics. 
+#' @param shape_scale can be used to control point shapes
+#' @param plot_pareto_front If \code{TRUE}, plots a step-function showing the first 
+#'   Pareto front for each pair of metrics. 
+#' @param front_color color of pairwise Pareto front step-function.
 #' @param metric_comparators Required if \code{plot_pareto_front==TRUE}, see details below. 
+#' @param point_args list of additional arguments passed to \code{\link[ggplot2]{geom_point}}
 #'
 #' @return \code{\link[gridExtra]{grid.arrange}} result
 #' @export

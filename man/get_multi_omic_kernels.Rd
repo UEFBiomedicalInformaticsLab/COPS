@@ -15,16 +15,16 @@ get_multi_omic_kernels(
   pathway_networks = NULL,
   pathway_node_betweenness_endpoints = TRUE,
   pathway_first_shortest_path = FALSE,
-  pamogk_restart = 0.7,
-  pamogk_seeds = "discrete",
-  pamogk_seed_under_threshold = qnorm(0.025),
-  pamogk_seed_over_threshold = qnorm(0.975),
-  pamogk_rwr_verbose = FALSE,
+  kernel_rwr_restart = 0.7,
+  kernel_rwr_seeds = "discrete",
+  kernel_rwr_seed_under_threshold = qnorm(0.025),
+  kernel_rwr_seed_over_threshold = qnorm(0.975),
+  kernel_rwr_verbose = FALSE,
   gene_id_list = NULL,
   zero_var_removal = TRUE,
   mvc_threads = 1,
   preprocess_data = TRUE,
-  experimental_parallelization = FALSE,
+  pathway_rwr_parallelization = FALSE,
   ...
 )
 }
@@ -52,26 +52,34 @@ scaled to unit F-norm. Repeated for each view if length 1.}
 \item{pathway_networks}{List of \code{igraph} objects containing pathway 
 networks. Required for pathway kernels.}
 
-\item{pathway_node_betweenness_endpoints}{whether to include shortest path 
-endpoints in betweenness. Including it results in more non-zero weights 
-in BWK and PAMOGK.}
+\item{pathway_node_betweenness_endpoints}{see \code{\link{node_betweenness_parallel}}}
 
-\item{pamogk_restart}{Restart probability for PAMOGK RWR.}
+\item{pathway_first_shortest_path}{see \code{\link{node_betweenness_parallel}}}
 
-\item{pamogk_seeds}{Seed selection strategy for PAMOGK RWR, one of: 
-"discrete", "continuous", "threshold". See details below.}
+\item{kernel_rwr_restart}{Restart probability for RWR, applies to both RWR-BWK and PAMOGK.}
 
-\item{pamogk_seed_under_threshold}{z-score threshold for under-expressed.}
+\item{kernel_rwr_seeds}{Seed selection strategy for RWR, one of: 
+"discrete", "continuous", or "threshold". Applies to both RWR-BWK and PAMOGK. 
+See details below.}
 
-\item{pamogk_seed_over_threshold}{z-score threshold for over-expressed.}
+\item{kernel_rwr_seed_under_threshold}{z-score threshold for under-expressed, applies to both RWR-BWK and PAMOGK.}
 
-\item{pamogk_rwr_verbose}{See \code{\link[dnet]{dRWR}}}
+\item{kernel_rwr_seed_over_threshold}{z-score threshold for over-expressed, applies to both RWR-BWK and PAMOGK.}
+
+\item{kernel_rwr_verbose}{See \code{\link[dnet]{dRWR}}, applies to both RWR-BWK and PAMOGK.}
+
+\item{gene_id_list}{If data has been pre-processed by the \code{COPS} pipeline, 
+the genes of each omic need to be provided as a list.}
 
 \item{zero_var_removal}{If set, removes all zero variance features 
 from the data. It is called fold-wise, because this is assumed to be run 
 inside CV.}
 
 \item{mvc_threads}{Number of threads to use for supported operations.}
+
+\item{preprocess_data}{If \code{TRUE}, applies \code{\link{data_preprocess}}.}
+
+\item{pathway_rwr_parallelization}{parallelizes pathway network RWR (experimental)}
 
 \item{...}{Extra arguments are ignored.}
 }
@@ -87,6 +95,7 @@ Supported kernels:
   \item "BWK" - Betweenness Weighted Kernel. Uses pathway networks to compute 
     betweenness centrality which is used to weight features in a linear 
     pathway kernels. 
+  \item "RWR-BWK" - BWK with RWR and z-score based seeding similar to PAMOGK.
   \item "PAMOGK" - PAthway Multi-Omics Graph Kernel (Tepeli et al. 2021). 
     Uses z-scores, RWR and shortest paths in pathway networks to create 
     pathway kernels. 

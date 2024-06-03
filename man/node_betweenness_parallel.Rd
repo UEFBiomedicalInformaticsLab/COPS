@@ -15,6 +15,12 @@ node_betweenness_parallel(
 \item{networks}{\code{list} of \code{igraph} objects}
 
 \item{parallel}{number of threads}
+
+\item{pathway_node_betweenness_endpoints}{If \code{TRUE}, includes path endpoints 
+in shortest path ensuring that all non-isolated nodes have betweenness > 0.}
+
+\item{pathway_first_shortest_path}{If \code{TRUE}, uses only the first found 
+path in each breadth first search between node pairs of each network.}
 }
 \value{
 \code{list} of betweenness centrality vectors

@@ -33,10 +33,12 @@
 #' @param kernel_gamma gamma for the Gaussian/RBF kernel, higher values correspond to more complicated boundaries
 #' @param kernel_center center kernels if TRUE
 #' @param kernel_normalize normalize kernels to L2 norm 1 if TRUE
-#' @param kernel_scale_norm scale kernel matrices to Frobenious norm 1 if TRUE
+#' @param kkmeans_algorithm See \code{\link{kernel_kmeans}} options. 
+#' @param kkmeans_refine See \code{\link{kernel_kmeans}}. 
 #' @param kkmeans_maxiter maximum number of iterations for kernel k-means
 #' @param kkmeans_n_init number of random initializations for kernel k-means++
-#' @param ... extra arguments are ignored currently
+#' @param kkmeans_tol delta error convergence threshold for spectral clustering
+#' @param ... extra arguments are ignored
 #'
 #' @return Returns a \code{list} containing clusters, metrics, and
 #'         \code{\link[stats]{chisq.test}} p-values
@@ -66,7 +68,6 @@ clustering_analysis <- function(
     kernel_gamma = 1,
     kernel_center = TRUE,
     kernel_normalize = TRUE,
-    kernel_scale_norm = FALSE,
     kkmeans_algorithm = "spectral_qr", 
     kkmeans_refine = TRUE, 
     kkmeans_maxiter = 100,
@@ -265,7 +266,6 @@ clustering_analysis <- function(
           temp_kernel <- temp %*% t(temp)
           if (kernel_center) temp_kernel <- center_kernel(temp_kernel)
           if (kernel_normalize) temp_kernel <- normalize_kernel(temp_kernel)
-          if (kernel_scale_norm) temp_kernel <- scale_kernel_norm(temp_kernel)
           temp_kernel <- list(temp_kernel)
         } else if (kernel_i %in% c("gaussian", "rbf")) {
           temp_kernel <- lapply(
@@ -277,7 +277,6 @@ clustering_analysis <- function(
           diag(temp_kernel) <- 1
           if (kernels_center[i]) temp_kernel <- center_kernel(temp_kernel)
           if (kernels_normalize[i]) temp_kernel <- normalize_kernel(temp_kernel)
-          if (kernels_scale_norm[i]) temp_kernel <- scale_kernel_norm(temp_kernel)
           temp_kernel <- list(temp_kernel)
         } else {
           stop(paste0("Kernel \"", kernel_i, "\" is not supported."))

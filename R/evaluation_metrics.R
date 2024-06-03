@@ -258,11 +258,11 @@ stability_eval_pac <- function(
     }
   }
   
-  temp_list <- COPS:::split_by_safe(clusters, by)
+  temp_list <- split_by_safe(clusters, by)
   by2 = c("fold", "run")
   by2 <- by2[by2 %in% colnames(clusters)]
   
-  parallel_clust <- COPS:::setup_parallelization(parallel)
+  parallel_clust <- setup_parallelization(parallel)
   stability_pac <- tryCatch(foreach(
     temp = temp_list,
     .combine = function(...) data.table::rbindlist(list(...)),
@@ -280,7 +280,7 @@ stability_eval_pac <- function(
       paci <- diceR::PAC(conmat)
       data.frame(as.data.frame(temp)[1, by], PAC = paci)
       #data.frame(temp[1, by], PAC = paci)
-    }, finally = COPS:::close_parallel_cluster(parallel_clust))
+    }, finally = close_parallel_cluster(parallel_clust))
   return(stability_pac)
 }
 
