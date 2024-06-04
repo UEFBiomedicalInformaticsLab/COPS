@@ -1,9 +1,9 @@
 #' Clustering algorithms for Omics based Patient Stratification
 #'
-#' Combines \code{\link{subsampling}}, \code{\link{cv_pathway_enrichment}},
-#' \code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, 
-#' \code{\link{stability_eval}}, \code{\link{cv_survival_evaluation}}, 
-#' \code{\link{cv_module_evaluation}} and \code{\link{cv_association_analysis}} 
+#' Combines \code{\link{subsampling}}, \code{\link{subsample_pathway_enrichment}},
+#' \code{\link{subsample_dimred}}, \code{\link{subsample_clustering_evaluation}}, 
+#' \code{\link{stability_evaluation}}, \code{\link{subsample_survival_evaluation}}, 
+#' \code{\link{subsample_module_evaluation}} and \code{\link{subsample_association_analysis}} 
 #' to conveniently and comprehensively test clustering algorithms on a given set of input data. 
 #'
 #' @param dat A single matrix or list of matrices, patients on columns and features on rows. 
@@ -141,7 +141,7 @@ COPS <- function(
     }
     pw_start <- Sys.time()
     if(verbose) print_flush("Starting pathway enrichment ...")
-    dat_pw <- cv_pathway_enrichment(
+    dat_pw <- subsample_pathway_enrichment(
       dat_list = dat$dat_list, 
       sub_index = sub_index, 
       gene_id_list = dat$gene_id_list, 
@@ -155,7 +155,7 @@ COPS <- function(
     # Dimensionality reduction for pathway enriched features
     dimred_start <- Sys.time()
     if(verbose) print_flush("Starting dimensionality reduction ...")
-    dat_embedded <- cv_dimred(
+    dat_embedded <- subsample_dimred(
       dat_list = dat_pw, 
       sub_index = sub_index, 
       sub_split_data = FALSE, 
@@ -168,7 +168,7 @@ COPS <- function(
     # Dimensionality reduction
     dimred_start <- Sys.time()
     if(verbose) print_flush("Starting dimensionality reduction ...")
-    dat_embedded <- cv_dimred(
+    dat_embedded <- subsample_dimred(
       dat_list = dat$dat_list, 
       sub_index = sub_index, 
       parallel = parallel, 
@@ -179,11 +179,11 @@ COPS <- function(
   }
   
   # Clustering evaluation
-  clusteval_start <- Sys.time()
+  clustering_evaluation_start <- Sys.time()
   if(verbose) print_flush("Starting clustering analysis ...")
   if (!is.null(internal_metrics)) {
     # When using clusterCrit::intCriteria, evaluation depends on dataset
-    dat_clustered <- cv_clusteval(
+    dat_clustered <- subsample_clustering_evaluation(
       dat_embedded = dat_embedded, 
       parallel = parallel, 
       dat_list = dat$dat_list, 
@@ -191,7 +191,7 @@ COPS <- function(
       ...)
   } else {
     # Otherwise we can save on parallel memory footprint by omitting the dataset
-    dat_clustered <- cv_clusteval(
+    dat_clustered <- subsample_clustering_evaluation(
       dat_embedded = dat_embedded, 
       parallel = parallel, 
       silhouette_dissimilarity = silhouette_dissimilarity, 
@@ -200,12 +200,12 @@ COPS <- function(
   
   if(verbose) print_flush(paste(
     "Finished clustering analysis in",
-    time_taken_string(clusteval_start)))
+    time_taken_string(clustering_evaluation_start)))
   
   # Clustering stability evaluation
   stability_test_start <- Sys.time()
   if(verbose) print_flush("Starting clustering stability analysis ...")
-  dat_stability <- stability_eval(
+  dat_stability <- stability_evaluation(
     clusters = dat_clustered$clusters, 
     parallel = parallel, 
     ...)
@@ -217,7 +217,7 @@ COPS <- function(
   if (!is.null(survival_data)) {
     survival_analysis_start <- Sys.time()
     if(verbose) print_flush("Starting survival analysis ...")
-    dat_survival <- cv_survival_evaluation(
+    dat_survival <- subsample_survival_evaluation(
       event_data = survival_data, 
       clusters = dat_clustered$clusters, 
       parallel = parallel, 
@@ -231,7 +231,7 @@ COPS <- function(
   if (!is.null(module_eigs)) {
     module_analysis_start <- Sys.time()
     if(verbose) print_flush("Starting gene module correlation analysis ...")
-    dat_gm_score <- cv_module_evaluation(
+    dat_gm_score <- subsample_module_evaluation(
       clusters = dat_clustered$clusters, 
       module_eigs = module_eigs, 
       parallel = parallel, 
@@ -244,7 +244,7 @@ COPS <- function(
   if (!is.null(association_data)) {
     association_analysis_start <- Sys.time()
     if(verbose) print_flush("Starting variable association analysis ...")
-    dat_association_score <- cv_association_analysis(
+    dat_association_score <- subsample_association_analysis(
       clusters = dat_clustered$clusters, 
       association_data = association_data, 
       parallel = parallel, 
@@ -420,19 +420,23 @@ vertical_pipeline <- function(
                             parallel = 1,
                             by = by),
                        f_args)
-        survival_i <- do.call(cv_survival_evaluation, temp_args)
+        survival_i <- do.call(subsample_survival_evaluation, temp_args)
       } else {
         survival_i <- NULL
       }
       
       # Clustering association analysis
       if (!is.null(association_data)) {
-        temp_args <- c(list(clusters = clust_i, 
-                            association_data = association_data, 
-                            by = by,
-                            parallel = 1),
-                       f_args)
-        association_i <- do.call(cv_association_analysis, temp_args)
+        temp_args <- c(
+          list(
+            clusters = clust_i, 
+            association_data = association_data, 
+            by = by,
+            parallel = 1
+          ),
+          f_args
+        )
+        association_i <- do.call(subsample_association_analysis, temp_args)
       } else {
         association_i <- NULL
       }
@@ -457,9 +461,11 @@ vertical_pipeline <- function(
     # Clustering stability evaluation
     stability_test_start <- Sys.time()
     if(verbose) print_flush("Starting clustering stability analysis ...")
-    out$stability <- stability_eval(out$clusters, 
-                                    by = by[!by %in% "fold"], 
-                                    parallel = parallel)
+    out$stability <- stability_evaluation(
+      out$clusters, 
+      by = by[!by %in% "fold"], 
+      parallel = parallel
+    )
     if(verbose) print_flush(paste(
         "Finished clustering stability analysis in",
         time_taken_string(stability_test_start)))
@@ -536,7 +542,7 @@ embarrassingly_parallel_pipeline <- function(
     
     # Survival evaluation
     if (!is.null(survival_data)) {
-      survival_i <- cv_survival_evaluation(
+      survival_i <- subsample_survival_evaluation(
         event_data = survival_data, 
         clusters = clust_i, 
         parallel = 1,
@@ -548,7 +554,7 @@ embarrassingly_parallel_pipeline <- function(
     
     # Clustering association analysis
     if (!is.null(association_data)) {
-      association_i <- cv_association_analysis(
+      association_i <- subsample_association_analysis(
         clusters = clust_i, 
         association_data = association_data, 
         by = by,

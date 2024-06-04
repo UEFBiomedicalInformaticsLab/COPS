@@ -57,20 +57,21 @@ which are optional:
 
 1. <code>subsampling</code> generates data subsets using cross-validation or 
 bootstrap.
-2. <code>cv_pathway_enrichment</code> transforms the data from gene features 
+2. <code>subsample_pathway_enrichment</code> transforms the data from gene features 
 to pathway features thereby integrating biological knowledge with omics data.
-3. <code>cv_dimred</code> transforms the data into a lower dimensional 
+3. <code>subsample_dimred</code> transforms the data into a lower dimensional 
 representation that is more suitable for clustering.
-4. <code>cv_clusteval</code> runs clustering algorithms and computes clustering 
+4. <code>subsample_clustering_evaluation</code> runs clustering algorithms and 
+computes clustering 
 internal clustering metrics. 
-5. <code>stability_eval</code> evaluates clustering stability by comparing 
+5. <code>stability_evaluation</code> evaluates clustering stability by comparing 
 cluster assignments obtained within each fold to a reference obtained from the 
 full dataset. 
-6. <code>cv_survival_evaluation</code> evaluates survival differences between 
+6. <code>subsample_survival_evaluation</code> evaluates survival differences between 
 clusters. 
-7. <code>cv_module_evaluation</code> evaluates cluster-gene-module associations as 
+7. <code>subsample_module_evaluation</code> evaluates cluster-gene-module associations as 
 in https://doi.org/10.1093/bib/bbab314.
-8. <code>cv_association_analysis</code> calculates various statistics and indices 
+8. <code>subsample_association_analysis</code> calculates various statistics and indices 
 for cluster association with external variables. 
 
 ### Function signatures
@@ -93,7 +94,7 @@ relevant to each step, starting from general arguments shared by many functions:
     <code>COPS</code> function. 
 * <code>COPS</code> arguments
     + <code>pathway_enrichment_method</code> : (Optional) Name of the pathway 
-    enrichment method to use, passed to cv_pathway_enrichment. Affects certain 
+    enrichment method to use, passed to subsample_pathway_enrichment. Affects certain 
     routines in the pipeline.
     + <code>multi_omic_methods</code> : (Optional) Names of the multi-view 
     clustering algorithms to use. Affects certain routines in the pipeline.
@@ -108,7 +109,7 @@ relevant to each step, starting from general arguments shared by many functions:
     + <code>...</code> : All additional arguments are passed on to each step in 
     the pipeline so that all relevant functionality is accessible via just one 
     function call. See <code>?COPS</code> for more information. 
-* <code>cv_fold</code>
+* <code>subsampling</code>, <code>cv_fold</code>
     + <code>nfolds</code> : Number of CV folds.
     + <code>nruns</code> : Number of CV repeats or bootstrap iterations
     + <code>nruns</code> : Number of CV repeats or bootstrap iterations
@@ -119,8 +120,8 @@ relevant to each step, starting from general arguments shared by many functions:
     + <code>cv_stratification_var</code> : Categorical variable for stratified CV.
     + <code>extra_fold</code> : If set to TRUE, the function will return an 
     additional k+1th fold containing all data points, this fold is used as 
-    reference by stability_eval.
-* <code>cv_pathway_enrichment</code>, <code>genes_to_pathways </code>
+    reference by <code>stability_evaluation</code>.
+* <code>subsample_pathway_enrichment</code>, <code>genes_to_pathways </code>
     + <code>sub_index</code> : List of data.frames corresponding to 
     subset indices produced by <code>subsampling</code>. 
     Managed by the <code>COPS</code> function. 
@@ -137,7 +138,7 @@ relevant to each step, starting from general arguments shared by many functions:
     + <code>batch_label_pw</code> : Batch labels for batch-wise enrichment which 
     is not performed if this is <code>NULL</code>. 
     + <code>...</code> : See <code>?genes_to_pathways</code> for more options. 
-* <code>cv_dimred</code>, <code>dimensionality_reduction</code>
+* <code>subsample_dimred</code>, <code>dimensionality_reduction</code>
     + <code>sub_index</code> : List of data.frames corresponding to 
     subset indices produced by <code>subsampling</code>. 
     Managed by the <code>COPS</code> function. 
@@ -153,7 +154,7 @@ relevant to each step, starting from general arguments shared by many functions:
     Only used when calling <code>dimensionality_reduction</code> directly. 
     + <code>...</code> : See <code>?dimensionality_reduction</code> for more 
     options. 
-* <code>cv_clusteval</code>, <code>clustering_analysis</code>, 
+* <code>subsample_clustering_evaluation</code>, <code>clustering_analysis</code>, 
 <code>clustering_metrics</code>
     + <code>dat_embedded</code> : Same format as <code>dat_list</code>. 
     Managed by the <code>COPS</code> function. 
@@ -174,16 +175,16 @@ relevant to each step, starting from general arguments shared by many functions:
     interface is much slower than the inbuilt average silhouette metric.
     + <code>...</code> : See <code>?clustering_analysis</code> and 
     <code>?clustering_metrics</code> for more options. 
-* <code>stability_eval</code>
+* <code>stability_evaluation</code>
     + <code>clusters</code> : A clustering data.frame such as returned by 
-    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    <code>subsample_clustering_evaluation</code>. Managed by the <code>COPS</code> function. 
     + <code>reference_fold</code> : Fold number that corresponds to reference 
     which other folds are compared against, inferred from input by default.
-* <code>cv_survival_evaluation</code>, <code>cv_survival_evaluation</code>
+* <code>subsample_survival_evaluation</code>, <code>subsample_survival_evaluation</code>
     + <code>event_data</code> : A data.frame that contains survival times, event 
     data and covariates.. 
     + <code>clusters</code> : A clustering data.frame such as returned by 
-    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    <code>subsample_clustering_evaluation</code>. Managed by the <code>COPS</code> function. 
     + <code>survival_time_col</code> : Name of the column in 
     <code>event_data</code> that contains survival time.
     + <code>survival_event_col</code> : Name of the column in 
@@ -192,17 +193,18 @@ relevant to each step, starting from general arguments shared by many functions:
     <code>event_data</code>.
     + <code>row_id</code> : Name of column in <code>event_data</code> that 
     matches "id" column in <code>clusters</code>.
-* <code>cv_module_evaluation</code>, <code>gene_module_score</code>
+* <code>subsample_module_evaluation</code>, <code>gene_module_score</code>
     + <code>clusters</code> : A clustering data.frame such as returned by 
-    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    <code>subsample_clustering_evaluation</code>. Managed by the 
+    <code>COPS</code> function. 
     + <code>x</code> : A data.frame with columns "id" and "cluster" 
     corresponding to a single clustering result.
     + <code>module_eigs</code> : A matrix of meta-features, e.g. gene module 
     eigen-genes for each sample (samples x modules) from <code>COPS</code>.
     + <code>...</code> : See <code>?gene_module_score</code> for more options. 
-* <code>cv_association_analysis</code>, <code>cluster_associations</code>
+* <code>subsample_association_analysis</code>, <code>cluster_associations</code>
     + <code>clusters</code> : A clustering data.frame such as returned by 
-    <code>cv_clusteval</code>. Managed by the <code>COPS</code> function. 
+    <code>subsample_clustering_evaluation</code>. Managed by the <code>COPS</code> function. 
     + <code>association_data</code> : A data.frame with external variables 
     corresponding to the input samples (categoric or numeric), rownames are 
     matched from <code>clusters</code> "id" column (i.e., <code>dat</code> 
@@ -400,7 +402,8 @@ The silhouette score is a summary of the cohesion and separability of clusters.
 In addition to the silhouette, it is possible to utilize any internal index 
 implemented by <code>clusterCrit::intCriteria</code>. To do this we can pass the 
 desired index names in the <code>internal_metrics</code> argument to 
-<code>COPS</code>, <code>cv_clusteval</code> or <code>clustering_metrics</code>. 
+<code>COPS</code>, <code>subsample_clustering_evaluation</code> or 
+<code>clustering_metrics</code>. 
 Note that since the <code>clusterCrit::intCriteria</code>-function takes the 
 data matrix as input and computations will be repeated for each fold and setting, 
 this can take much longer than the silhouette calculation by <code>COPS</code> 
@@ -466,11 +469,11 @@ argument <code>module_cor_threshold </code> while $\beta$ corresponds to the
 argument <code>module_nan.substitute</code>. 
 
 To generate these for previously calculated results we can call 
-<code>cv_module_evaluation</code>. We have pre-computed disease gene-modules 
+<code>subsample_module_evaluation</code>. We have pre-computed disease gene-modules 
 on this data by using the WGCNA eigen-gene method. 
 
 ```{r}
-res_rwrfgsea$modules <- COPS::cv_module_evaluation(
+res_rwrfgsea$modules <- COPS::subsample_module_evaluation(
   clusters = res_rwrfgsea$clusters, 
   parallel = 6, 
   module_eigs = COPS::psoriasis_example_MEs,

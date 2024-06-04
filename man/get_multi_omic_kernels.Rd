@@ -71,9 +71,7 @@ See details below.}
 \item{gene_id_list}{If data has been pre-processed by the \code{COPS} pipeline, 
 the genes of each omic need to be provided as a list.}
 
-\item{zero_var_removal}{If set, removes all zero variance features 
-from the data. It is called fold-wise, because this is assumed to be run 
-inside CV.}
+\item{zero_var_removal}{If set, removes all zero variance features from each omic.}
 
 \item{mvc_threads}{Number of threads to use for supported operations.}
 

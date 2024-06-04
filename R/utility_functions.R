@@ -2,7 +2,7 @@
 #' 
 #' Creates subsamples via cross-validation folds or bootstrapping. 
 #'
-#' @param ... arguments passed to \code{\link[COPS]{cv_fold}} or \code{\link[COPS]{bootstrap}}
+#' @param ... arguments passed to \code{\link{cv_fold}} or \code{\link[COPS]{bootstrap}}
 #' @param subsampling_strategy either \code{"cv"} or \code{"bootstrap"} (not implemented)
 #'
 #' @return list of data.frames with added columns "fold", "run" and "cv_index" as well as 

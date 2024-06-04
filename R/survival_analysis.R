@@ -58,7 +58,7 @@ survival_preprocess <- function(
 #' @export
 #' 
 #' @importFrom survival Surv coxph
-cv_survival_evaluation <- function(
+subsample_survival_evaluation <- function(
     event_data, 
     clusters, 
     survival_time_col = "time", 

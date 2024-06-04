@@ -72,9 +72,9 @@ silhouette_adjusted <- function(
 #'
 #' Performs stability analysis on cross-validated clusterings.
 #'
-#' Default settings work with \code{\link{cv_clusteval}} output 'clusters'.
+#' Default settings work with \code{\link{subsample_clusteval}} output 'clusters'.
 #'
-#' @param clusters clustering \code{data.frame} such as returned by \code{\link{cv_clusteval}}
+#' @param clusters clustering \code{data.frame} such as returned by \code{\link{subsample_clusteval}}
 #' @param by vector of column names to keep
 #' @param parallel number of threads
 #' @param reference_fold fold number that corresponds to reference which other folds are compared against, inferred from input by default
@@ -85,7 +85,7 @@ silhouette_adjusted <- function(
 #' @export
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table is.data.table rbindlist setDT setDTthreads
-stability_eval <- function(
+stability_evaluation <- function(
     clusters,
     by = c("datname", "drname", "run", "k", "m"),
     #by2 = c("fold"),
@@ -228,11 +228,11 @@ stability_eval <- function(
   return(as.data.frame(stability))
 }
 
-#' @describeIn stability_eval Stability evaluation with Proportion of Ambiguously 
+#' @describeIn stability_evaluation Stability evaluation with Proportion of Ambiguously 
 #' Clustered pairs (PAC)
 #'
 #' @export
-stability_eval_pac <- function(
+stability_evaluation_pac <- function(
     clusters,
     by = c("datname", "drname", "k", "m"),
     parallel = 1, 
@@ -471,7 +471,7 @@ cluster_associations <- function(
 #'
 #' @return \code{data.table} containing association variables
 #' @export
-cv_association_analysis <- function(
+subsample_association_analysis <- function(
     clusters, 
     association_data, 
     by = c("run", "fold", "datname", "drname", "k", "m"), 
@@ -584,7 +584,7 @@ gene_module_score <- function(
 #' 
 #' @return \code{data.table}
 #' @export
-cv_module_evaluation <- function(
+subsample_module_evaluation <- function(
     clusters, 
     by = c("run", "fold", "datname", "drname", "k", "m"), 
     parallel = 1, 

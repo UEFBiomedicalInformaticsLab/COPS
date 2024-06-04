@@ -120,10 +120,10 @@ dimensionality_reduction <- function(
   return(out)
 }
 
-#' Dimensionality reduction on cross-validated data sets
+#' Dimensionality reduction on subsampled data sets
 #'
 #' @param dat_list A list of data.frames or data.tables.
-#' @param sub_index A data.frame indicating cv folds and runs such as returned by \code{\link{cv_fold}}.
+#' @param sub_index A data.frame indicating cv folds and runs such as returned by \code{\link{subsampling}}.
 #' @param sub_split_data Can be set to FALSE if \code{dat_list} elements already contain the columns \code{"run"} and \code{"fold"}.
 #' @param parallel number of parallel threads
 #' @param by column names to split data by such that each split corresponds to one dataset and fold
@@ -134,7 +134,7 @@ dimensionality_reduction <- function(
 #'
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table
-cv_dimred <- function(
+subsample_dimred <- function(
     dat_list, 
     sub_index, 
     sub_split_data = TRUE, 

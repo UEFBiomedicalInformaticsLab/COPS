@@ -192,7 +192,7 @@ genes_to_pathways <- function(
   gs_category <- sapply(strsplit(rownames(enriched_dat), "_"), function(a) a[[1]])
   
   out <- lapply(unique(gs_category), function(a) enriched_dat[gs_category == a,])
-  names(out) <- unique(gs_category) # converted to dat_name by cv_dimred
+  names(out) <- unique(gs_category) # converted to dat_name by subsample_dimred
   
   # Format output
   if (enrichment_method ==  "GSVA") {
@@ -215,14 +215,14 @@ genes_to_pathways <- function(
 #' Setting \code{parallel} does nothing. 
 #'
 #' @param dat_list list of data.tables corresponding gene expression matrices where the gene names have been replaced by dimension IDs (dim1, dim2, ...).
-#' @param sub_index list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link[COPS]{cv_fold}}
+#' @param sub_index list of data.frames corresponding to cross-validation fold indicators as produced by \code{\link{subsampling}}
 #' @param gene_id_list list of gene name vectors of the corresponding columns in dat_list
 #' @param parallel ignored and set to 1 for spawned subprocesses
 #' @param ... arguments passed on to \code{\link[COPS]{genes_to_pathways}}
 #'
 #' @return \code{list} of \code{data.frame}s with extracted pathway features
 #' @export
-cv_pathway_enrichment <- function(
+subsample_pathway_enrichment <- function(
     dat_list, 
     sub_index, 
     gene_id_list, 

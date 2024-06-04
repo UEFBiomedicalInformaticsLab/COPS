@@ -93,10 +93,10 @@ method given different settings and input data sets.
 \code{list} of clustering analysis results
 }
 \description{
-Combines \code{\link{subsampling}}, \code{\link{cv_pathway_enrichment}},
-\code{\link{cv_dimred}}, \code{\link{cv_clusteval}}, 
-\code{\link{stability_eval}}, \code{\link{cv_survival_evaluation}}, 
-\code{\link{cv_module_evaluation}} and \code{\link{cv_association_analysis}} 
+Combines \code{\link{subsampling}}, \code{\link{subsample_pathway_enrichment}},
+\code{\link{subsample_dimred}}, \code{\link{subsample_clustering_evaluation}}, 
+\code{\link{stability_evaluation}}, \code{\link{subsample_survival_evaluation}}, 
+\code{\link{subsample_module_evaluation}} and \code{\link{subsample_association_analysis}} 
 to conveniently and comprehensively test clustering algorithms on a given set of input data.
 }
 \details{

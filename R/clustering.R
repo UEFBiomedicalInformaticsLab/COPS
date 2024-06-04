@@ -495,7 +495,7 @@ clustering_metrics <- function(
 #' @export
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table rbindlist
-cv_clusteval <- function(
+subsample_clustering_evaluation <- function(
     dat_embedded, 
     parallel = 1, 
     by = c("datname", "drname", "run", "fold"), 

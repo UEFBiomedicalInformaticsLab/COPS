@@ -801,9 +801,7 @@ kernel_kmeans_spectral_approximation <- function(
 #' @param kernel_rwr_verbose See \code{\link[dnet]{dRWR}}, applies to both RWR-BWK and PAMOGK.
 #' @param gene_id_list If data has been pre-processed by the \code{COPS} pipeline, 
 #'   the genes of each omic need to be provided as a list. 
-#' @param zero_var_removal If set, removes all zero variance features 
-#'   from the data. It is called fold-wise, because this is assumed to be run 
-#'   inside CV. 
+#' @param zero_var_removal If set, removes all zero variance features from each omic.
 #' @param mvc_threads Number of threads to use for supported operations. 
 #' @param preprocess_data If \code{TRUE}, applies \code{\link{data_preprocess}}.
 #' @param pathway_rwr_parallelization parallelizes pathway network RWR (experimental)

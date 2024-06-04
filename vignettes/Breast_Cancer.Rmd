@@ -275,7 +275,7 @@ To download processed TCGA clinical data, we can use the TCGAbiolinks-package.
 clinical_data <- as.data.frame(TCGAbiolinks::TCGAquery_subtype("BRCA"))
 ```
 
-The <code>cv_survival_evaluation</code> expects a data.frame that contains the 
+The <code>subsample_survival_evaluation</code> expects a data.frame that contains the 
 time and an event indicator. Depending on the clinical data format, it may be 
 necessary to pre-process the survival data. In this case the times for event 
 and event-free individuals are in different columns. We can use the 
@@ -293,7 +293,7 @@ surv_data <- COPS::survival_preprocess(
   event_time_cutoff = 3000)
 ```
 
-After preprocessing survival data we can call <code>cv_survival_evaluation</code> 
+After preprocessing survival data we can call <code>subsample_survival_evaluation</code> 
 with the clustering result (<code>clusters</code>) and event information 
 (<code>event_data</code>). The time and event columns can be named in the 
 <code>survival_time_col</code> and <code>survival_event_col</code> arguments. 
@@ -301,7 +301,7 @@ The <code>event_data</code>-argument should also contain
 an id-column (named in the <code>row_id</code>-argument) that is used to match 
 column names of the omics data to the event data. It may be necessary to translate 
 the sample ids used in the omics data into patient ids. Note that missing survival 
-data is automatically omitted in the evaluation. <code>cv_survival_evaluation</code> 
+data is automatically omitted in the evaluation. <code>subsample_survival_evaluation</code> 
 fits two Cox proportional hazard models one with cluster indicators and one without and 
 performs a likelihood-ratio test (LRT) to assess whether the difference between clusters 
 is significant while allowing the Cox model to account for other critical variables 
@@ -314,7 +314,7 @@ index for each result.
 mopw_clusters_surv <- mopw_clusters
 mopw_clusters_surv[["id"]] <- gsub(
   "-[0-9]+[A-Z]+$", "", mopw_clusters_surv[["id"]])
-mopw_surv_res <- COPS::cv_survival_evaluation(
+mopw_surv_res <- COPS::subsample_survival_evaluation(
   event_data = surv_data, 
   clusters = mopw_clusters_surv,
   survival_time_col = "time",
@@ -338,7 +338,7 @@ similarly to other metrics discussed in the Psoriasis-vignette.
 molk_clusters_surv <- molk_res$clusters
 molk_clusters_surv[["id"]] <- gsub(
   "-[0-9]+[A-Z]+$", "", molk_clusters_surv[["id"]])
-molk_surv_res <- COPS::cv_survival_evaluation(
+molk_surv_res <- COPS::subsample_survival_evaluation(
   event_data = surv_data, 
   clusters = molk_clusters_surv,
   survival_time_col = "time",
