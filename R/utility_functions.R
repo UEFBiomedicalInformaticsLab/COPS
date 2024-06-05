@@ -128,6 +128,17 @@ bootstrap <- function(
   stop("Not implemented.")
 }
 
+#' Data pre-processing for COPS pipelines
+#'
+#' Converts inputs to \code{data.table}s and renames features to \code{"dimX"}.
+#'
+#' @param dat \code{numeric} \code{matrix} or \code{data.frame} with samples on 
+#'   columns, or \code{list} of such datasets
+#' @param verbose print status messages
+#'
+#' @return \code{list} containing \code{list} of datasets and \code{list} of 
+#'   feature names (gene ids). 
+#' @export
 data_preprocess <- function(
     dat, 
     verbose = FALSE

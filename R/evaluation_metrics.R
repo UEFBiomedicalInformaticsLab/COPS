@@ -72,9 +72,9 @@ silhouette_adjusted <- function(
 #'
 #' Performs stability analysis on cross-validated clusterings.
 #'
-#' Default settings work with \code{\link{subsample_clusteval}} output 'clusters'.
+#' Default settings work with \code{\link{subsample_clustering_evaluation}} output 'clusters'.
 #'
-#' @param clusters clustering \code{data.frame} such as returned by \code{\link{subsample_clusteval}}
+#' @param clusters clustering \code{data.frame} such as returned by \code{\link{subsample_clustering_evaluation}}
 #' @param by vector of column names to keep
 #' @param parallel number of threads
 #' @param reference_fold fold number that corresponds to reference which other folds are compared against, inferred from input by default

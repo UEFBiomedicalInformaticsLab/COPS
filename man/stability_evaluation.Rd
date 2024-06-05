@@ -22,7 +22,7 @@ stability_evaluation_pac(
 )
 }
 \arguments{
-\item{clusters}{clustering \code{data.frame} such as returned by \code{\link{subsample_clusteval}}}
+\item{clusters}{clustering \code{data.frame} such as returned by \code{\link{subsample_clustering_evaluation}}}
 
 \item{by}{vector of column names to keep}
 
@@ -40,7 +40,7 @@ Returns a \code{data.frame} where each row corresponds to clustering stability
 Performs stability analysis on cross-validated clusterings.
 }
 \details{
-Default settings work with \code{\link{subsample_clusteval}} output 'clusters'.
+Default settings work with \code{\link{subsample_clustering_evaluation}} output 'clusters'.
 }
 \section{Functions}{
 \itemize{
