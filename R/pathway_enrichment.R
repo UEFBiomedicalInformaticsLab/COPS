@@ -62,7 +62,6 @@
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
 #' @importFrom dplyr filter
 #' @importFrom msigdbr msigdbr
-#' @importFrom GSVA gsva
 genes_to_pathways <- function(
     x, 
     enrichment_method = "GSVA",
@@ -206,7 +205,8 @@ genes_to_pathways <- function(
   return(out)
 }
 
-# Provides compatibility with both old and new GSVA
+#' @importFrom GSVA gsva gsvaParam
+#' @importFrom BiocParallel MulticoreParam SerialParam
 gsva_wrapper <- function(
     x, 
     gene_set_list = NULL,
@@ -225,7 +225,7 @@ gsva_wrapper <- function(
   gsva_api <- args(GSVA::gsva)
   if (names(as.list(gsva_api))[1] == "param") {
     gsva_args <- list(
-      param = gsva::gsvaParam(
+      param = GSVA::gsvaParam(
         exprData = x, 
         geneSets = gene_set_list, 
         minSize = min_size, 
