@@ -244,7 +244,7 @@ gsva_wrapper <- function(
       min.sz = min_size, 
       max.sz = max_size, 
       mx.diff = TRUE, 
-      kcdf = kcdf
+      kcdf = kcdf, 
       verbose = verbose, 
       BPPARAM = bioc_parallel
     )
