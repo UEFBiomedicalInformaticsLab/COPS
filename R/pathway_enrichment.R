@@ -133,24 +133,23 @@ genes_to_pathways <- function(
       function(a) x[, which(a == as.character(batch_label_pw)), drop = FALSE])
     
     # Apply the specified enrichment methods
-    if (enrichment_method == "GSVA") {
+    if (tolower(enrichment_method) == "gsva") {
       enriched_dat <- lapply(
         batch_dat_list, 
-        GSVA::gsva, 
-        gset.idx.list = gene_set_list, 
-        mx.diff = TRUE, 
+        gsva_wrapper, 
+        gene_set_list = gene_set_list, 
         verbose = verbose, 
-        parallel.sz = parallel,
+        parallel = parallel,
         kcdf = gsva_kcdf,
-        min.sz = min_size, 
-        max.sz = max_size)
-    } else if (enrichment_method == "DiffRank") {
+        min_size = min_size, 
+        max_size = max_size)
+    } else if (tolower(enrichment_method) == "diffrank") {
       enriched_dat <- lapply(
         batch_dat_list, 
         DiffRank, 
         gene_set_list = gene_set_list, 
         parallel = parallel)
-    } else if (enrichment_method == "RWRFGSEA") {
+    } else if (gsub("[-_]", "", tolower(enrichment_method)) == "rwrfgsea") {
       enriched_dat <- lapply(
         batch_dat_list, 
         RWRFGSEA, 
@@ -164,20 +163,19 @@ genes_to_pathways <- function(
     enriched_dat <- t(Reduce(plyr::rbind.fill.matrix, lapply(enriched_dat, t)))
   } else {
     # Regular enrichment analysis
-    if (enrichment_method == "GSVA") {
+    if (tolower(enrichment_method) == "gsva") {
       enriched_dat <- suppressWarnings(
-        GSVA::gsva(
-          x, 
-          gset.idx.list = gene_set_list, 
-          mx.diff = TRUE, 
+        gsva_wrapper(
+          x = x, 
+          gene_set_list = gene_set_list, 
           verbose = verbose, 
-          parallel.sz = parallel, 
+          parallel = parallel, 
           kcdf = gsva_kcdf,
-          min.sz = min_size, 
-          max.sz = max_size))#, rnaseq = rnaseq)) # later version for rnaseq?
-    } else if (enrichment_method == "DiffRank") {
+          min_size = min_size, 
+          max_size = max_size))
+    } else if (tolower(enrichment_method) == "diffrank") {
       enriched_dat <- COPS::DiffRank(x, gene_set_list, parallel)
-    } else if (enrichment_method == "RWRFGSEA") {
+    } else if (gsub("[-_]", "", tolower(enrichment_method)) == "rwrfgsea") {
       enriched_dat <- RWRFGSEA(
         x, 
         gene_set_list = gene_set_list, 
@@ -207,6 +205,54 @@ genes_to_pathways <- function(
   
   return(out)
 }
+
+# Provides compatibility with both old and new GSVA
+gsva_wrapper <- function(
+    x, 
+    gene_set_list = NULL,
+    min_size = 5, 
+    max_size = 200, 
+    parallel = 1,
+    verbose = FALSE,
+    kcdf = "Gaussian"
+) {
+  if (parallel > 1) {
+    bioc_parallel <- BiocParallel::MulticoreParam(workers = parallel)
+  } else {
+    bioc_parallel <- BiocParallel::SerialParam()
+  }
+  # Check GSVA function arguments and adjust inputs
+  gsva_api <- args(GSVA::gsva)
+  if (names(as.list(gsva_api))[1] == "param") {
+    gsva_args <- list(
+      param = gsva::gsvaParam(
+        exprData = x, 
+        geneSets = gene_set_list, 
+        minSize = min_size, 
+        maxSize = max_size, 
+        maxDiff = TRUE, 
+        kcdf = kcdf
+      ), 
+      verbose = verbose, 
+      BPPARAM = bioc_parallel
+    )
+  } else {
+    # Assume older version
+    gsva_args <- list(
+      expr = x, 
+      gset.idx.list = gene_set_list, 
+      min.sz = min_size, 
+      max.sz = max_size, 
+      mx.diff = TRUE, 
+      kcdf = kcdf
+      verbose = verbose, 
+      BPPARAM = bioc_parallel
+    )
+  }
+  out <- do.call(GSVA::gsva, args = gsva_args)
+  return(out)
+}
+
 
 #' Cross-validation wrapped pathway enrichment
 #'
