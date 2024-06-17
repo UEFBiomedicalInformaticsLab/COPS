@@ -215,9 +215,12 @@ jaccard_similarity <- function(a, b) {
   if (length(a) != length(b)) {
     stop("Input vectors are not same length.")
   }
-  a_blocks <- as.double(table(a))
-  b_blocks <- as.double(table(b))
-  i_blocks <- as.double(table(a,b))
+  i_blocks <- table(a,b)
+  a_blocks <- apply(i_blocks, 1, sum)
+  b_blocks <- apply(i_blocks, 2, sum)
+  a_blocks <- as.double(a_blocks)
+  b_blocks <- as.double(b_blocks)
+  i_blocks <- as.double(i_blocks)
   l <- length(a)
   a_sqsum <- sum(a_blocks * a_blocks)
   b_sqsum <- sum(b_blocks * b_blocks)
