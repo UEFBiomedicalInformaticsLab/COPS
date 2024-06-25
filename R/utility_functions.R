@@ -964,8 +964,11 @@ nlog10_trans <- scales::trans_new(
 #' @param shape_var column name in \code{scores} for shape
 #' @param size_var column name in \code{scores} for size
 #' @param size_range controls the range of point sizes
+#' @param size_guide can be used to adjust the size legend
 #' @param color_scale can be used instead of \code{plot_palette} to control colors
+#' @param color_guide can be used to adjust the color legend (see \code{\link[ggplot2]{guide_legend}} or \code{\link[ggplot2]{guide_colourbar}})
 #' @param shape_scale can be used to control point shapes
+#' @param shape_guide can be used to control the shape legend
 #' @param plot_pareto_front If \code{TRUE}, plots a step-function showing the first 
 #'   Pareto front for each pair of metrics. 
 #' @param front_color color of pairwise Pareto front step-function.
@@ -989,8 +992,11 @@ pareto_plot <- function(
     shape_var = Clustering,
     size_var = k, 
     size_range = c(2,6),
+    size_guide = ggplot2::guide_legend(ncol = 1, order = 3), 
     color_scale = ggplot2::scale_color_manual(values = plot_palette),
+    color_guide = ggplot2::guide_legend(ncol = 1, order = 1), 
     shape_scale = ggplot2::scale_shape_manual(values = 0:14), 
+    shape_guide = ggplot2::guide_legend(ncol = 1, order = 2), 
     plot_pareto_front = FALSE,
     front_color = "black", 
     metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL, 
@@ -1094,9 +1100,9 @@ pareto_plot <- function(
     theme(legend.box = "horizontal") + 
     scale_size(range = size_range) + 
     guides(
-      shape = guide_legend(ncol = 1, order = 2), 
-      color = guide_legend(ncol = 1, order = 1),
-      size = guide_legend(ncol = 1, order = 3))
+      shape = shape_guide, 
+      color = color_guide,
+      size = size_guide)
   pareto_legend <- cowplot::get_legend(legend_plot)
   
   # Define layout for comparing metrics

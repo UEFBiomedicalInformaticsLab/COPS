@@ -13,8 +13,11 @@ pareto_plot(
   shape_var = Clustering,
   size_var = k,
   size_range = c(2, 6),
+  size_guide = ggplot2::guide_legend(ncol = 1, order = 3),
   color_scale = ggplot2::scale_color_manual(values = plot_palette),
+  color_guide = ggplot2::guide_legend(ncol = 1, order = 1),
   shape_scale = ggplot2::scale_shape_manual(values = 0:14),
+  shape_guide = ggplot2::guide_legend(ncol = 1, order = 2),
   plot_pareto_front = FALSE,
   front_color = "black",
   metric_comparators = if (plot_pareto_front) get_metric_comparators(metrics) else NULL,
@@ -39,9 +42,15 @@ for translating p-values to negative log10}
 
 \item{size_range}{controls the range of point sizes}
 
+\item{size_guide}{can be used to adjust the size legend}
+
 \item{color_scale}{can be used instead of \code{plot_palette} to control colors}
 
+\item{color_guide}{can be used to adjust the color legend (see \code{\link[ggplot2]{guide_legend}} or \code{\link[ggplot2]{guide_colourbar}})}
+
 \item{shape_scale}{can be used to control point shapes}
+
+\item{shape_guide}{can be used to control the shape legend}
 
 \item{plot_pareto_front}{If \code{TRUE}, plots a step-function showing the first 
 Pareto front for each pair of metrics.}
