@@ -857,6 +857,7 @@ get_multi_omic_kernels <- function(
     kernel_rwr_seeds = "discrete", 
     kernel_rwr_seed_under_threshold = qnorm(0.025), 
     kernel_rwr_seed_over_threshold = qnorm(0.975), 
+    kernel_rwr_dnet = TRUE, 
     kernel_rwr_verbose = FALSE, 
     gene_id_list = NULL, 
     zero_var_removal = TRUE, 
@@ -1020,49 +1021,109 @@ get_multi_omic_kernels <- function(
         up_gene_ind <- seed_up > 0
         dn_gene_ind <- seed_dn > 0
         
-        if (kernel_rwr_verbose) {
-          rwr_wrapper <- function(x) return(x)
-        } else {
-          rwr_wrapper <- function(x) return(suppressMessages(suppressWarnings(x)))
-        }
-        if (pathway_rwr_parallelization) {
-          parallel_clust <- setup_parallelization(mvc_threads)
-          multi_omic_kernels_j <- tryCatch(
-            foreach(
-              jnet = pathway_networks, 
-              jnw = nw_weights, 
-              .combine = c
-            ) %dopar% {
-              kernels_j <- list()
+        if (kernel_rwr_dnet) {
+          if (!requireNamespace("dnet", quietly = TRUE)) {
+            stop("Please install the dnet-package or set the 'kernel_rwr_dnet' option to FALSE.")
+          }
+          if (kernel_rwr_verbose) {
+            rwr_message_wrapper <- function(x) return(x)
+          } else {
+            rwr_message_wrapper <- function(x) return(suppressMessages(suppressWarnings(x)))
+          }
+          if (pathway_rwr_parallelization) {
+            parallel_clust <- setup_parallelization(mvc_threads)
+            multi_omic_kernels_j <- tryCatch(
+              foreach(
+                jnet = pathway_networks, 
+                jnw = nw_weights, 
+                .combine = c
+              ) %dopar% {
+                kernels_j <- list()
+                pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(jnet))
+                if (!any(pw_gene_ind)) next
+                any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
+                # Skip pathways where only one sample has seeds
+                if (sum(any_up_gene)>1) {
+                  k_up <- rwr_message_wrapper(dnet::dRWR(
+                    jnet, 
+                    normalise = "laplacian",
+                    setSeeds = seed_up,
+                    restart = kernel_rwr_restart,
+                    normalise.affinity.matrix = "none",
+                    #parallel = mvc_threads > 1,
+                    #multicores = rwr_threads, 
+                    verbose = kernel_rwr_verbose
+                  ))
+                  rownames(k_up) <- names(igraph::V(jnet))
+                  colnames(k_up) <- rownames(temp)
+                  k_up <- weighted_linear_kernel(as.matrix(k_up), jnw)
+                  k_up <- process_kernel(
+                    K = k_up, 
+                    center = kernels_center[i], 
+                    normalize = kernels_normalize[i], 
+                    scale = kernels_scale_norm[i]
+                  )
+                  kernels_j <- c(kernels_j, list(k_up))
+                }
+                # Same check for down genes
+                any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
+                if (sum(any_dn_gene)>1) {
+                  k_dn <- rwr_wrapper(dnet::dRWR(
+                    jnet, 
+                    normalise = "laplacian",
+                    setSeeds = seed_dn,
+                    restart = kernel_rwr_restart,
+                    normalise.affinity.matrix = "none",
+                    #parallel = mvc_threads > 1,
+                    #multicores = rwr_threads, 
+                    verbose = kernel_rwr_verbose
+                  ))
+                  rownames(k_dn) <- names(igraph::V(jnet))
+                  colnames(k_dn) <- rownames(temp)
+                  k_dn <- weighted_linear_kernel(as.matrix(k_dn), jnw)
+                  k_dn <- process_kernel(
+                    K = k_dn, 
+                    center = kernels_center[i], 
+                    normalize = kernels_normalize[i], 
+                    scale = kernels_scale_norm[i]
+                  )
+                  kernels_j <- c(kernels_j, list(k_dn))
+                }
+                kernels_j
+              }, 
+              finally = close_parallel_cluster(parallel_clust)
+            )
+            multi_omic_kernels <- c(multi_omic_kernels, multi_omic_kernels_j)
+          } else {
+            for (j in 1:length(pathway_networks)) {
+              jnet <- pathway_networks[[j]]
+              jnw <- nw_weights[[j]]
               pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(jnet))
               if (!any(pw_gene_ind)) next
               any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
               # Skip pathways where only one sample has seeds
               if (sum(any_up_gene)>1) {
+                
                 k_up <- rwr_wrapper(dnet::dRWR(
                   jnet, 
                   normalise = "laplacian",
                   setSeeds = seed_up,
                   restart = kernel_rwr_restart,
                   normalise.affinity.matrix = "none",
-                  #parallel = mvc_threads > 1,
-                  #multicores = rwr_threads, 
+                  parallel = mvc_threads > 1,
+                  multicores = rwr_threads, 
                   verbose = kernel_rwr_verbose
                 ))
                 rownames(k_up) <- names(igraph::V(jnet))
                 colnames(k_up) <- rownames(temp)
                 k_up <- weighted_linear_kernel(as.matrix(k_up), jnw)
-                if (!is.null(k_up)) {
-                  if (var(as.vector(k_up)) > 0) {
-                    if (kernels_center[i]) k_up <- center_kernel(k_up)
-                    if (kernels_normalize[i]) {
-                      k_up <- normalize_kernel(k_up)
-                      k_up[is.na(k_up)] <- 0
-                    }
-                    if (kernels_scale_norm[i]) k_up <- scale_kernel_norm(k_up)
-                    kernels_j <- c(kernels_j, list(k_up))
-                  }
-                }
+                k_up <- process_kernel(
+                  K = k_up, 
+                  center = kernels_center[i], 
+                  normalize = kernels_normalize[i], 
+                  scale = kernels_scale_norm[i]
+                )
+                kernels_j <- c(kernels_j, list(k_up))
               }
               # Same check for down genes
               any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
@@ -1073,92 +1134,75 @@ get_multi_omic_kernels <- function(
                   setSeeds = seed_dn,
                   restart = kernel_rwr_restart,
                   normalise.affinity.matrix = "none",
-                  #parallel = mvc_threads > 1,
-                  #multicores = rwr_threads, 
+                  parallel = mvc_threads > 1,
+                  multicores = rwr_threads, 
                   verbose = kernel_rwr_verbose
                 ))
                 rownames(k_dn) <- names(igraph::V(jnet))
                 colnames(k_dn) <- rownames(temp)
                 k_dn <- weighted_linear_kernel(as.matrix(k_dn), jnw)
-                if (!is.null(k_dn)) {
-                  if (var(as.vector(k_dn)) > 0) {
-                    if (kernels_center[i]) k_dn <- center_kernel(k_dn)
-                    if (kernels_normalize[i]) {
-                      k_dn <- normalize_kernel(k_dn)
-                      k_dn[is.na(k_dn)] <- 0
-                    }
-                    if (kernels_scale_norm[i]) k_dn <- scale_kernel_norm(k_dn)
-                    kernels_j <- c(kernels_j, list(k_dn))
-                  }
-                }
+                k_dn <- process_kernel(
+                  K = k_dn, 
+                  center = kernels_center[i], 
+                  normalize = kernels_normalize[i], 
+                  scale = kernels_scale_norm[i]
+                )
+                kernels_j <- c(kernels_j, list(k_dn))
               }
-              kernels_j
-            }, 
-            finally = close_parallel_cluster(parallel_clust)
-          )
-          multi_omic_kernels <- c(multi_omic_kernels, multi_omic_kernels_j)
+            }
+          }
         } else {
-          for (j in 1:length(pathway_networks)) {
-            pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(pathway_networks[[j]]))
+          for(j in 1:length(pathway_networks)) {
+            jnet <- pathway_networks[[j]]
+            jnw <- nw_weights[[j]]
+            kernels_j <- list()
+            pw_gene_ind <- rownames(seed_up) %in% names(igraph::V(jnet))
             if (!any(pw_gene_ind)) next
             any_up_gene <- apply(up_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
             # Skip pathways where only one sample has seeds
             if (sum(any_up_gene)>1) {
-              
-              k_up <- rwr_wrapper(dnet::dRWR(
-                pathway_networks[[j]], 
-                normalise = "laplacian",
-                setSeeds = seed_up,
-                restart = kernel_rwr_restart,
-                normalise.affinity.matrix = "none",
-                parallel = mvc_threads > 1,
-                multicores = rwr_threads, 
-                verbose = kernel_rwr_verbose
-              ))
-              rownames(k_up) <- names(igraph::V(pathway_networks[[j]]))
+              k_up <- seeded_rwr(
+                X = seed_up, 
+                G = jnet, 
+                p = kernel_rwr_restart, 
+                graph_normalization = "laplacian", 
+                affinity_normalization = TRUE
+              )
+              rownames(k_up) <- names(igraph::V(jnet))
               colnames(k_up) <- rownames(temp)
-              k_up <- weighted_linear_kernel(as.matrix(k_up), nw_weights[[j]])
-              if (!is.null(k_up)) {
-                if (var(as.vector(k_up)) > 0) {
-                  if (kernels_center[i]) k_up <- center_kernel(k_up)
-                  if (kernels_normalize[i]) {
-                    k_up <- normalize_kernel(k_up)
-                    k_up[is.na(k_up)] <- 0
-                  }
-                  if (kernels_scale_norm[i]) k_up <- scale_kernel_norm(k_up)
-                  multi_omic_kernels <- c(multi_omic_kernels, list(k_up))
-                }
-              }
+              k_up <- weighted_linear_kernel(as.matrix(k_up), jnw)
+              k_up <- process_kernel(
+                K = k_up, 
+                center = kernels_center[i], 
+                normalize = kernels_normalize[i], 
+                scale = kernels_scale_norm[i]
+              )
+              kernels_j <- c(kernels_j, list(k_up))
             }
             # Same check for down genes
             any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
             if (sum(any_dn_gene)>1) {
-              k_dn <- rwr_wrapper(dnet::dRWR(
-                pathway_networks[[j]], 
-                normalise = "laplacian",
-                setSeeds = seed_dn,
-                restart = kernel_rwr_restart,
-                normalise.affinity.matrix = "none",
-                parallel = mvc_threads > 1,
-                multicores = rwr_threads, 
-                verbose = kernel_rwr_verbose
-              ))
-              rownames(k_dn) <- names(igraph::V(pathway_networks[[j]]))
+              k_dn <- seeded_rwr(
+                X = seed_dn, 
+                G = jnet, 
+                p = kernel_rwr_restart, 
+                graph_normalization = "laplacian", 
+                affinity_normalization = TRUE
+              )
+              rownames(k_dn) <- names(igraph::V(jnet))
               colnames(k_dn) <- rownames(temp)
-              k_dn <- weighted_linear_kernel(as.matrix(k_dn), nw_weights[[j]])
-              if (!is.null(k_dn)) {
-                if (var(as.vector(k_dn)) > 0) {
-                  if (kernels_center[i]) k_dn <- center_kernel(k_dn)
-                  if (kernels_normalize[i]) {
-                    k_dn <- normalize_kernel(k_dn)
-                    k_dn[is.na(k_dn)] <- 0
-                  }
-                  if (kernels_scale_norm[i]) k_dn <- scale_kernel_norm(k_dn)
-                  multi_omic_kernels <- c(multi_omic_kernels, list(k_dn))
-                }
-              }
+              k_dn <- weighted_linear_kernel(as.matrix(k_dn), jnw)
+              k_dn <- process_kernel(
+                K = k_dn, 
+                center = kernels_center[i], 
+                normalize = kernels_normalize[i], 
+                scale = kernels_scale_norm[i]
+              )
+              kernels_j <- c(kernels_j, list(k_dn))
             }
+            kernels_j
           }
+          multi_omic_kernels <- c(multi_omic_kernels, multi_omic_kernels_j)
         }
       } 
     } else {
@@ -1166,6 +1210,26 @@ get_multi_omic_kernels <- function(
     }
   }
   return(multi_omic_kernels)
+}
+
+process_kernel <- function(
+    K, 
+    center = TRUE, 
+    normalize = TRUE, 
+    scale = FALSE
+) {
+  if (!is.null(K)) {
+    if (var(as.vector(K)) > 0) {
+      if (center) K <- center_kernel(K)
+      if (normalize) {
+        K <- normalize_kernel(K)
+        K[is.na(K)] <- 0
+      }
+      if (scale) K <- scale_kernel_norm(K)
+      return(K)
+    }
+  }
+  return(NULL)
 }
 
 #' Kernel clustering utilities
