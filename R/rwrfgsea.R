@@ -287,3 +287,47 @@ fgsea_wrapper <- function(
   res[is.na(res)] <- 0
   return(res)
 }
+
+seeded_rwr <- function(
+    X, 
+    G, 
+    p = 0.7, 
+    graph_normalization = c("laplacian", "transition", "none"), 
+    cholesky = !igraph::is_directed(G), 
+    affinity_normalization = TRUE
+) {
+  graph_normalization <- match.arg(
+    graph_normalization, 
+    choices = c("laplacian", "transition", "none")
+  )
+  v_names <- igraph::vertex_attr(G, "name")
+  x_names <- rownames(X)
+  x_ind <- match(x_names, v_names)
+  X_matched <- Matrix::sparseMatrix(
+    i = c(), 
+    j = c(), 
+    dims = c(length(v_names), ncol(X)), 
+    dimnames = list(v_names, colnames(X))
+  )
+  X_matched[x_ind,] <- X
+  
+  X_scaled <- Matrix::colScale(X_matched, 1 / Matrix::colSums(X_matched))
+  
+  A <- igraph::as_adjacency_matrix(G, type = "both", sparse = TRUE)
+  if (graph_normalization == "transition") {
+    M <- Matrix::colScale(A, 1 / Matrix::colSums(A))
+  } else if (graph_normalization == "laplacian") {
+    d <- igraph::degree(G)
+    M <- Matrix::colScale(A, 1 / sqrt(d))
+    M <- Matrix::rowScale(M, 1 / sqrt(d))
+  }
+  M <- Matrix::.sparseDiagonal(nrow(M), 1) - (1-p) * M
+  if (cholesky & graph_normalization != "transition") {
+    M <- Matrix::Cholesky(M)
+  }
+  Y <- Matrix::solve(M, p * X_scaled)
+  if (affinity_normalization) {
+    Y <- Matrix::colScale(Y, 1 / Matrix::colSums(Y))
+  }
+  return(Y)
+}
