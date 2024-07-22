@@ -303,13 +303,14 @@ seeded_rwr <- function(
   v_names <- igraph::vertex_attr(G, "name")
   x_names <- rownames(X)
   x_ind <- match(x_names, v_names)
+  x_ind_nna <- !is.na(x_ind)
   X_matched <- Matrix::sparseMatrix(
     i = c(), 
     j = c(), 
     dims = c(length(v_names), ncol(X)), 
     dimnames = list(v_names, colnames(X))
   )
-  X_matched[x_ind,] <- X
+  X_matched[x_ind[x_ind_nna],] <- X[x_ind_nna,]
   
   X_scaled <- Matrix::colScale(X_matched, 1 / Matrix::colSums(X_matched))
   
