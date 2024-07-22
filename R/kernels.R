@@ -1123,7 +1123,7 @@ get_multi_omic_kernels <- function(
                   normalize = kernels_normalize[i], 
                   scale = kernels_scale_norm[i]
                 )
-                kernels_j <- c(kernels_j, list(k_up))
+                multi_omic_kernels <- c(multi_omic_kernels, list(k_up))
               }
               # Same check for down genes
               any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
@@ -1147,7 +1147,7 @@ get_multi_omic_kernels <- function(
                   normalize = kernels_normalize[i], 
                   scale = kernels_scale_norm[i]
                 )
-                kernels_j <- c(kernels_j, list(k_dn))
+                multi_omic_kernels <- c(multi_omic_kernels, list(k_dn))
               }
             }
           }
@@ -1177,7 +1177,7 @@ get_multi_omic_kernels <- function(
                 normalize = kernels_normalize[i], 
                 scale = kernels_scale_norm[i]
               )
-              kernels_j <- c(kernels_j, list(k_up))
+              multi_omic_kernels <- c(multi_omic_kernels, list(k_up))
             }
             # Same check for down genes
             any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
@@ -1198,11 +1198,9 @@ get_multi_omic_kernels <- function(
                 normalize = kernels_normalize[i], 
                 scale = kernels_scale_norm[i]
               )
-              kernels_j <- c(kernels_j, list(k_dn))
+              multi_omic_kernels <- c(multi_omic_kernels, list(k_dn))
             }
-            kernels_j
           }
-          multi_omic_kernels <- c(multi_omic_kernels, multi_omic_kernels_j)
         }
       } 
     } else {
