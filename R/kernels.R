@@ -1207,7 +1207,13 @@ get_multi_omic_kernels <- function(
       stop(paste0("Kernel \"", kernels[i], "\" is not supported."))
     }
   }
+  if (!check_dims(multi_omic_kernels)) stop("Kernel dimensions mis-match.")
   return(multi_omic_kernels)
+}
+
+check_dims <- function(x_list) {
+  if (length(x_list) <= 1) return(TRUE)
+  return(all(sapply(x_list[-1], function(x) identical(dim(x), dim(x_list[[1]])))))
 }
 
 process_kernel <- function(
