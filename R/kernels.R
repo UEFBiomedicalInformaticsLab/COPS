@@ -1076,7 +1076,7 @@ get_multi_omic_kernels <- function(
                 # Same check for down genes
                 any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
                 if (sum(any_dn_gene)>1) {
-                  k_dn <- rwr_wrapper(dnet::dRWR(
+                  k_dn <- rwr_message_wrapper(dnet::dRWR(
                     jnet, 
                     normalise = "laplacian",
                     setSeeds = seed_dn,
@@ -1112,7 +1112,7 @@ get_multi_omic_kernels <- function(
               # Skip pathways where only one sample has seeds
               if (sum(any_up_gene)>1) {
                 
-                k_up <- rwr_wrapper(dnet::dRWR(
+                k_up <- rwr_message_wrapper(dnet::dRWR(
                   jnet, 
                   normalise = "laplacian",
                   setSeeds = seed_up,
@@ -1136,7 +1136,7 @@ get_multi_omic_kernels <- function(
               # Same check for down genes
               any_dn_gene <- apply(dn_gene_ind[pw_gene_ind, , drop = FALSE], 2, any)
               if (sum(any_dn_gene)>1) {
-                k_dn <- rwr_wrapper(dnet::dRWR(
+                k_dn <- rwr_message_wrapper(dnet::dRWR(
                   jnet, 
                   normalise = "laplacian",
                   setSeeds = seed_dn,

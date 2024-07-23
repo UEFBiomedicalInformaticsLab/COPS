@@ -218,6 +218,7 @@ multi_omic_clustering <- function(
       data_is_kernels = data_is_kernels, 
       gene_id_list = gene_id_list, 
       preprocess_data = FALSE,
+      zero_var_removal = FALSE, 
       mvc_threads = mvc_threads, 
       ...
     )
