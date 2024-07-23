@@ -366,6 +366,7 @@ mkkm_mr <- function(
     tolerance = 1e-6, 
     parallel = 0, 
     use_mosek = FALSE, 
+    mosek_verbosity = 0L, 
     mkkm_mr_maxiter = 10, 
     no_stop = FALSE
 ) {
@@ -391,7 +392,14 @@ mkkm_mr <- function(
     stop_con <- (objective[it] - objective[it+1]) / objective[it+1] < tolerance
     if (stop_con & !no_stop) break
     
-    mu <- mkkm_mr_mu_opt(K_list, H, M, lambda, parallel, use_mosek)
+    mu <- mkkm_mr_mu_opt(
+      K_list = K_list, 
+      H = H, 
+      M = M, 
+      lambda = lambda, 
+      parallel, use_mosek, 
+      mosek_verbosity = mosek_verbosity
+    )
   }
   K <- K_list[[1]] * mu[1]**2
   for (i in 2:length(K_list)) {
@@ -436,9 +444,9 @@ mkkm_mr_mu_opt <- function(
   if (use_mosek) {
     return(
       mkkm_mr_mu_opt_mosek(
-        Z, 
-        M, 
-        lambda, 
+        Z = Z, 
+        M = M, 
+        lambda = lambda, 
         parallel = parallel, 
         mosek_verbosity = mosek_verbosity
       )
@@ -446,9 +454,9 @@ mkkm_mr_mu_opt <- function(
   } else {
     return(
       mkkm_mr_mu_opt_cvxr(
-        Z, 
-        M, 
-        lambda, 
+        Z = Z, 
+        M = M, 
+        lambda = lambda, 
         parallel = parallel
       )
     )

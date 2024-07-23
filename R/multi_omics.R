@@ -169,6 +169,7 @@ multi_omic_clustering <- function(
     mkkm_mr_lambda = 1, 
     mkkm_mr_tolerance = 1e-8, 
     mkkm_mr_mosek = FALSE, 
+    mkkm_mr_mosek_verbosity = 0L, 
     ecmc_a = 1, 
     ecmc_b = 1, 
     ecmc_eps = 1e-6,
@@ -460,7 +461,9 @@ multi_omic_clustering <- function(
             lambda = lambda_i, 
             tolerance = mkkm_mr_tolerance, 
             parallel = mvc_threads,
-            use_mosek = mkkm_mr_mosek)
+            use_mosek = mkkm_mr_mosek, 
+            mosek_verbosity = mkkm_mr_mosek_verbosity
+          )
           temp_res <- kernel_kmeans(
             K = optimal_kernel$K, 
             n_k = k, 
@@ -524,7 +527,9 @@ multi_omic_clustering <- function(
             lambda = mkkm_mr_lambda, 
             tolerance = mkkm_mr_tolerance, 
             parallel = mvc_threads,
-            use_mosek = mkkm_mr_mosek)
+            use_mosek = mkkm_mr_mosek, 
+            mosek_verbosity = mkkm_mr_mosek_verbosity
+          )
           extra_output$mkkm_mr_weights <- rbind(
             extra_output$mkkm_mr_weights, 
             data.frame(
