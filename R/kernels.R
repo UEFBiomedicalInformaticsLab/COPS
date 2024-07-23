@@ -439,7 +439,7 @@ mkkm_mr_mu_opt <- function(
   for (i in 1:length(K_list)) {
     Z[i] <- sum(as.vector(K_list[[i]]) * as.vector(HHT))
   }
-  Z <- diag(Z)
+  Z <- Matrix::Diagonal(x = Z)
   
   if (use_mosek) {
     return(
