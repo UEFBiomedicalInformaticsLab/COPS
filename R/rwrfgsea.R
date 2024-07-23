@@ -307,6 +307,7 @@ seeded_rwr <- function(
   X_matched <- Matrix::sparseMatrix(
     i = c(), 
     j = c(), 
+    x = numeric(), 
     dims = c(length(v_names), ncol(X)), 
     dimnames = list(v_names, colnames(X))
   )
