@@ -482,18 +482,13 @@ mkkm_mr_mu_opt_mosek <- function(
   prob$bx <- rbind(blx=rep(0, m),
                    bux=rep(Inf, m))
   
-  ni <- (m*m+m)/2 # sparse length
-  
-  # column index
-  l <- rep(0, ni)
-  l[cumsum(m:2)+1] <- 1
-  l <- cumsum(l) + 1
-  # row index
-  k <- Reduce("c", lapply(1:m, function(x) x:m))
-  
-  prob$qobj$i <- k
-  prob$qobj$j <- l
-  prob$qobj$v <- (2*Z + lambda * M)[cbind(k,l)]
+  Q <- (2*Z + lambda * M)
+  ind <- lower.tri(Q, diag = TRUE)
+  indw <- which(ind, arr.ind = TRUE)
+  indv <- as.vector(ind)
+  prob$qobj$i <- indw[,1]
+  prob$qobj$j <- indw[,2]
+  prob$qobj$v <- Q@x[indv]
   
   res <- Rmosek::mosek(prob, opts = list(verbose = mosek_verbosity))
   return(res$sol$itr$xx)
