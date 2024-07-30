@@ -15,7 +15,8 @@ subsample_association_analysis(
 \arguments{
 \item{clusters}{A data.table or data.frame with clustering information.}
 
-\item{association_data}{A data.frame with association variables (categoric or numeric).}
+\item{association_data}{A data.frame with association variables (categoric 
+or numeric).}
 
 \item{by}{Column names that identify a single clustering result.}
 

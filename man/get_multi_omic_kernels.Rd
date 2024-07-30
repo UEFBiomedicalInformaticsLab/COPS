@@ -19,6 +19,7 @@ get_multi_omic_kernels(
   kernel_rwr_seeds = "discrete",
   kernel_rwr_seed_under_threshold = qnorm(0.025),
   kernel_rwr_seed_over_threshold = qnorm(0.975),
+  kernel_rwr_dnet = TRUE,
   kernel_rwr_verbose = FALSE,
   gene_id_list = NULL,
   zero_var_removal = TRUE,
@@ -65,6 +66,8 @@ See details below.}
 \item{kernel_rwr_seed_under_threshold}{z-score threshold for under-expressed, applies to both RWR-BWK and PAMOGK.}
 
 \item{kernel_rwr_seed_over_threshold}{z-score threshold for over-expressed, applies to both RWR-BWK and PAMOGK.}
+
+\item{kernel_rwr_dnet}{Use \code{\link[dnet]{dRWR}}.}
 
 \item{kernel_rwr_verbose}{See \code{\link[dnet]{dRWR}}, applies to both RWR-BWK and PAMOGK.}
 

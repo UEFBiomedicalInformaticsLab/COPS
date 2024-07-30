@@ -12,10 +12,12 @@ DSC(data_matrix, batch_label)
 \item{batch_label}{categorical variable, must be vector}
 }
 \value{
-Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
+Returns the DSC of \code{data_matrix} with respect to 
+  \code{batch_label} as a scalar value
 }
 \description{
-Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
+Used by TCGA Batch Effects Viewer 
+\url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 Based on \url{https://www.jmlr.org/papers/v5/dy04a.html}.
 Can be used to measure batch effect.
 }

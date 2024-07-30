@@ -8,8 +8,8 @@
 #' @param data_matrix numeric matrix, samples on columns
 #' @param batch_label categorical variable, must be vector
 #'
-#' @return Returns the DSC of \code{data_matrix} with respect to \
-#'   code{batch_label} as a scalar value
+#' @return Returns the DSC of \code{data_matrix} with respect to 
+#'   \code{batch_label} as a scalar value
 #' @export
 DSC <- function(data_matrix, batch_label) {
   if (is.null(names(batch_label))) names(batch_label) <- colnames(data_matrix)

@@ -18,11 +18,15 @@ feature_associations(x, class, n_pc_max = 10, ...)
 \value{
 Returns a \code{list} containing the following objects: 
 \itemize{
-  \item{associations}{\code{data.frame} summary of \code{\link[kBET]{batch_sil}},
-                      \code{\link[kBET]{pcRegression}} (\code{$maxR2}) and 
-                      \code{\link{DSC}} computed for each column of \code{class}}
-  \item{eigenvalues}{PC eigenvalues and percentage of explained variance from 
-                     \code{\link[FactoMineR]{PCA}}}
+  \item{associations}{
+    \code{data.frame} summary of \code{\link[kBET]{batch_sil}},
+    \code{\link[kBET]{pcRegression}} (\code{$maxR2}) and 
+    \code{\link{DSC}} computed for each column of \code{class}
+  }
+  \item{eigenvalues}{
+    PC eigenvalues and percentage of explained variance from 
+    \code{\link[FactoMineR]{PCA}}
+  }
 }
 }
 \description{

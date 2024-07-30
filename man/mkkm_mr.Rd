@@ -11,6 +11,7 @@ mkkm_mr(
   tolerance = 1e-06,
   parallel = 0,
   use_mosek = FALSE,
+  mosek_verbosity = 0L,
   mkkm_mr_maxiter = 10,
   no_stop = FALSE
 )
@@ -28,6 +29,8 @@ mkkm_mr(
 
 \item{use_mosek}{If \code{TRUE}, the optimization will be run with 
 \code{Rmosek} instead of \code{CVXR}.}
+
+\item{mosek_verbosity}{MOSEK logging parameter.}
 
 \item{mkkm_mr_maxiter}{maximum number of iterations, usually the algorithm 
 converges soon after 2 iterations}

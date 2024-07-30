@@ -68,10 +68,12 @@
 #' @param mkkm_mr_tolerance Convergence threshold for \code{\link{mkkm_mr}}.
 #' @param mkkm_mr_mosek If set, uses \code{Rmosek} for convex optimization 
 #'   instead of \code{CVXR} for \code{\link{mkkm_mr}}.
+#' @param mkkm_mr_mosek_verbosity MOSEK verbosity parameter for \code{\link{mkkm_mr}}.
 #' @param ecmc_a Regularization parameter for \code{\link{ECMC}}.
 #' @param ecmc_b Regularization parameter for \code{\link{ECMC}}.
 #' @param ecmc_eps Convergence threshold for \code{\link{ECMC}}.
 #' @param ecmc_maxiter Maximum number of iterations for \code{\link{ECMC}}.
+#' @param ecmc_solver Solver for \code{\link{ECMC}}.
 #' @param ecmc_mkkm_mr If set, uses \code{\link{mkkm_mr}} on consensus kernels 
 #'   obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
 #'     kernel k-means. 

@@ -353,6 +353,7 @@ PIK_GNGS <- function(x, gene_network, gene_sets, ...) {
 #' @param parallel number of parallel threads used by the quadratic solver
 #' @param use_mosek If \code{TRUE}, the optimization will be run with 
 #'   \code{Rmosek} instead of \code{CVXR}. 
+#' @param mosek_verbosity MOSEK logging parameter. 
 #' @param mkkm_mr_maxiter maximum number of iterations, usually the algorithm 
 #'   converges soon after 2 iterations
 #' @param no_stop If \code{TRUE}, always runs \code{mkkm_mr_maxiter} iterations
@@ -801,6 +802,7 @@ kernel_kmeans_spectral_approximation <- function(
 #'   See details below. 
 #' @param kernel_rwr_seed_under_threshold z-score threshold for under-expressed, applies to both RWR-BWK and PAMOGK. 
 #' @param kernel_rwr_seed_over_threshold z-score threshold for over-expressed, applies to both RWR-BWK and PAMOGK. 
+#' @param kernel_rwr_dnet Use \code{\link[dnet]{dRWR}}. 
 #' @param kernel_rwr_verbose See \code{\link[dnet]{dRWR}}, applies to both RWR-BWK and PAMOGK.
 #' @param gene_id_list If data has been pre-processed by the \code{COPS} pipeline, 
 #'   the genes of each omic need to be provided as a list. 

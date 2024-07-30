@@ -22,29 +22,32 @@ stability_evaluation_pac(
 )
 }
 \arguments{
-\item{clusters}{clustering \code{data.frame} such as returned by \code{\link{subsample_clustering_evaluation}}}
+\item{clusters}{clustering \code{data.frame} such as returned by 
+\code{\link{subsample_clustering_evaluation}}}
 
 \item{by}{vector of column names to keep}
 
 \item{parallel}{number of threads}
 
-\item{reference_fold}{fold number that corresponds to reference which other folds are compared against, inferred from input by default}
+\item{reference_fold}{fold number that corresponds to reference which other 
+folds are compared against, inferred from input by default}
 
 \item{...}{extra arguments are ignored}
 }
 \value{
-Returns a \code{data.frame} where each row corresponds to clustering stability
-        with respect to kept column variables
+Returns a \code{data.frame} where each row corresponds to clustering 
+  stability with respect to kept column variables
 }
 \description{
 Performs stability analysis on cross-validated clusterings.
 }
 \details{
-Default settings work with \code{\link{subsample_clustering_evaluation}} output 'clusters'.
+Default settings work with \code{\link{subsample_clustering_evaluation}} 
+output 'clusters'.
 }
 \section{Functions}{
 \itemize{
-\item \code{stability_evaluation_pac()}: Stability evaluation with Proportion of Ambiguously 
-Clustered pairs (PAC)
+\item \code{stability_evaluation_pac()}: Stability evaluation with Proportion of 
+Ambiguously Clustered pairs (PAC)
 
 }}

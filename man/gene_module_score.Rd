@@ -19,7 +19,8 @@ gene_module_score(
 
 \item{module_cor_threshold}{Threshold for counting correlations.}
 
-\item{module_nan.substitute}{Substituted value when dividing by zero when there are no correlated clusters for a module.}
+\item{module_nan.substitute}{Substituted value when dividing by zero when 
+there are no correlated clusters for a module.}
 
 \item{...}{Extra arguments are ignored.}
 }
@@ -36,13 +37,29 @@ gene_correlation <- cor(t(ad_ge_micro_zscore), method =  "spearman")
 adj <- WGCNA::adjacency.fromSimilarity(gene_correlation, power = 2)
 TOM <- WGCNA::TOMsimilarity(adj, TOMType = "unsigned")
 geneTree <- flashClust::flashClust(as.dist(1 - TOM), method="average")
-dynamicMods <- dynamicTreeCut::cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 20)
-adj_modules <- WGCNA::adjacency.fromSimilarity(gene_correlation[dynamicMods != 0, dynamicMods != 0], power = 2)
-MEList <- WGCNA::moduleEigengenes(t(ad_ge_micro_zscore[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
+dynamicMods <- dynamicTreeCut::cutreeDynamic(
+  dendro = geneTree,  
+  method="tree", 
+  minClusterSize = 20
+)
+adj_modules <- WGCNA::adjacency.fromSimilarity(
+  gene_correlation[dynamicMods != 0, dynamicMods != 0], 
+  power = 2
+)
+MEList <- WGCNA::moduleEigengenes(
+  t(ad_ge_micro_zscore[dynamicMods != 0,]), 
+  colors = dynamicMods[dynamicMods != 0]
+)
 MEs <- MEList$eigengenes
 
 # Compute the module score for a given clustering result
-clust <- cutree(hclust(as.dist(1-cor(ad_ge_micro_zscore, method = "spearman")), method = "average"), k = 3)
+clust <- cutree(
+  hclust(
+    as.dist(1-cor(ad_ge_micro_zscore, method = "spearman")), 
+    method = "average"
+  ), 
+  k = 3
+)
 clust <- data.frame(id = names(clust), cluster = clust)
 
 score <- gene_module_score(clust, MEs)

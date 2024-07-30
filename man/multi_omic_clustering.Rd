@@ -42,6 +42,7 @@ multi_omic_clustering(
   mkkm_mr_lambda = 1,
   mkkm_mr_tolerance = 1e-08,
   mkkm_mr_mosek = FALSE,
+  mkkm_mr_mosek_verbosity = 0L,
   ecmc_a = 1,
   ecmc_b = 1,
   ecmc_eps = 1e-06,
@@ -161,6 +162,8 @@ See \code{\link[MOFA2]{get_default_training_options}}.}
 \item{mkkm_mr_mosek}{If set, uses \code{Rmosek} for convex optimization 
 instead of \code{CVXR} for \code{\link{mkkm_mr}}.}
 
+\item{mkkm_mr_mosek_verbosity}{MOSEK verbosity parameter for \code{\link{mkkm_mr}}.}
+
 \item{ecmc_a}{Regularization parameter for \code{\link{ECMC}}.}
 
 \item{ecmc_b}{Regularization parameter for \code{\link{ECMC}}.}
@@ -193,6 +196,8 @@ Required for pathway kernels.}
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} 
 when using MOFA and \code{\link{get_multi_omic_kernels}} when using kernel 
 methods.}
+
+\item{ecmc_solver}{Solver for \code{\link{ECMC}}.}
 }
 \value{
 \code{data.frame} of clustering results

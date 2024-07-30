@@ -9,12 +9,13 @@ cluster_associations(clusters, association_data)
 \arguments{
 \item{clusters}{data.frame with columns id and cluster.}
 
-\item{association_data}{data.frame with association variables, rownames should match with id in \code{clusters}.}
+\item{association_data}{data.frame with association variables, rownames 
+should match with id in \code{clusters}.}
 }
 \value{
-A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 
-        as well as analysis of variance and kruskal-wallis test p-values for 
-        continuous variables.
+A data.frame of NMI, ARI and Chi-squared test p-values for 
+  categorical variables as well as analysis of variance and kruskal-wallis 
+  test p-values for continuous variables.
 }
 \description{
 Association analysis for clustering results
