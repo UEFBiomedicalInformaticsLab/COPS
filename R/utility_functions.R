@@ -54,9 +54,9 @@ cv_fold <- function(
 ) {
   out <- list()
   for (i in 1:length(dat_list)) {
-    if (any(c("data.table", "data.frame") %in% class(dat_list[[i]]))) {
+    if (is(dat_list[[i]], "data.frame")) {
       id <- dat_list[[i]]$id
-    } else if ("matrix" %in% class(dat_list[[i]])) {
+    } else if (is(dat_list[[i]], "matrix")) {
       id <- colnames(dat_list[[i]])
     } else {
       stop("Unrecognized input class.")
@@ -143,7 +143,7 @@ data_preprocess <- function(
     dat, 
     verbose = FALSE
 ) {
-  if ("list" %in% class(dat)) {
+  if (is(dat, "list")) {
     dat_list <- dat
   } else {
     dat_list <- list(dat)
@@ -1002,7 +1002,7 @@ pareto_plot <- function(
     metric_comparators = if(plot_pareto_front) get_metric_comparators(metrics) else NULL, 
     point_args = list()
 ) {
-  if (!"data.frame" %in% class(scores)) {
+  if (!is(scores, "data.frame")) {
     if (is.null(scores$all)) {
       stop("Please provide a data.frame of scores or COPS::scoring result as input.")
     } else {
@@ -1248,7 +1248,7 @@ reorder_method_factors <- function(x) {
 #' @return \code{data.frame}
 #' @export
 format_scores <- function(x, multi_omic = FALSE) {
-  if (class(x) == "list" & "all" %in% names(x)) {
+  if (is(x, "list") && "all" %in% names(x)) {
     out <- list()
     out$all <- format_scores(x$all)
     out$best <- format_scores(x$best)
@@ -1376,7 +1376,7 @@ subset_data <- function(
         dat_list[[j]], 
         by = "id")
       sel <- grep("^dim[0-9]+$", colnames(temp))
-      if ("data.table" %in% class(temp)) {
+      if (is(temp, "data.table")) {
         non_data_cols[[j]] <- temp[,-..sel]
       } else {
         non_data_cols[[j]] <- temp[,-sel]
@@ -1386,7 +1386,7 @@ subset_data <- function(
     for (j in 1:length(dat_list)) {
       dat_i[[j]] <- merge(sub_index, dat_list[[j]], by = "id")
       sel <- grep("^dim[0-9]+$", colnames(dat_i[[j]]))
-      if ("data.table" %in% class(dat_i[[j]])) {
+      if (is(dat_i[[j]], "data.table")) {
         non_data_cols[[j]] <- dat_i[[j]][,-..sel]
         dat_i[[j]] <- as.matrix(dat_i[[j]][,..sel])
       } else {

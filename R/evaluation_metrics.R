@@ -1,13 +1,15 @@
 #' Dispersion Separability Criterion
 #'
-#' Used by TCGA Batch Effects Viewer \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
+#' Used by TCGA Batch Effects Viewer 
+#' \url{https://bioinformatics.mdanderson.org/public-software/tcga-batch-effects/}.
 #' Based on \url{https://www.jmlr.org/papers/v5/dy04a.html}.
 #' Can be used to measure batch effect. 
 #'
 #' @param data_matrix numeric matrix, samples on columns
 #' @param batch_label categorical variable, must be vector
 #'
-#' @return Returns the DSC of \code{data_matrix} with respect to \code{batch_label} as a scalar value
+#' @return Returns the DSC of \code{data_matrix} with respect to \
+#'   code{batch_label} as a scalar value
 #' @export
 DSC <- function(data_matrix, batch_label) {
   if (is.null(names(batch_label))) names(batch_label) <- colnames(data_matrix)
@@ -72,16 +74,19 @@ silhouette_adjusted <- function(
 #'
 #' Performs stability analysis on cross-validated clusterings.
 #'
-#' Default settings work with \code{\link{subsample_clustering_evaluation}} output 'clusters'.
+#' Default settings work with \code{\link{subsample_clustering_evaluation}} 
+#' output 'clusters'.
 #'
-#' @param clusters clustering \code{data.frame} such as returned by \code{\link{subsample_clustering_evaluation}}
+#' @param clusters clustering \code{data.frame} such as returned by 
+#'   \code{\link{subsample_clustering_evaluation}}
 #' @param by vector of column names to keep
 #' @param parallel number of threads
-#' @param reference_fold fold number that corresponds to reference which other folds are compared against, inferred from input by default
+#' @param reference_fold fold number that corresponds to reference which other 
+#'   folds are compared against, inferred from input by default
 #' @param ... extra arguments are ignored
 #'
-#' @return Returns a \code{data.frame} where each row corresponds to clustering stability
-#'         with respect to kept column variables
+#' @return Returns a \code{data.frame} where each row corresponds to clustering 
+#'   stability with respect to kept column variables
 #' @export
 #' @importFrom foreach foreach %dopar%
 #' @importFrom data.table data.table is.data.table rbindlist setDT setDTthreads
@@ -97,8 +102,9 @@ stability_evaluation <- function(
     if (!"cv_index" %in% colnames(clusters)) {
       stop("Please define the reference fold number.")
     } else {
-      reference_fold <- unique(clusters$fold)
-      reference_fold <- reference_fold[!reference_fold %in% unique(clusters$cv_index)]
+      all_folds <- unique(clusters$fold)
+      non_ref_fold_inds <- reference_fold %in% unique(clusters$cv_index)
+      reference_fold <- reference_fold[!non_ref_fold_inds]
     }
   }
   by2 = c("fold")
@@ -113,8 +119,16 @@ stability_evaluation <- function(
       ari <- c()
       for (i in 1:length(clust)) {
         jsc[i] <- jaccard_similarity(clust[[i]], clustref[[i]])
-        nmi[i] <- igraph::compare(clust[[i]], clustref[[i]], method = "nmi")
-        ari[i] <- igraph::compare(clust[[i]], clustref[[i]], method = "adjusted.rand")
+        nmi[i] <- igraph::compare(
+          clust[[i]], 
+          clustref[[i]], 
+          method = "nmi"
+        )
+        ari[i] <- igraph::compare(
+          clust[[i]], 
+          clustref[[i]], 
+          method = "adjusted.rand"
+        )
       }
     } else {
       jsc <- NA
@@ -140,14 +154,14 @@ stability_evaluation <- function(
     }
     
     ref_cols <- c("id", by2[by2 != "fold"], "reference_cluster")
-    if ("data.table" %in% class(ref)) {
+    if (is(ref, "data.table")) {
       nonref <- merge(nonref, ref[, ..ref_cols], by = c("id", by2[by2 != "fold"]))
     } else {
       nonref <- merge(nonref, ref[, ref_cols], by = c("id", by2[by2 != "fold"]))
     }
     
     if (any(!nonref$test_ind)) {
-      if("data.table" %in% class(nonref)) {
+      if(is(nonref, "data.table")) {
         train_nonref <- split(
           nonref$cluster[!nonref$test_ind], 
           nonref[!nonref$test_ind, ..by2])
@@ -170,7 +184,7 @@ stability_evaluation <- function(
     
     
     if (any(nonref$test_ind)) {
-      if("data.table" %in% class(nonref)) {
+      if(is(nonref, "data.table")) {
         test_ref <- split(
           nonref$cluster[nonref$test_ind], 
           nonref[nonref$test_ind, ..by2])
@@ -228,8 +242,8 @@ stability_evaluation <- function(
   return(as.data.frame(stability))
 }
 
-#' @describeIn stability_evaluation Stability evaluation with Proportion of Ambiguously 
-#' Clustered pairs (PAC)
+#' @describeIn stability_evaluation Stability evaluation with Proportion of 
+#' Ambiguously Clustered pairs (PAC)
 #'
 #' @export
 stability_evaluation_pac <- function(
@@ -275,7 +289,13 @@ stability_evaluation_pac <- function(
       names(samples) <- uids
       clusti <- split(temp, by = by2)
       prototype <- rep(NA, length(samples))
-      clusti <- lapply(clusti, function(x) {prototype[samples[x[,id]]] <- x[,cluster]; return(prototype)})
+      clusti <- lapply(
+        clusti, 
+        function(x) {
+          prototype[samples[x[,id]]] <- x[,cluster]
+          return(prototype)
+        }
+      )
       conmat <- diceR::consensus_matrix(Reduce(cbind, clusti))
       paci <- diceR::PAC(conmat)
       data.frame(as.data.frame(temp)[1, by], PAC = paci)
@@ -296,11 +316,15 @@ stability_evaluation_pac <- function(
 #'
 #' @return Returns a \code{list} containing the following objects: 
 #' \itemize{
-#'   \item{associations}{\code{data.frame} summary of \code{\link[kBET]{batch_sil}},
-#'                       \code{\link[kBET]{pcRegression}} (\code{$maxR2}) and 
-#'                       \code{\link{DSC}} computed for each column of \code{class}}
-#'   \item{eigenvalues}{PC eigenvalues and percentage of explained variance from 
-#'                      \code{\link[FactoMineR]{PCA}}}
+#'   \item{associations}{
+#'     \code{data.frame} summary of \code{\link[kBET]{batch_sil}},
+#'     \code{\link[kBET]{pcRegression}} (\code{$maxR2}) and 
+#'     \code{\link{DSC}} computed for each column of \code{class}
+#'   }
+#'   \item{eigenvalues}{
+#'     PC eigenvalues and percentage of explained variance from 
+#'     \code{\link[FactoMineR]{PCA}}
+#'   }
 #' }
 #' @export
 #' @importFrom FactoMineR PCA
@@ -312,7 +336,7 @@ feature_associations <- function(
     n_pc_max = 10, 
     ...
 ) {
-  if (class(class) != "list" & is.null(dim(class))) {
+  if (!is(class, "list") & is.null(dim(class))) {
     class <- data.frame(class = as.character(class))
   }
   class <- lapply(class, as.factor)
@@ -379,11 +403,12 @@ feature_associations <- function(
 #' Association analysis for clustering results
 #'
 #' @param clusters data.frame with columns id and cluster.
-#' @param association_data data.frame with association variables, rownames should match with id in \code{clusters}.
+#' @param association_data data.frame with association variables, rownames 
+#'   should match with id in \code{clusters}.
 #'
-#' @return A data.frame of NMI, ARI and Chi-squared test p-values for categorical variables 
-#'         as well as analysis of variance and kruskal-wallis test p-values for 
-#'         continuous variables. 
+#' @return A data.frame of NMI, ARI and Chi-squared test p-values for 
+#'   categorical variables as well as analysis of variance and kruskal-wallis 
+#'   test p-values for continuous variables. 
 #' @export
 cluster_associations <- function(
     clusters, 
@@ -405,11 +430,11 @@ cluster_associations <- function(
         n_clusters > 1
     }
     if(valid) {
-      if (class(association_var) %in% c("character", "factor")) {
+      if (is(association_var, "character") || is(association_var, "factor")) {
         valid <- n_categories < n_samples & 
           n_clusters < n_samples
         if (valid) {
-          if (class(association_var) == "factor") {
+          if (is(association_var, "factor")) {
             clean_var <- droplevels(association_var[nna_ind])
           } else {
             clean_var <- association_var[nna_ind]
@@ -435,7 +460,7 @@ cluster_associations <- function(
           colnames(out[[i]]) <- paste0(
             colnames(association_data)[i], ".", colnames(out[[i]]))
         }
-      } else if (class(association_var) %in% c("numeric", "integer")) {
+      } else if (is(association_var, "numeric") || is(association_var, "integer")) {
         anova_res <- stats::aov(
           association_var[nna_ind] ~ clusters$cluster[nna_ind])
         kruskal_res <- stats::kruskal.test(
@@ -464,7 +489,8 @@ cluster_associations <- function(
 #' Assumes that a parallel backend has been registered for \code{foreach}.
 #'
 #' @param clusters A data.table or data.frame with clustering information. 
-#' @param association_data A data.frame with association variables (categoric or numeric).
+#' @param association_data A data.frame with association variables (categoric 
+#'   or numeric).
 #' @param by Column names that identify a single clustering result.
 #' @param parallel Number of parallel threads.
 #' @param ... Extra arguments are ignored.
@@ -510,7 +536,8 @@ subsample_association_analysis <- function(
 #' @param x A \code{data.frame} with columns "id" and "cluster".
 #' @param module_eigs Gene module eigen-genes for each sample (samples x modules).
 #' @param module_cor_threshold Threshold for counting correlations.
-#' @param module_nan.substitute Substituted value when dividing by zero when there are no correlated clusters for a module.
+#' @param module_nan.substitute Substituted value when dividing by zero when 
+#'   there are no correlated clusters for a module.
 #' @param ... Extra arguments are ignored.
 #' 
 #' @export
@@ -523,13 +550,29 @@ subsample_association_analysis <- function(
 #' adj <- WGCNA::adjacency.fromSimilarity(gene_correlation, power = 2)
 #' TOM <- WGCNA::TOMsimilarity(adj, TOMType = "unsigned")
 #' geneTree <- flashClust::flashClust(as.dist(1 - TOM), method="average")
-#' dynamicMods <- dynamicTreeCut::cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 20)
-#' adj_modules <- WGCNA::adjacency.fromSimilarity(gene_correlation[dynamicMods != 0, dynamicMods != 0], power = 2)
-#' MEList <- WGCNA::moduleEigengenes(t(ad_ge_micro_zscore[dynamicMods != 0,]), colors = dynamicMods[dynamicMods != 0])
+#' dynamicMods <- dynamicTreeCut::cutreeDynamic(
+#'   dendro = geneTree,  
+#'   method="tree", 
+#'   minClusterSize = 20
+#' )
+#' adj_modules <- WGCNA::adjacency.fromSimilarity(
+#'   gene_correlation[dynamicMods != 0, dynamicMods != 0], 
+#'   power = 2
+#' )
+#' MEList <- WGCNA::moduleEigengenes(
+#'   t(ad_ge_micro_zscore[dynamicMods != 0,]), 
+#'   colors = dynamicMods[dynamicMods != 0]
+#' )
 #' MEs <- MEList$eigengenes
 #' 
 #' # Compute the module score for a given clustering result
-#' clust <- cutree(hclust(as.dist(1-cor(ad_ge_micro_zscore, method = "spearman")), method = "average"), k = 3)
+#' clust <- cutree(
+#'   hclust(
+#'     as.dist(1-cor(ad_ge_micro_zscore, method = "spearman")), 
+#'     method = "average"
+#'   ), 
+#'   k = 3
+#' )
 #' clust <- data.frame(id = names(clust), cluster = clust)
 #' 
 #' score <- gene_module_score(clust, MEs)
@@ -604,7 +647,10 @@ subsample_module_evaluation <- function(
       .maxcombine = max(length(clust_list), 2)
     ) %dopar% {
       gm_score <- gene_module_score(x = clust, ...)
-      gm_score <- data.frame(as.data.frame(clust)[1,by], Module_score = gm_score)
+      gm_score <- data.frame(
+        as.data.frame(clust)[1,by], 
+        Module_score = gm_score
+      )
       gm_score
     }, 
     finally = close_parallel_cluster(parallel_clust)

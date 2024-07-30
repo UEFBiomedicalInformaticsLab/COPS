@@ -401,7 +401,7 @@ clustering_metrics <- function(
       if (is.null(dat)) {
         stop("Cannot evaluate metrics, both dissimilarity and data are missing.")
       }
-      if (length(class(dat)) == 1 && class(dat) == "list") {
+      if (is(dat, "list")) {
         if (length(dat) > 1) warning(paste(
           "More than one input dataset was found for internal evaluation.", 
           "Using only the first one."))
@@ -422,7 +422,7 @@ clustering_metrics <- function(
       if (!requireNamespace("clusterCrit", quietly = TRUE)) {
         stop("Please install clusterCrit to enable advanced internal metrics.")
       }
-      if ("data.frame" %in% class(dat)) dat <- list(dat) # make list of dataframes
+      if (is(dat, "data.frame")) dat <- list(dat) # make list of dataframes
       if (length(dat) > 1 & is.null(names(dat))) names(dat) <- paste0("input", 1:length(dat))
       if (length(dat) == 0) stop("No data for internal metric calculations.")
       for (j in 1:length(dat)) {
