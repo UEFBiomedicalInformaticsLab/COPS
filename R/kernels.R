@@ -398,7 +398,8 @@ mkkm_mr <- function(
       H = H, 
       M = M, 
       lambda = lambda, 
-      parallel, use_mosek, 
+      parallel = parallel, 
+      use_mosek = use_mosek, 
       mosek_verbosity = mosek_verbosity
     )
   }
