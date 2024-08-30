@@ -175,7 +175,7 @@ RWRFGSEA <- function(
     rwr_results <- rwr_results[[1]]
   }
   
-  rwrfgsea_results <- t(COPS::fgsea_wrapper(
+  rwrfgsea_results <- t(fgsea_wrapper(
     rwr_results, 
     gene_set_list, 
     parallel = parallel, 
