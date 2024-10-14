@@ -45,56 +45,12 @@ node_betweenness_parallel <- function(
 node_betweenness_first_path_only <- function(G) {
   n <- igraph::vcount(G)
   w <- rep(0, n)
-  #names(w) <- igraph::as_ids(igraph::V(G))
   for (i in 1:(n-1)) {
     sp <- igraph::shortest_paths(G, i, igraph::V(G)[(i+1):n])
     if (length(sp$vpath) > 0) {
-      #ends <- as.character(sapply(sp$vpath, function(x) rev(x)[1]))
-      #end_counts <- table(ends)
       plengths <- sapply(sp$vpath, length)
-      #ec_reps <- rep(end_counts[ends], plengths)
       sp_unlist <- unlist(lapply(sp$vpath, as.character))
-      #sp_sum <- tapply(1 / ec_reps, sp_unlist, sum)
       sp_sum <- table(sp_unlist)
-      #if (any(is.na(sp_sum))) stop("grr")
-      w[as.integer(names(sp_sum))] <- w[as.integer(names(sp_sum))] + sp_sum
-    }
-  }
-  names(w) <- igraph::get.vertex.attribute(G, "name")
-  return(w)
-}
-
-node_betweenness_with_endpoint3 <- function(G) {
-  n <- igraph::vcount(G)
-  w <- rep(0, n)
-  for (i in 1:(n-1)) {
-    sp <- igraph::all_shortest_paths(G, i, igraph::V(G)[(i+1):n])
-    if (length(sp$res) > 0) {
-      ends <- as.character(sapply(sp$res, function(x) rev(x)[1]))
-      end_counts <- table(ends)
-      for (j in 1:length(ends)) {
-        w[sp[["res"]][[j]]] <- w[sp[["res"]][[j]]] + 1 / end_counts[ends[j]]
-      }
-    }
-  }
-  names(w) <- igraph::get.vertex.attribute(G, "name")
-  return(w)
-}
-
-node_betweenness_with_endpoint2 <- function(G) {
-  n <- igraph::vcount(G)
-  w <- rep(0, n)
-  #names(w) <- igraph::as_ids(igraph::V(G))
-  for (i in 1:(n-1)) {
-    sp <- igraph::all_shortest_paths(G, i, igraph::V(G)[(i+1):n])
-    if (length(sp$res) > 0) {
-      ends <- as.character(sapply(sp$res, function(x) rev(x)[1]))
-      end_counts <- table(ends)
-      plengths <- sapply(sp$res, length)
-      ec_reps <- rep(end_counts[ends], plengths)
-      sp_unlist <- unlist(lapply(sp$res, as.character))
-      sp_sum <- tapply(1 / ec_reps, sp_unlist, sum)
-      if (any(is.na(sp_sum))) stop("grr")
       w[as.integer(names(sp_sum))] <- w[as.integer(names(sp_sum))] + sp_sum
     }
   }
