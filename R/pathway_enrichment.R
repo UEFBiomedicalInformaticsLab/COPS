@@ -205,7 +205,7 @@ genes_to_pathways <- function(
   return(out)
 }
 
-#' @importFrom GSVA gsva gsvaParam
+#' @importFrom GSVA gsva
 #' @importFrom BiocParallel MulticoreParam SerialParam
 gsva_wrapper <- function(
     x, 
