@@ -79,15 +79,15 @@ heatmap_annotations <- function(
     
     heat_anno_args <- list(
       annotations[[i]], 
-      list(heat_annotation_colors[[i]]), 
-      ...
+      list(heat_annotation_colors[[i]])
     )
     names(heat_anno_args) <- c(i, "col")
     names(heat_anno_args[["col"]]) <- i
     
     heat_annotations[[i]] <- do.call(
       ComplexHeatmap::HeatmapAnnotation, 
-      args = heat_anno_args)
+      args = c(heat_anno_args, list(...))
+    )
   }
   
   heat_annotations_combined <- Reduce(

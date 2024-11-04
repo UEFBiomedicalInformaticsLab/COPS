@@ -8,13 +8,16 @@ heatmap_annotations(
   annotations,
   factor_color_sets = list(RColorBrewer::brewer.pal(8, "Dark2"),
     RColorBrewer::brewer.pal(9, "Set1"), RColorBrewer::brewer.pal(9, "Pastel1"),
-    pals::watlington(n = 16), pals::kelly(n = 22))
+    pals::watlington(n = 16), pals::kelly(n = 22)),
+  ...
 )
 }
 \arguments{
 \item{annotations}{list of variables}
 
 \item{factor_color_sets}{list of color sets (not in order)}
+
+\item{...}{passed onto \code{\link[ComplexHeatmap]{HeatmapAnnotation}}}
 }
 \value{
 \code{\link[ComplexHeatmap]{`HeatmapList-class`}}
