@@ -9,6 +9,7 @@
 #'
 #' @param annotations list of variables
 #' @param factor_color_sets list of color sets (not in order)
+#' @param ... passed onto \code{\link[ComplexHeatmap]{HeatmapAnnotation}}
 #'
 #' @return \code{\link[ComplexHeatmap]{`HeatmapList-class`}}
 #' @export 
@@ -24,7 +25,9 @@ heatmap_annotations <- function(
       RColorBrewer::brewer.pal(9, "Set1"),
       RColorBrewer::brewer.pal(9, "Pastel1"),
       pals::watlington(n = 16), 
-      pals::kelly(n = 22))
+      pals::kelly(n = 22)
+    ), 
+    ...
 ) {
   a_types <- sapply(annotations, class)
   for (i in names(annotations)) {
@@ -76,7 +79,9 @@ heatmap_annotations <- function(
     
     heat_anno_args <- list(
       annotations[[i]], 
-      list(heat_annotation_colors[[i]]))
+      list(heat_annotation_colors[[i]]), 
+      ...
+    )
     names(heat_anno_args) <- c(i, "col")
     names(heat_anno_args[["col"]]) <- i
     
