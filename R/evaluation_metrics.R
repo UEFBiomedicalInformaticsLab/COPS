@@ -44,6 +44,7 @@ DSC <- function(data_matrix, batch_label) {
   return(Db/Dw)
 }
 
+#' @importFrom cluster silhouette
 silhouette_adjusted <- function(
     x, 
     diss, 
