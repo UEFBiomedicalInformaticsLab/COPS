@@ -47,8 +47,7 @@
 #' @importFrom stats chisq.test cutree cor dist as.dist
 #' @importFrom flashClust flashClust
 #' @importFrom ClusterR KMeans_rcpp
-#' @import mclust
-#' @importFrom cluster silhouette
+#' @importFrom mclust Mclust priorControl
 clustering_analysis <- function(
     dat,
     n_clusters = 2:5,
@@ -76,8 +75,15 @@ clustering_analysis <- function(
     ...
 ) {
   temp <- dat[,grepl("^dim[0-9]+$", colnames(dat))]
+  if (any(is.na(temp))) {
+    warning(paste(
+      "Found NA in input to clustering algorithms.", 
+      "Omitting all columns with NAs."
+    ))
+  }
   temp <- temp[,sapply(temp, function(x) all(!is.na(x)))]
   rownames(temp) <- dat$id
+  temp <- as.matrix(temp)
   
   # Create dissimilarity matrix for Silhouette computation and HC
   if (!is.null(clustering_dissimilarity)) {
@@ -176,7 +182,7 @@ clustering_analysis <- function(
           data = temp, 
           G = n_clusters[j], 
           modelNames = gmm_modelNames, 
-          prior = priorControl(
+          prior = mclust::priorControl(
             functionName="defaultPrior", 
             shrinkage = gmm_shrinkage), 
           verbose = FALSE)
