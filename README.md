@@ -31,12 +31,36 @@ BiocManager::install(bioc_dependencies)
 devtools::install_github("theislab/kBet")
 devtools::install_github("trintala/IntNMF")
 devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
+# Some packages can cause issues when built from source
+if (Sys.info()['sysname'] == "Windows") {
+  install.packages("CVXR")
+} else {
+  tryCatch(
+    install.packages("CVXR"), 
+    error = function(e) warning(
+      paste0(
+        "Installation of the CVXR-package failed due to: ", 
+        e, 
+        "\nCVXR is required for multiple kernel learning, ", 
+        "but is not necessary for other methods and can be ", 
+        "omitted."
+      )
+    )
+  )
+}
 ```
+
 ### Optional packages
 ```R
-devtools::install_github("cran/clusterCrit") # For additional internal metrics
-BiocManager::install("SC3") # Additional clustering method: SC3
-install.packages("Rmosek") # Optional high-performance library for multiple-kernel learning
+# For additional internal metrics
+devtools::install_github("cran/clusterCrit")
+# Additional clustering method: spectral clustering
+install.packages("Spectrum")
+# Additional clustering method: SC3
+BiocManager::install("SC3")
+# Optional high-performance library for convex optimization for 
+# multiple-kernel learning approaches
+install.packages("Rmosek")
 ```
 ## Available methods
 COPS enables clustering analysis via a pipeline that includes many options for feature extraction (optional) and clustering algorithms. COPS includes several methods for both single- and multi-omic feature extraction and clustering. Furthermore, the feature extraction methods can be divided into data- and biology-driven, where the latter aim to integrate prior knowledge about biological processes. 
