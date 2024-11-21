@@ -951,8 +951,7 @@ get_best_result <- function(
   if (all(c("run", "fold") %in% colnames(res$best))) {
     stop("Please summarise CV results in order to avoid ambiguity.")
   }
-  reference_fold <- unique(res$clusters$fold)[
-    which(!unique(res$clusters$fold) %in% unique(res$clusters$cv_index))]
+  reference_fold <- get_reference_fold(res$clusters)
   clust_ref <- as.data.frame(res$clusters[
     res$clusters$fold == reference_fold & res$clusters$run == 1,])
   clust_ref <- clust_ref[

@@ -99,15 +99,7 @@ stability_evaluation <- function(
     reference_fold = NULL,
     ...
 ) {
-  if (is.null(reference_fold)) {
-    if (!"cv_index" %in% colnames(clusters)) {
-      stop("Please define the reference fold number.")
-    } else {
-      all_folds <- unique(clusters$fold)
-      non_ref_fold_inds <- reference_fold %in% unique(clusters$cv_index)
-      reference_fold <- reference_fold[!non_ref_fold_inds]
-    }
-  }
+  reference_fold <- get_reference_fold(clusters, reference_fold)
   by2 = c("fold")
   # Function to be applied for each result
   f1 <- function(clust, clustref) {
@@ -236,11 +228,27 @@ stability_evaluation <- function(
         for (j in by) {
           out[[j]] <- temp[[j]][1]
         }
-        out}, error = function(e) return(NULL))
+        out}, error = function(e) {warning(e); return(NULL)})
       out
     }, 
     finally = close_parallel_cluster(parallel_clust))
   return(as.data.frame(stability))
+}
+
+get_reference_fold <- function(
+    clusters, 
+    reference_fold = NULL
+) {
+  if (is.null(reference_fold)) {
+    if (!"cv_index" %in% colnames(clusters)) {
+      stop("Please define the reference fold number.")
+    } else {
+      all_folds <- unique(clusters$fold)
+      non_ref_fold_inds <- all_folds %in% unique(clusters$cv_index)
+      reference_fold <- all_folds[!non_ref_fold_inds]
+    }
+  }
+  return(reference_fold)
 }
 
 #' @describeIn stability_evaluation Stability evaluation with Proportion of 
