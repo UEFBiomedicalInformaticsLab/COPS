@@ -107,6 +107,7 @@ dimensionality_reduction <- function(
           n_neighbors = umap_neighbors,
           n_components = d,
           pca = min(c(initial_dims, dim(x))),
+          n_threads = 1, 
           verbose = FALSE,
           init = "normlaplacian")
         colnames(temp) <- paste0("dim", 1:d)
