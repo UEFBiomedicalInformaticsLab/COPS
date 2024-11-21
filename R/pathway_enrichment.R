@@ -282,7 +282,7 @@ subsample_pathway_enrichment <- function(
     if (is.null(datname)) datname <- i
     temp$datname <- datname
     temp <- merge(dat_list[[datname]], temp, by = "id")
-    temp <- split(temp, by = c("run", "fold"))
+    temp <- split_by_safe(temp, by = c("run", "fold"))
     temp <- lapply(temp, as.data.frame)
     temp <- lapply(
       temp, 

@@ -792,7 +792,7 @@ kernel_kmeans_spectral_approximation <- function(
 #' genes and that the names must match with the gene names in the pathways. 
 #' The default set of pathways is KEGG molecular pathways with gene symbols. 
 #' 
-#' PAMOGK RWR seed weight options:
+#' PAMOGK and RWR-BWK seed weight options:
 #' \itemize{
 #'   \item "discrete" - 1 if |z| > t, 0 otherwise. 
 #'   \item "continuous" - z
@@ -869,7 +869,7 @@ get_multi_omic_kernels <- function(
     return(multi_omic_kernels)
   }
   # Pathway-based kernels need pathway networks
-  if (any(kernels %in% c("PIK", "BWK", "PAMOGK")) &
+  if (any(kernels %in% c("PIK", "BWK", "RWR-BWK", "PAMOGK")) &
       is.null(pathway_networks)) {
     w1 <- "No pathway networks specified for pathway kernel."
     w2 <- "Defaulting to KEGG pathways mapped to gene symbols."
@@ -889,7 +889,7 @@ get_multi_omic_kernels <- function(
     }
     pathway_networks <- kegg_nets
   }
-  if (any(kernels %in% c("BWK", "PAMOGK"))) {
+  if (any(kernels %in% c("BWK", "RWR-BWK", "PAMOGK"))) {
     nw_weights <- node_betweenness_parallel(
       pathway_networks, 
       mvc_threads, 
@@ -923,7 +923,7 @@ get_multi_omic_kernels <- function(
       temp <- list(temp)
       names(temp) <- names(dat_list)[i]
       multi_omic_kernels <- c(multi_omic_kernels, temp)
-    } else if (kernels[i] %in% c("PIK", "BWK", "PAMOGK")) {
+    } else if (kernels[i] %in% c("PIK", "BWK", "RWR-BWK", "PAMOGK")) {
       gene_col_ind <- as.integer(gsub("^dim", "", colnames(dat_list[[i]])))
       temp <- dat_list[[i]]
       colnames(temp) <- gene_id_list[[i]][gene_col_ind]
