@@ -34,15 +34,15 @@ multi_omic_clustering(
   mofa_environment = NULL,
   mofa_lib_path = NULL,
   anf_neighbors = 20,
-  kkmeans_algorithm = "spectral_qr",
-  kkmeans_refine = TRUE,
+  kkmeans_algorithm = "spectral",
+  kkmeans_refine = FALSE,
   kkmeans_maxiter = 100,
   kkmeans_n_init = 100,
   kkmeans_tol = 1e-08,
   mkkm_mr_lambda = 1,
   mkkm_mr_tolerance = 1e-08,
   mkkm_mr_mosek = FALSE,
-  mkkm_mr_mosek_verbosity = 0L,
+  mkkm_mr_mosek_verbosity = 1L,
   ecmc_a = 1,
   ecmc_b = 1,
   ecmc_eps = 1e-06,
@@ -196,8 +196,6 @@ Required for pathway kernels.}
 \item{...}{Arguments are passed to \code{\link{clustering_analysis}} 
 when using MOFA and \code{\link{get_multi_omic_kernels}} when using kernel 
 methods.}
-
-\item{ecmc_solver}{Solver for \code{\link{ECMC}}.}
 }
 \value{
 \code{data.frame} of clustering results

@@ -11,7 +11,7 @@ univariate_features(dat, group, remove_zero_var = TRUE, parallel = 1)
 
 \item{group}{categorical variable matching \code{dat} columns}
 
-\item{remove_zero_var}{whether to remove genes based on \code{\link[caret]{nearZeroVar}}}
+\item{remove_zero_var}{whether to remove zero variance genes}
 
 \item{parallel}{number of threads}
 }

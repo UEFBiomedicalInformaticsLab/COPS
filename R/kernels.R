@@ -209,8 +209,8 @@ PIK_from_networks <- function(x, networks, normalized_laplacian = TRUE, parallel
     foreach(
       i = 1:length(networks), 
       .combine = c, 
-      .inorder = FALSE,
-      .packages = c("igraph")
+      .inorder = FALSE#,
+      #.packages = c("igraph")
       ) %dopar% {
         v_names <- igraph::get.vertex.attribute(networks[[i]], "name")
         missing_genes <- v_names[!v_names %in% x_genes]
@@ -261,8 +261,7 @@ binary_node_attribute_smoothing_from_adjacency <- function(
 #' 
 #' @examples
 #' \dontrun{
-#' pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
-#' pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
+#' pw_db <- msigdbr::msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
 #' pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
 #' pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
 #' ppi_net <- COPS::getHumanPPIfromSTRINGdb(gene_id_mart_column = "ensembl_gene_id")
@@ -639,8 +638,8 @@ kernelized_kmeans <- function(
     foreach(
       ri = random_seeds, 
       .combine = lower_error, 
-      .export = c(), 
-      .packages = c(), 
+      #.export = c(), 
+      #.packages = c(), 
       .inorder = FALSE
     ) %dopar% {
       kernel_kmeanspp(

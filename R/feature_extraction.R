@@ -168,9 +168,9 @@ subsample_dimred <- function(
   out <- tryCatch(
     foreach(
       i = temp_list, 
-      .combine = c,
-      .export = c("dimensionality_reduction"), #"dat_list"),
-      .packages = c("FactoMineR", "Rtsne", "uwot", "plyr")
+      .combine = c#,
+      #.export = c("dimensionality_reduction"), #"dat_list"),
+      #.packages = c("FactoMineR", "Rtsne", "uwot", "plyr")
       ) %dopar% {
         sel <- grep("^dim[0-9]+$", colnames(i))
         dr_temp <- dimensionality_reduction(i[,sel], ...)

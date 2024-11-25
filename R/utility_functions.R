@@ -174,6 +174,9 @@ data_preprocess <- function(
 #' @param parallel number of threads
 #'
 #' @return matrix of row-wise ecdf values with dimensions matching input
+#' 
+#' @importFrom foreach foreach %dopar%
+#' 
 #' @export
 ecdf_transform <- function(
     x, 
@@ -185,7 +188,7 @@ ecdf_transform <- function(
     foreach(
       i = 1:ncol(x), 
       .combine = cbind,
-      .export = c(),
+      #.export = c(),
       .multicombine = TRUE,
       .maxcombine = max(ncol(x), 2)
     ) %dopar% {
@@ -248,11 +251,11 @@ jaccard_matrix <- function(x) {
 
 #' Unweighted gene co-expression network constructor
 #' 
-#' Generates a gene co-expression network by thresholding gene expression correlations with \code{\link[WGCNA]{signumAdjacencyFunction}}.
+#' Generates a gene co-expression network by thresholding gene-expression correlations.
 #'
 #' @param dat gene expression data, samples on columns
 #' @param correlation_method correlation method
-#' @param cor_threshold numeric threshold used to define edges/links (see \code{\link[WGCNA]{pickHardThreshold}})
+#' @param cor_threshold numeric threshold used to define edges/links
 #'
 #' @return \code{igraph} object
 #' @export
@@ -262,13 +265,14 @@ coexpression_network_unweighted <- function(
     cor_threshold = 0.5
 ) {
   cor_mat <- cor(t(dat), method = correlation_method)
-  coexpr_net <- WGCNA::signumAdjacencyFunction(
-    cor_mat, 
-    threshold = cor_threshold)
-  coexpr_net <- igraph::graph_from_adjacency_matrix(
-    coexpr_net, 
-    mode = "undirected", 
-    weighted = NULL)
+  e_list <- which(abs(cor_mat) > cor_threshold, arr.ind = TRUE)
+  e_list_named <- cbind(
+    rownames(cor_mat)[e_list[,1]], 
+    colnames(cor_mat)[e_list[,2]]
+  )
+  coexpr_net <- igraph::graph_from_edgelist(
+    e_list_named, 
+    directed = FALSE)
   return(coexpr_net)
 }
 
@@ -390,10 +394,6 @@ getHumanPPIfromSTRINGdb <- function(
     string_inter <- string_db$get_interactions(gene.stringdb$STRING_id)
     idx_from <- match(x = string_inter$from, table = gene.stringdb$STRING_id)
     idx_to <- match(x = string_inter$to, table = gene.stringdb$STRING_id)
-    print(idx_from)
-    print(idx_to)
-    print(gene.stringdb$target.gene_info.symbol[idx_to])
-    print(gene.stringdb$target.gene_info.symbol[idx_from])
     ppi_network <- data.frame(
       node1=gene.stringdb$target.gene_info.symbol[idx_from], 
       node2=gene.stringdb$target.gene_info.symbol[idx_to], 
@@ -431,7 +431,7 @@ getHumanPPIfromSTRINGdb <- function(
     ppi <- adj_matrix[!duplicated(newnames), !duplicated(newnames)]
     nullrows <- Matrix::rowSums(ppi)==0
     ppi <- ppi[!nullrows,!nullrows] 
-    g.ppi_network <- igraph::graph_from_adjacency_matrix(ppi)
+    g.ppi_network <- igraph::graph_from_adjacency_matrix(ppi, mode = "undirected")
   }
   return(g.ppi_network)
 }
@@ -902,6 +902,9 @@ plot_pvalues <- function(
   return(temp)
 }
 
+#' @importFrom foreach registerDoSEQ
+#' @importFrom parallel makeCluster
+#' @importFrom doParallel registerDoParallel
 setup_parallelization <- function(parallel) {
   if (is.null(parallel)) return(NULL)
   if (parallel > 1) {
@@ -1440,6 +1443,25 @@ outer_join_by_closure <- function(by) {
     return(plyr::join(x, y, by = by, type = "full"))
   }
   return(joinf)
+}
+
+no_spam_wrapper <- function(x, suppress_all = FALSE) {
+  if (suppress_all) {
+    invisible(
+      capture.output(
+        suppressMessages(
+          suppressWarnings(
+            suppressPackageStartupMessages(
+              y <- x
+            )
+          )
+        )
+      )
+    )
+    return(y)
+  } else {
+    return(x)
+  }
 }
 
 # Helper for pipeline verbosity

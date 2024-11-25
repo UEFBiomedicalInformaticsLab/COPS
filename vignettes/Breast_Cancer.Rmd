@@ -239,14 +239,14 @@ molk_res <- COPS::COPS(
   dat = COPS::brca_multi_omics, 
   nruns = 2,
   nfolds = 5,
-  parallel = 6, 
+  parallel = 1, 
   multi_omic_methods = "mkkm_mr", 
   kernels_center = TRUE,
   kernels_normalize = TRUE,
   mkkm_mr_mosek = FALSE,
   mkkm_mr_lambda = 1, 
   kernels = rep("linear", length(COPS::brca_multi_omics)),
-  mvc_threads = 6,
+  mvc_threads = 1,
   n_clusters = 2:8)
 ```
 
@@ -380,7 +380,7 @@ for (i in names(COPS::brca_multi_omics)) {
   mopw_features[[i]] <- COPS::univariate_features(
     COPS::brca_multi_omics[[i]], 
     mopw_clusters[mopw_clusters[["k"]] == 3, "cluster"], # same order
-    parallel = 6)
+    parallel = 1)
 }
 ```
 

@@ -17,6 +17,7 @@ RWRFGSEA(
   max_size = 200,
   parallel = 1,
   verbose = FALSE,
+  rwr_dnet = FALSE,
   rwr_restart_probability = 0.75,
   rwr_adjacency_normalization = "laplacian",
   rwr_affinity_normalization = "none",
@@ -37,6 +38,8 @@ rwr_wrapper(
   rwr_restart_probability = 0.75,
   rwr_adjacency_normalization = "laplacian",
   rwr_affinity_normalization = "none",
+  rwr_dnet = FALSE,
+  verbose = verbose,
   ...
 )
 
@@ -62,7 +65,7 @@ fgsea_wrapper(
 \item{rwr_gene_lists}{list containing exactly two character vectors corresponding to gene ids. Used to separate genes for double RWR 
 (e.g. up and down regulated seeds) RWR affinities of second seed list will get subtracted from the RWR affinities of the first seed list.}
 
-\item{rwr_seed_size}{integer, controls the number of gene seed candidates to intersect with the disease genes}
+\item{rwr_seed_size}{integer, controls the number of gene seed candidates to intersect with the disease genes, defaults to one sixth of rows.}
 
 \item{min_size}{integer, minimum size of gene sets}
 
@@ -72,9 +75,11 @@ fgsea_wrapper(
 
 \item{verbose}{TRUE/FALSE}
 
-\item{rwr_restart_probability}{restart probability used for RWR. See \code{\link[dnet]{dRWR}} for more details, defaults to one sixth of rows.}
+\item{rwr_dnet}{if TRUE, uses \code{\link[dnet]{dRWR}}. Otherwise uses an internal function with similar options and \code{\link[Matrix]{solve}}.}
 
-\item{rwr_adjacency_normalization}{method used to normalise the adjacency matrix of the input graph. See \code{\link[dnet]{dRWR}} for more details.}
+\item{rwr_restart_probability}{restart probability used for RWR.}
+
+\item{rwr_adjacency_normalization}{method used to normalise the adjacency matrix of the input graph. See \code{\link{seeded_rwr}} or \code{\link[dnet]{dRWR}} for more details.}
 
 \item{rwr_affinity_normalization}{method used to normalise the rwr affinity matrix. See \code{\link[dnet]{dRWR}} for more details.}
 
@@ -109,24 +114,22 @@ known disease genes. The gene affinities are then processed with FGSEA to yield 
 
 }}
 \examples{
-library(parallel)
 library(COPS)
 
 ad_data <- ad_ge_micro_zscore
 ad_wgcna_net <- coexpression_network_unweighted(ad_data)
-kegg_annotations <- msigdbr::msigdbr(
+pw_db <- msigdbr::msigdbr(
     species = "Homo sapiens", 
     category = "C2", 
     subcategory = "CP:KEGG")
-list_kegg_annotations <- lapply(
-    split(kegg_annotations, kegg_annotations$gs_name), 
-    function(x) x$ensembl_gene) 
+pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene) 
 
 ad_rwrfgsea_res <- RWRFGSEA(
     ad_data, 
     ad_wgcna_net, 
-    list_kegg_annotations[1:3], 
-    parallel = 2)
+    pw_list[1:3], 
+    parallel = 1, 
+    fgsea_nperm = 1e2)
 
 # Separate genes (e.g. based on DEA)
 set.seed(0)
@@ -139,11 +142,12 @@ ad_gene_lists <- list(
 ad_rwrfgsea_res <- RWRFGSEA(
     ad_data, 
     ad_wgcna_net, 
-    list_kegg_annotations[1:3], 
+    pw_list[1:3], 
     rwr_genelists = ad_gene_lists, 
     rwr_ecdf = TRUE, 
     second_seed_list_reverse_order = TRUE, 
-    parallel = 2)
+    parallel = 1, 
+    fgsea_nperm = 1e2)
 
 \dontrun{
 # OTP genes for dermatitis, moderate download size
@@ -163,7 +167,7 @@ otp_genes <- disease_otp$target.gene_info.symbol[
 ad_rwrfgsea_res <- RWRFGSEA(
     ad_data, 
     ad_wgcna_net, 
-    list_kegg_annotations[1:3], 
+    pw_list[1:3], 
     disease_genes = otp_genes, 
     rwr_genelists = ad_gene_lists, 
     rwr_ecdf = TRUE, 

@@ -14,6 +14,7 @@ genes_to_pathways(
   max_size = 200,
   parallel = 1,
   verbose = FALSE,
+  rwrfgsea_verbose = FALSE,
   gene_key_x = "SYMBOL",
   gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
   gsva_kcdf = "Gaussian",
@@ -38,6 +39,8 @@ DiffRank(x, gene_set_list, parallel = 1)
 \item{parallel}{a numeric value indicating the number of processors to use when doing the calculations in parallel.}
 
 \item{verbose}{controls verbosity}
+
+\item{rwrfgsea_verbose}{controls \code{\link[COPS]{RWRFGSEA}} verbosity which can be a lot when running single-threaded}
 
 \item{gene_key_x}{if \code{is.null(gene_set_list)} and \code{x} rownames are not gene symbols, this specifies the column name in 
 \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} to translate pathway gene symbols to. The default value results in gene symbol based gene 
@@ -65,30 +68,29 @@ This is a utility function which wraps several methods to extract pathway-based 
 
 }}
 \examples{
-library(parallel)
 library(COPS)
 
 ## GSVA example
 ad_gsva <- genes_to_pathways(
-    as.matrix(ad_ge_micro_zscore), 
+    ad_ge_micro_zscore, 
     "GSVA", 
-    parallel = 2, 
+    parallel = 1, 
     gene_key_x = "ENSEMBL", 
     gs_subcats = "CP:KEGG")
 # batch-wise
 ad_gsva <- genes_to_pathways(
-    as.matrix(ad_ge_micro_zscore), 
+    ad_ge_micro_zscore, 
     "GSVA", 
     batch_label_pw = ad_studies$GSE, 
-    parallel = 2, 
+    parallel = 1, 
     gene_key_x = "ENSEMBL", 
     gs_subcats = "CP:KEGG")
 
-## DiffRank example with batch-wise enrichment
+## DiffRank example
 ad_diffrank <- genes_to_pathways(
     ad_ge_micro_zscore, 
     "DiffRank", 
-    parallel = 2, 
+    parallel = 1, 
     gene_key_x = "ENSEMBL", 
     gs_subcats = "CP:KEGG")
 # batch-wise
@@ -96,7 +98,7 @@ ad_diffrank <- genes_to_pathways(
     ad_ge_micro_zscore, 
     "DiffRank", 
     batch_label_pw = ad_studies$GSE, 
-    parallel = 2, 
+    parallel = 1, 
     gene_key_x = "ENSEMBL", 
     gs_subcats = "CP:KEGG")
 

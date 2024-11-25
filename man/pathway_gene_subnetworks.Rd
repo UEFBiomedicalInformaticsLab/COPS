@@ -19,8 +19,7 @@ Extract subnetworks based on pathway genesets
 }
 \examples{
 \dontrun{
-pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
-pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
+pw_db <- msigdbr::msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
 pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
 pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 5)]
 ppi_net <- COPS::getHumanPPIfromSTRINGdb(gene_id_mart_column = "ensembl_gene_id")

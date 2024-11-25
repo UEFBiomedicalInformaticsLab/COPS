@@ -73,7 +73,6 @@
 #' @param ecmc_b Regularization parameter for \code{\link{ECMC}}.
 #' @param ecmc_eps Convergence threshold for \code{\link{ECMC}}.
 #' @param ecmc_maxiter Maximum number of iterations for \code{\link{ECMC}}.
-#' @param ecmc_solver Solver for \code{\link{ECMC}}.
 #' @param ecmc_mkkm_mr If set, uses \code{\link{mkkm_mr}} on consensus kernels 
 #'   obtained from \code{\link{ECMC}}. Otherwise uses the average kernel and 
 #'     kernel k-means. 
@@ -163,15 +162,15 @@ multi_omic_clustering <- function(
     mofa_environment = NULL,
     mofa_lib_path = NULL,
     anf_neighbors = 20,
-    kkmeans_algorithm = "spectral_qr", 
-    kkmeans_refine = TRUE, 
+    kkmeans_algorithm = "spectral", 
+    kkmeans_refine = FALSE, 
     kkmeans_maxiter = 100, 
     kkmeans_n_init = 100, 
     kkmeans_tol = 1e-8, 
     mkkm_mr_lambda = 1, 
     mkkm_mr_tolerance = 1e-8, 
     mkkm_mr_mosek = FALSE, 
-    mkkm_mr_mosek_verbosity = 0L, 
+    mkkm_mr_mosek_verbosity = 1L, 
     ecmc_a = 1, 
     ecmc_b = 1, 
     ecmc_eps = 1e-6,
@@ -516,7 +515,6 @@ multi_omic_clustering <- function(
           b = ecmc_b,
           eps = ecmc_eps,
           maxiter = ecmc_maxiter,
-          solver = ecmc_solver,
           parallel = mvc_threads)
         if (ecmc_mkkm_mr) {
           if (is.null(extra_output)) extra_output <- list()

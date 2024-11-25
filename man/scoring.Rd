@@ -67,7 +67,6 @@ In practice retrieves reference fold result from first run matching the best res
 }}
 \examples{
 library(COPS)
-library(parallel)
 
 res <- COPS(ad_ge_micro_zscore, 
 association_data = ad_studies, 

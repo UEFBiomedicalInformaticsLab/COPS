@@ -218,8 +218,8 @@ stability_evaluation <- function(
     foreach(
       temp = temp_list,
       .combine = function(...) data.table::rbindlist(list(...)),
-      .export = c(),
-      .packages = c("data.table", "igraph"),
+      #.export = c(),
+      #.packages = c("data.table", "igraph"),
       .multicombine = TRUE,
       .maxcombine = max(length(temp_list), 2)
     ) %dopar% {
@@ -289,8 +289,8 @@ stability_evaluation_pac <- function(
   stability_pac <- tryCatch(foreach(
     temp = temp_list,
     .combine = function(...) data.table::rbindlist(list(...)),
-    .export = c("reference_fold"),
-    .packages = c("data.table", "diceR"),
+    #.export = c("reference_fold"),
+    #.packages = c("data.table", "diceR"),
     .multicombine = TRUE,
     .maxcombine = max(length(temp_list), 2)) %dopar% {
       uids <- unique(temp[,id])
@@ -522,8 +522,8 @@ subsample_association_analysis <- function(
     foreach(
       clust = clust_list,
       .combine = function(...) data.table::rbindlist(list(...), fill = TRUE),
-      .export = c("cluster_associations"),
-      .packages = c(),
+      #.export = c("cluster_associations"),
+      #.packages = c(),
       .multicombine = TRUE,
       .maxcombine = max(length(clust_list), 2)
     ) %dopar% {
@@ -551,28 +551,22 @@ subsample_association_analysis <- function(
 #' 
 #' @export
 #' @examples library(COPS)
-#' library(WGCNA)
-#' library(parallel)
 #' 
 #' # Generate module eigen genes with WGCNA
 #' gene_correlation <- cor(t(ad_ge_micro_zscore), method =  "spearman")
-#' adj <- WGCNA::adjacency.fromSimilarity(gene_correlation, power = 2)
-#' TOM <- WGCNA::TOMsimilarity(adj, TOMType = "unsigned")
+#' adj <- abs(gene_correlation)^2
+#' TOM <- unsigned_TOM_matrix(adj)
 #' geneTree <- flashClust::flashClust(as.dist(1 - TOM), method="average")
 #' dynamicMods <- dynamicTreeCut::cutreeDynamic(
 #'   dendro = geneTree,  
 #'   method="tree", 
 #'   minClusterSize = 20
 #' )
-#' adj_modules <- WGCNA::adjacency.fromSimilarity(
-#'   gene_correlation[dynamicMods != 0, dynamicMods != 0], 
-#'   power = 2
+#' 
+#' MEs <- gene_module_eigengenes(
+#'   ad_ge_micro_zscore[dynamicMods != 0,], 
+#'   dynamicMods[dynamicMods != 0]
 #' )
-#' MEList <- WGCNA::moduleEigengenes(
-#'   t(ad_ge_micro_zscore[dynamicMods != 0,]), 
-#'   colors = dynamicMods[dynamicMods != 0]
-#' )
-#' MEs <- MEList$eigengenes
 #' 
 #' # Compute the module score for a given clustering result
 #' clust <- cutree(
@@ -589,7 +583,7 @@ subsample_association_analysis <- function(
 #' # Within full pipeline
 #' res <- COPS(ad_ge_micro_zscore, 
 #' association_data = ad_studies, 
-#' parallel = 2, nruns = 2, nfolds = 5, 
+#' parallel = 1, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("pca", "umap"), 
 #' cluster_methods = c("hierarchical", "kmeans"), 
 #' distance_metric = "euclidean", 
@@ -650,8 +644,8 @@ subsample_module_evaluation <- function(
     foreach(
       clust = clust_list,
       .combine = function(...) data.table::rbindlist(list(...)),
-      .export = c("gene_module_score"),
-      .packages = c(),
+      #.export = c("gene_module_score"),
+      #.packages = c(),
       .multicombine = TRUE,
       .maxcombine = max(length(clust_list), 2)
     ) %dopar% {

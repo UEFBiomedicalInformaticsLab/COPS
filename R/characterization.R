@@ -179,12 +179,11 @@ heatmap_annotated <- function(
 #'
 #' @param dat molecular data, samples on columns, rows must be named
 #' @param group categorical variable matching \code{dat} columns
-#' @param remove_zero_var whether to remove genes based on \code{\link[caret]{nearZeroVar}}
+#' @param remove_zero_var whether to remove zero variance genes
 #' @param parallel number of threads
 #'
 #' @return \code{list} of test results
 #' @export
-#' @importFrom caret nearZeroVar
 univariate_features <- function(
     dat, 
     group, 
@@ -193,10 +192,8 @@ univariate_features <- function(
 ) {
   dat <- t(dat)
   if (remove_zero_var) {
-    zv <- caret::nearZeroVar(dat)
-    if (length(zv) > 0) {
-      dat <- dat[,-zv]
-    }
+    nzv <- which(apply(dat, 2, var) > 0)
+    dat <- dat[,nzv]
   }
   gene_names <- colnames(dat)
   if (is.null(gene_names)) stop("No feature names found.")
@@ -213,8 +210,10 @@ univariate_features <- function(
     return(out)
   }
   parallel_clust <- setup_parallelization(parallel)
-  out <- tryCatch(foreach(j = lapply(gene_names, function(x) dat[,x]), 
-                          .combine = cfun) %dopar% {
+  out <- tryCatch(foreach(
+    j = lapply(gene_names, function(x) dat[,x]), 
+    .combine = cfun) %dopar% 
+  {
     out_j <- list()
     out_j$anova_p <- summary(aov(j ~ group))[[1]][["Pr(>F)"]][1]
     out_j$kw_test_p <- kruskal.test(j ~ group)$p.value

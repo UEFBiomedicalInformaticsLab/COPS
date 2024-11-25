@@ -11,6 +11,7 @@
 #' @param max_size a numeric value indicating the maximum size of gene sets included
 #' @param parallel a numeric value indicating the number of processors to use when doing the calculations in parallel.
 #' @param verbose controls verbosity
+#' @param rwrfgsea_verbose controls \code{\link[COPS]{RWRFGSEA}} verbosity which can be a lot when running single-threaded
 #' @param gene_key_x if \code{is.null(gene_set_list)} and \code{x} rownames are not gene symbols, this specifies the column name in 
 #'   \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} to translate pathway gene symbols to. The default value results in gene symbol based gene 
 #'   sets when \code{is.null(gene_set_list)}. 
@@ -23,30 +24,30 @@
 #'   based on the selected gene sets (only supports GO, KEGG and REACTOME at the moment)
 #' @export
 #' 
-#' @examples library(parallel)
+#' @examples 
 #' library(COPS)
 #' 
 #' ## GSVA example
 #' ad_gsva <- genes_to_pathways(
-#'     as.matrix(ad_ge_micro_zscore), 
+#'     ad_ge_micro_zscore, 
 #'     "GSVA", 
-#'     parallel = 2, 
+#'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
 #'     gs_subcats = "CP:KEGG")
 #' # batch-wise
 #' ad_gsva <- genes_to_pathways(
-#'     as.matrix(ad_ge_micro_zscore), 
+#'     ad_ge_micro_zscore, 
 #'     "GSVA", 
 #'     batch_label_pw = ad_studies$GSE, 
-#'     parallel = 2, 
+#'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
 #'     gs_subcats = "CP:KEGG")
 #' 
-#' ## DiffRank example with batch-wise enrichment
+#' ## DiffRank example
 #' ad_diffrank <- genes_to_pathways(
 #'     ad_ge_micro_zscore, 
 #'     "DiffRank", 
-#'     parallel = 2, 
+#'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
 #'     gs_subcats = "CP:KEGG")
 #' # batch-wise
@@ -54,7 +55,7 @@
 #'     ad_ge_micro_zscore, 
 #'     "DiffRank", 
 #'     batch_label_pw = ad_studies$GSE, 
-#'     parallel = 2, 
+#'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
 #'     gs_subcats = "CP:KEGG")
 #' 
@@ -70,13 +71,14 @@ genes_to_pathways <- function(
     min_size = 5, 
     max_size = 200, 
     parallel = 1,
-    verbose = FALSE,
+    verbose = FALSE, 
+    rwrfgsea_verbose = FALSE, 
     gene_key_x = "SYMBOL",
     gs_subcats = c("GO:BP", "GO:MF", "CP:KEGG", "CP:REACTOME"),
     gsva_kcdf = "Gaussian",
     ...
 ) {
-  #x <- t(x)
+  x <- as.matrix(x)
   if (is.null(gene_set_list)) {
     # extract pathways information from msigdb (https://www.gsea-msigdb.org/)
     db_annots <- msigdbr::msigdbr(species = "Homo sapiens")
@@ -179,7 +181,7 @@ genes_to_pathways <- function(
         x, 
         gene_set_list = gene_set_list, 
         parallel = parallel, 
-        verbose = verbose, 
+        verbose = rwrfgsea_verbose, 
         ...)
     } else {
       stop(paste("Unsupported pathway enrichment method:", enrichment_method))
@@ -295,15 +297,15 @@ subsample_pathway_enrichment <- function(
   out <- tryCatch(
     foreach(
       i = temp_list, 
-      .combine = c,
-      .export = c("genes_to_pathways"), #"dat_list"),
-      .packages = c(
-        "GSVA", 
-        "fgsea", 
-        "dnet", 
-        "msigdbr", 
-        "AnnotationDbi", 
-        "org.Hs.eg.db")
+      .combine = c#,
+      #.export = c("genes_to_pathways"), #"dat_list"),
+      #.packages = c(
+      #  "GSVA", 
+      #  "fgsea", 
+      #  "dnet", 
+      #  "msigdbr", 
+      #  "AnnotationDbi", 
+      #  "org.Hs.eg.db")
       ) %dopar% {
         sel <- grep("^dim[0-9]+$", colnames(i$dat))
         temp <- i$dat[, sel]
@@ -360,7 +362,7 @@ DiffRank <- function(
     foreach(
       i = gene_set_list, 
       .combine = rbind,
-      .export = c(),
+      #.export = c(),
       .multicombine = TRUE,
       .maxcombine = max(length(gene_set_list), 2)
     ) %dopar% {

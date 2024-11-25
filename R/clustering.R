@@ -47,7 +47,7 @@
 #' @importFrom stats chisq.test cutree cor dist as.dist
 #' @importFrom flashClust flashClust
 #' @importFrom ClusterR KMeans_rcpp
-#' @importFrom mclust Mclust priorControl
+#' @importFrom mclust Mclust priorControl mclustBIC
 clustering_analysis <- function(
     dat,
     n_clusters = 2:5,
@@ -536,8 +536,8 @@ subsample_clustering_evaluation <- function(
     foreach(
     temp = temp_list,
     .combine = cfun,
-    .export = c("clustering_analysis", "clustering_metrics"),
-    .packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
+    #.export = c("clustering_analysis", "clustering_metrics"),
+    #.packages = c("reshape2", "mclust", "cluster", "flashClust", "ClusterR"),
     .multicombine = TRUE,
     .maxcombine = max(length(temp_list), 2)) %dopar% 
     {

@@ -41,13 +41,13 @@
 #' }
 #' 
 #' @export
-#' @examples library(parallel)
+#' @examples
 #' library(COPS)
 #' 
 #' # Dimensionality reduction and clustering (DR-CL)
 #' res <- COPS(ad_ge_micro_zscore, 
 #' association_data = ad_studies, 
-#' parallel = 2, nruns = 2, nfolds = 5, 
+#' parallel = 1, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("pca", "umap", "tsne"), 
 #' cluster_methods = c("hierarchical", "kmeans"), 
 #' distance_metric = "euclidean", 
@@ -56,7 +56,7 @@
 #' # Clustering (CL)
 #' res <- COPS(ad_ge_micro_zscore, 
 #' association_data = ad_studies, 
-#' parallel = 2, nruns = 2, nfolds = 5, 
+#' parallel = 1, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("none"), 
 #' cluster_methods = c("hierarchical"), 
 #' distance_metric = "correlation", 
@@ -68,7 +68,7 @@
 #' pathway_enrichment_method = "DiffRank", 
 #' gene_key_x = "ENSEMBL", 
 #' gs_subcats = "CP:KEGG", 
-#' parallel = 2, nruns = 2, nfolds = 5, 
+#' parallel = 1, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("none"), 
 #' cluster_methods = c("hierarchical"), 
 #' distance_metric = "correlation", 
@@ -324,8 +324,8 @@ vertical_pipeline <- function(
     foreach(
       mvc = multi_omic_methods, 
       .combine = cfun, 
-      .export = c("dat_list", "sub_index_split", "f_args", "silhouette_dissimilarities"), 
-      .packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
+      #.export = c("dat_list", "sub_index_split", "f_args", "silhouette_dissimilarities"), 
+      #.packages = c("COPS"), #"iClusterPlus", "IntNMF", "MOFA2"), 
       .inorder = FALSE) %dopar% 
     {
       dat_i <- list()
@@ -618,8 +618,8 @@ clusteval_scoring <- function(...) {
 #'         a single row \code{$best} with the best score according to \code{wsum}.
 #' @export
 #' 
-#' @examples library(COPS)
-#' library(parallel)
+#' @examples 
+#' library(COPS)
 #' 
 #' res <- COPS(ad_ge_micro_zscore, 
 #' association_data = ad_studies, 

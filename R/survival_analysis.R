@@ -57,6 +57,7 @@ survival_preprocess <- function(
 #' @return \code{data.table} of Cox PH LRT-test p-values and Harrell's concordance index values
 #' @export
 #' 
+#' @importFrom foreach foreach %dopar%
 #' @importFrom survival Surv coxph
 subsample_survival_evaluation <- function(
     event_data, 
@@ -76,8 +77,8 @@ subsample_survival_evaluation <- function(
     foreach(
       clust = clust_list,
       .combine = function(...) data.table::rbindlist(list(...)),
-      .export = c("by"),
-      .packages = c("survival"),
+      #.export = c("by"),
+      #.packages = c("survival"),
       .multicombine = TRUE,
       .maxcombine = max(length(clust_list), 2)
     ) %dopar% {

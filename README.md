@@ -5,32 +5,28 @@ COPS is an R-package for clustering patients based on omics data. The COPS packa
 ## Installation
 
 ```R
-# Tested with R 4.4.0 and Bioconductor 3.19
-install.packages("devtools")
+# Tested with R 4.4.1 and Bioconductor 3.20
+install.packages("remotes")
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install()
-BiocManager::install("supraHex")
-devtools::install_github("cran/dnet")
 bioc_dependencies <- c(
   "ANF", 
   "AnnotationDbi", 
   "biomaRt", 
   "fgsea", 
-  "graph", 
   "GSVA", 
   "iClusterPlus", 
   "MOFA2", 
   "org.Hs.eg.db", 
-  "Rgraphviz", 
   "ROntoTools", 
   "STRINGdb", 
   "ComplexHeatmap")
 BiocManager::install(bioc_dependencies)
-devtools::install_github("theislab/kBet")
-devtools::install_github("trintala/IntNMF")
-devtools::install_github("UEFBiomedicalInformaticsLab/COPS")
+remotes::install_github("theislab/kBet")
+remotes::install_github("trintala/IntNMF")
+remotes::install_github("UEFBiomedicalInformaticsLab/COPS")
 # Some packages can cause issues when built from source
 if (Sys.info()['sysname'] == "Windows") {
   install.packages("CVXR")
@@ -53,7 +49,7 @@ if (Sys.info()['sysname'] == "Windows") {
 ### Optional packages
 ```R
 # For additional internal metrics
-devtools::install_github("cran/clusterCrit")
+remotes::install_github("cran/clusterCrit")
 # Additional clustering method: spectral clustering
 install.packages("Spectrum")
 # Additional clustering method: SC3

@@ -108,7 +108,7 @@ Please note that for pathway kernels, the input data must always be mapped to
 genes and that the names must match with the gene names in the pathways. 
 The default set of pathways is KEGG molecular pathways with gene symbols. 
 
-PAMOGK RWR seed weight options:
+PAMOGK and RWR-BWK seed weight options:
 \itemize{
   \item "discrete" - 1 if |z| > t, 0 otherwise. 
   \item "continuous" - z

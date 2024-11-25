@@ -249,8 +249,7 @@ of pathway annotations. To keep the runtime short we will only use KEGG and filt
 the pathways based on size. 
 
 ```{r}
-pw_db <- msigdbr::msigdbr(species = "Homo sapiens")
-pw_db <- dplyr::filter(pw_db, grepl("CP:KEGG", gs_subcat))
+pw_db <- msigdbr::msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
 pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
 pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 100)]
 ```
@@ -274,8 +273,24 @@ simple strategies like selecting the genes with highest expression in each sampl
 yield reasonable results. <code>RWRFGSEA</code> can do this automatically given an 
 expression matrix as input. Another possibility to select gene seeds is to use 
 non-parametric gene statistics similarly to GSVA, which can be achieved by using 
-<code>rwr_ecdf=TRUE</code>. The options to this method are quite extensive and 
-are explained on the help-page (<code>?RWRFGSEA</code>) in more detail.
+<code>rwr_ecdf=TRUE</code>. The options to this method are are explained on the 
+help-page (<code>?RWRFGSEA</code>) in more detail. 
+
+With default settings RWRFGSEA behaves like a single-sample pathway scoring 
+function. Therefore it can be run before subsampling to save time. 
+
+```{r}
+set.seed(0)
+lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
+pso_degs <- COPS::psoriasis_degs_example
+pso_rwrfgsea <- COPS::RWRFGSEA(
+  log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
+  gene_network = ppi_net, 
+  parallel = 1, 
+  rwr_seed_size = 50, 
+  gene_set_list = pw_list, 
+  fgsea_nperm = 1e2)
+```
 
 For this vignette we want to consider pathway transformation as an alternative 
 to dimensionality reduction. Since the number of considered pathways is still 
@@ -287,12 +302,8 @@ set.seed(0)
 lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
 pso_degs <- COPS::psoriasis_degs_example
 res_rwrfgsea <- COPS::COPS(
-  log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
-  parallel = 6, nruns = 2, nfolds = 5, 
-  pathway_enrichment_method = "RWRFGSEA", 
-  gene_network = ppi_net, 
-  rwr_seed_size = 50, 
-  gene_set_list = pw_list, 
+  pso_rwrfgsea, 
+  parallel = 1, nruns = 2, nfolds = 5, 
   dimred_methods = c("none"), 
   cluster_methods = c("diana"), 
   distance_metric = "correlation", 
@@ -475,7 +486,7 @@ on this data by using the WGCNA eigen-gene method.
 ```{r}
 res_rwrfgsea$modules <- COPS::subsample_module_evaluation(
   clusters = res_rwrfgsea$clusters, 
-  parallel = 6, 
+  parallel = 1, 
   module_eigs = COPS::psoriasis_example_MEs,
   module_cor_threshold = 0.3,
   module_nan.substitute = 0)
@@ -522,10 +533,10 @@ lesional_id <- COPS::psoriasis_clinical_example[["lesional"]][["GSM"]]
 pso_degs <- COPS::psoriasis_degs_example
 res_dr <- COPS::COPS(
   log2(COPS::psoriasis_rnaseq_corrected[pso_degs,lesional_id]+1), 
-  parallel = 6, nruns = 2, nfolds = 5, 
+  parallel = 1, nruns = 2, nfolds = 5, 
   dimred_methods = c("pca"), 
   pca_dims = 2:8,
-  cluster_methods = c("kmeans", "diana"), 
+  cluster_methods = c("kmeans", "diana", "model"), 
   distance_metric = "euclidean", 
   n_clusters = 2:6,
   association_data = COPS::psoriasis_clinical_example[["lesional"]],

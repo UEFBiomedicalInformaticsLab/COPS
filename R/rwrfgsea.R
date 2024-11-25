@@ -9,13 +9,14 @@
 #' @param disease_genes a character vector containing gene IDs associated with the target disease
 #' @param rwr_gene_lists list containing exactly two character vectors corresponding to gene ids. Used to separate genes for double RWR 
 #'   (e.g. up and down regulated seeds) RWR affinities of second seed list will get subtracted from the RWR affinities of the first seed list. 
-#' @param rwr_seed_size integer, controls the number of gene seed candidates to intersect with the disease genes
+#' @param rwr_seed_size integer, controls the number of gene seed candidates to intersect with the disease genes, defaults to one sixth of rows.
 #' @param min_size integer, minimum size of gene sets
 #' @param max_size integer, maximum size of gene sets
 #' @param parallel integer, number of threads
 #' @param verbose TRUE/FALSE
-#' @param rwr_restart_probability restart probability used for RWR. See \code{\link[dnet]{dRWR}} for more details, defaults to one sixth of rows.
-#' @param rwr_adjacency_normalization method used to normalise the adjacency matrix of the input graph. See \code{\link[dnet]{dRWR}} for more details.
+#' @param rwr_dnet if TRUE, uses \code{\link[dnet]{dRWR}}. Otherwise uses an internal function with similar options and \code{\link[Matrix]{solve}}. 
+#' @param rwr_restart_probability restart probability used for RWR.
+#' @param rwr_adjacency_normalization method used to normalise the adjacency matrix of the input graph. See \code{\link{seeded_rwr}} or \code{\link[dnet]{dRWR}} for more details.
 #' @param rwr_affinity_normalization method used to normalise the rwr affinity matrix. See \code{\link[dnet]{dRWR}} for more details.
 #' @param fgsea_input_cutoff a cutoff value used to select most visited genes for FGSEA. 
 #' @param rwr_ecdf if TRUE, uses \code{\link[COPS]{ecdf_transform}} to transform expression values into empirical cumulative probability density.
@@ -28,24 +29,23 @@
 #' @return matrix of enrichment scores
 #' @export
 #' 
-#' @examples library(parallel)
+#' @examples
 #' library(COPS)
 #' 
 #' ad_data <- ad_ge_micro_zscore
 #' ad_wgcna_net <- coexpression_network_unweighted(ad_data)
-#' kegg_annotations <- msigdbr::msigdbr(
+#' pw_db <- msigdbr::msigdbr(
 #'     species = "Homo sapiens", 
 #'     category = "C2", 
 #'     subcategory = "CP:KEGG")
-#' list_kegg_annotations <- lapply(
-#'     split(kegg_annotations, kegg_annotations$gs_name), 
-#'     function(x) x$ensembl_gene) 
+#' pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene) 
 #' 
 #' ad_rwrfgsea_res <- RWRFGSEA(
 #'     ad_data, 
 #'     ad_wgcna_net, 
-#'     list_kegg_annotations[1:3], 
-#'     parallel = 2)
+#'     pw_list[1:3], 
+#'     parallel = 1, 
+#'     fgsea_nperm = 1e2)
 #' 
 #' # Separate genes (e.g. based on DEA)
 #' set.seed(0)
@@ -58,11 +58,12 @@
 #' ad_rwrfgsea_res <- RWRFGSEA(
 #'     ad_data, 
 #'     ad_wgcna_net, 
-#'     list_kegg_annotations[1:3], 
+#'     pw_list[1:3], 
 #'     rwr_genelists = ad_gene_lists, 
 #'     rwr_ecdf = TRUE, 
 #'     second_seed_list_reverse_order = TRUE, 
-#'     parallel = 2)
+#'     parallel = 1, 
+#'     fgsea_nperm = 1e2)
 #' 
 #' \dontrun{
 #' # OTP genes for dermatitis, moderate download size
@@ -82,7 +83,7 @@
 #' ad_rwrfgsea_res <- RWRFGSEA(
 #'     ad_data, 
 #'     ad_wgcna_net, 
-#'     list_kegg_annotations[1:3], 
+#'     pw_list[1:3], 
 #'     disease_genes = otp_genes, 
 #'     rwr_genelists = ad_gene_lists, 
 #'     rwr_ecdf = TRUE, 
@@ -92,8 +93,6 @@
 #' 
 #' @importFrom foreach foreach %dopar%
 #' @importFrom plyr aaply
-#' @importFrom igraph V
-#' @importFrom dnet dRWR
 #' @importFrom fgsea fgsea
 RWRFGSEA <- function(
     expr, 
@@ -105,7 +104,8 @@ RWRFGSEA <- function(
     min_size = 5, 
     max_size = 200, 
     parallel = 1,
-    verbose = FALSE,
+    verbose = FALSE, 
+    rwr_dnet =  FALSE, 
     rwr_restart_probability = 0.75,
     rwr_adjacency_normalization = "laplacian",
     rwr_affinity_normalization = "none",
@@ -159,14 +159,20 @@ RWRFGSEA <- function(
       rwr_seed_size <- nrow(expr_list[[i]]) %/% 6
     }
     
-    rwr_results[[i]] <- rwr_wrapper(
-      expr_list[[i]], 
-      gene_network, 
-      rwr_seed_size = rwr_seed_size, 
-      parallel = 1, 
-      rwr_restart_probability = rwr_restart_probability, 
-      rwr_adjacency_normalization = rwr_adjacency_normalization,
-      rwr_affinity_normalization = rwr_affinity_normalization)
+    rwr_results[[i]] <- no_spam_wrapper(
+      rwr_wrapper(
+        expr_list[[i]], 
+        gene_network, 
+        rwr_seed_size = rwr_seed_size, 
+        parallel = 1, 
+        rwr_restart_probability = rwr_restart_probability, 
+        rwr_adjacency_normalization = rwr_adjacency_normalization,
+        rwr_affinity_normalization = rwr_affinity_normalization, 
+        rwr_dnet = rwr_dnet, 
+        verbose = verbose
+      ), 
+      suppress_all = !verbose
+    )
   }
   
   if (length(rwr_results) == 2) {
@@ -175,13 +181,19 @@ RWRFGSEA <- function(
     rwr_results <- rwr_results[[1]]
   }
   
-  rwrfgsea_results <- t(fgsea_wrapper(
-    rwr_results, 
-    gene_set_list, 
-    parallel = parallel, 
-    fgsea_input_cutoff = fgsea_input_cutoff,
-    fgsea_nperm = fgsea_nperm, 
-    logp_scaling = logp_scaling))
+  rwrfgsea_results <- no_spam_wrapper(
+    t(
+      fgsea_wrapper(
+        rwr_results, 
+        gene_set_list, 
+        parallel = parallel, 
+        fgsea_input_cutoff = fgsea_input_cutoff,
+        fgsea_nperm = fgsea_nperm, 
+        logp_scaling = logp_scaling
+      )
+    ), 
+    suppress_all = !verbose
+  )
   
   out <- rwrfgsea_results
   
@@ -193,7 +205,9 @@ RWRFGSEA <- function(
 }
 
 #' @describeIn RWRFGSEA Transforms gene-expression values into gene-network node-affinity values
-#'
+#' 
+#' @importFrom igraph V
+#' 
 #' @export
 rwr_wrapper <- function(
     expr, 
@@ -203,26 +217,46 @@ rwr_wrapper <- function(
     rwr_restart_probability = 0.75, 
     rwr_adjacency_normalization = "laplacian",
     rwr_affinity_normalization = "none",
+    rwr_dnet = FALSE, 
+    verbose = verbose, 
     ...
 ) {
+  if (rwr_dnet) {
+    if (!requireNamespace("dnet", quietly = TRUE)) {
+      stop("Please install the dnet-package or set the 'rwr_dnet' option to FALSE.")
+    }
+  }
   gene_ranking <- apply(expr, 2, rank)
   rownames(gene_ranking) <- rownames(expr)
   
-  parallel_clust <- setup_parallelization(parallel)
+  rwr_seeds <- gene_ranking > nrow(gene_ranking) - rwr_seed_size
   
-  rwr <- tryCatch(
-    dnet::dRWR(
+  if (rwr_dnet) {
+    parallel_clust <- setup_parallelization(parallel)
+    
+    rwr <- tryCatch(
+      dnet::dRWR(
+        gene_network, 
+        setSeeds = rwr_seeds, 
+        normalise = rwr_adjacency_normalization,
+        restart = rwr_restart_probability, 
+        normalise.affinity.matrix = rwr_affinity_normalization, 
+        parallel = parallel > 1, 
+        multicores = parallel, 
+        verbose = FALSE
+      ), 
+      finally = close_parallel_cluster(parallel_clust)
+    )
+  } else {
+    rwr <- seeded_rwr(
+      rwr_seeds, 
       gene_network, 
-      setSeeds = gene_ranking > nrow(gene_ranking) - rwr_seed_size, 
-      normalise = rwr_adjacency_normalization,
-      restart = rwr_restart_probability, 
-      normalise.affinity.matrix = rwr_affinity_normalization, 
-      parallel = parallel > 1, 
-      multicores = parallel, 
-      verbose = FALSE
-    ), 
-    finally = close_parallel_cluster(parallel_clust)
-  )
+      p = rwr_restart_probability, 
+      graph_normalization = rwr_adjacency_normalization, 
+      affinity_normalization = TRUE # normalized matches dnet results better
+    )
+  }
+  
   rownames(rwr) <- names(igraph::V(gene_network))
   colnames(rwr) <- colnames(expr)
   
@@ -250,7 +284,7 @@ fgsea_wrapper <- function(
     foreach(
       genes_i = lapply(1:ncol(data_matrix), function(i) data_matrix[,i]), 
       .combine = rbind, #list, #rbind,
-      .export = c(),
+      #.export = c(),
       .multicombine = TRUE,
       .maxcombine = max(ncol(data_matrix), 2)
     ) %dopar% {
@@ -288,6 +322,19 @@ fgsea_wrapper <- function(
   return(res)
 }
 
+#' Random walk with restart
+#'
+#' Runs random walk in a given network starting from seed genes.
+#'
+#' @param X a boolean matrix indicating seeds with samples on columns
+#' @param G an \code{igraph.object} with nodes matching to rows of \code{X}
+#' @param p restart probability.
+#' @param graph_normalization method used to normalise the adjacency matrix of the input graph. 
+#' @param affinity_normalization controls whether the output matrix is normalised. 
+#' @param cholesky Whether to apply Cholesky decomposition to potentially speed computations. Applicable to undirected graphs. 
+#' 
+#' @return matrix of enrichment scores
+#' @export
 seeded_rwr <- function(
     X, 
     G, 

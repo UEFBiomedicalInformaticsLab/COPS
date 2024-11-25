@@ -110,13 +110,12 @@ documentation for \code{\link{multi_omic_clustering}}.
 
 }}
 \examples{
-library(parallel)
 library(COPS)
 
 # Dimensionality reduction and clustering (DR-CL)
 res <- COPS(ad_ge_micro_zscore, 
 association_data = ad_studies, 
-parallel = 2, nruns = 2, nfolds = 5, 
+parallel = 1, nruns = 2, nfolds = 5, 
 dimred_methods = c("pca", "umap", "tsne"), 
 cluster_methods = c("hierarchical", "kmeans"), 
 distance_metric = "euclidean", 
@@ -125,7 +124,7 @@ n_clusters = 2:4)
 # Clustering (CL)
 res <- COPS(ad_ge_micro_zscore, 
 association_data = ad_studies, 
-parallel = 2, nruns = 2, nfolds = 5, 
+parallel = 1, nruns = 2, nfolds = 5, 
 dimred_methods = c("none"), 
 cluster_methods = c("hierarchical"), 
 distance_metric = "correlation", 
@@ -137,7 +136,7 @@ association_data = ad_studies,
 pathway_enrichment_method = "DiffRank", 
 gene_key_x = "ENSEMBL", 
 gs_subcats = "CP:KEGG", 
-parallel = 2, nruns = 2, nfolds = 5, 
+parallel = 1, nruns = 2, nfolds = 5, 
 dimred_methods = c("none"), 
 cluster_methods = c("hierarchical"), 
 distance_metric = "correlation", 
