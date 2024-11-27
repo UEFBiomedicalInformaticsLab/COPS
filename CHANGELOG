@@ -1,3 +1,8 @@
+v1.2.0 Reduced dependencies and added network analysis functionality
+- Random walk with restart implemented using Matrix solve. 
+- WGCNA equivalents for hard thresholding, simple TOM similarity and eigengenes
+- Bugfixes, dependency cleanup, and package optionality to simplify installation
+
 v1.1.0 Improved options for pathway kernel clustering and Pareto scatter plots
 - Custom node betweenness algorithm for BWK pathway kernel
 - BWK first BFS shortest path and end node inclusion
