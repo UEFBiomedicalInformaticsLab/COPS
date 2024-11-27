@@ -70,7 +70,7 @@ library(COPS)
 
 res <- COPS(ad_ge_micro_zscore, 
 association_data = ad_studies, 
-parallel = 2, nruns = 2, nfolds = 5, 
+parallel = 1, nruns = 2, nfolds = 5, 
 dimred_methods = c("pca", "umap", "tsne"), 
 cluster_methods = c("hierarchical", "kmeans"), 
 distance_metric = "euclidean",
