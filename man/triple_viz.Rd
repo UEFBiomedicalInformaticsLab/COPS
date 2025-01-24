@@ -14,6 +14,7 @@ triple_viz(
   tsne_perplexity = 45,
   umap_neighbors = 20,
   tsne = FALSE,
+  pre_manifold_pca = TRUE,
   color_scale = scale_color_brewer(palette = "Dark2")
 )
 
@@ -29,6 +30,7 @@ umap_viz(
   category,
   category_label,
   umap_neighbors = 20,
+  pre_manifold_pca = TRUE,
   max_pcs = 50,
   color_scale = scale_color_brewer(palette = "Dark2")
 )
@@ -38,6 +40,7 @@ tsne_viz(
   category,
   category_label,
   tsne_perplexity = 45,
+  pre_manifold_pca = TRUE,
   color_scale = scale_color_brewer(palette = "Dark2")
 )
 }
@@ -53,6 +56,9 @@ tsne_viz(
 \item{umap_neighbors}{UMAP neighbours parameter}
 
 \item{tsne}{whether to use t-SNE}
+
+\item{pre_manifold_pca}{whether to apply PCA before manifold learning 
+(recommended for high-dimensional data)}
 
 \item{color_scale}{color scale used for \code{category}}
 

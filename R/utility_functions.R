@@ -591,6 +591,8 @@ expressionToRWFeatures <- function(
 #' @param tsne_perplexity t-SNE perplexity parameter
 #' @param umap_neighbors UMAP neighbours parameter
 #' @param tsne whether to use t-SNE
+#' @param pre_manifold_pca whether to apply PCA before manifold learning 
+#'   (recommended for high-dimensional data)
 #' @param color_scale color scale used for \code{category}
 #'
 #' @return list of plots
@@ -604,6 +606,7 @@ triple_viz <- function(
     tsne_perplexity = 45, 
     umap_neighbors = 20, 
     tsne = FALSE, 
+    pre_manifold_pca = TRUE, 
     color_scale = scale_color_brewer(palette = "Dark2")
 ) {
   p1 <- pca_viz(
@@ -618,6 +621,7 @@ triple_viz <- function(
       category, 
       category_label, 
       tsne_perplexity = tsne_perplexity, 
+      pre_manifold_pca = pre_manifold_pca, 
       color_scale = color_scale
     ) + ggtitle("t-SNE")
   } else {
@@ -628,6 +632,7 @@ triple_viz <- function(
     category, 
     category_label, 
     umap_neighbors = umap_neighbors, 
+    pre_manifold_pca = pre_manifold_pca, 
     color_scale = color_scale
   ) + ggtitle("UMAP")
   
@@ -687,6 +692,7 @@ umap_viz <- function(
     category, 
     category_label, 
     umap_neighbors = 20, 
+    pre_manifold_pca = TRUE, 
     max_pcs = 50, 
     color_scale = scale_color_brewer(palette = "Dark2")
 ) {
@@ -694,7 +700,7 @@ umap_viz <- function(
     data, 
     n_neighbors = umap_neighbors, 
     n_components = 2, 
-    pca = min(max_pcs, dim(data)), 
+    pca = if(pre_manifold_pca) min(max_pcs, dim(data)) else NULL, 
     verbose = FALSE, 
     init = "normlaplacian")
   res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
@@ -710,7 +716,7 @@ umap_viz <- function(
 }
 
 #' @describeIn triple_viz Data visualization using t-SNE
-#'
+#' 
 #' @return \code{ggplot} object
 #' @export
 #' 
@@ -721,6 +727,7 @@ tsne_viz <- function(
     category, 
     category_label, 
     tsne_perplexity = 45, 
+    pre_manifold_pca = TRUE, 
     color_scale = scale_color_brewer(palette = "Dark2")
 ) {
   res_tsne <- Rtsne::Rtsne(
@@ -729,7 +736,7 @@ tsne_viz <- function(
     perplexity = tsne_perplexity,
     initial_dims = min(50, dim(data)),
     check_duplicates = FALSE,
-    pca = TRUE,
+    pca = pre_manifold_pca,
     partial_pca = TRUE,
     verbose = FALSE)$Y
   res_tsne <- as.data.frame(res_tsne)
