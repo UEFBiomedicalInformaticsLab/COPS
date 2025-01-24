@@ -326,7 +326,7 @@ multi_omic_clustering <- function(
           nmf_view_weights <- 1 / sapply(dat_list_nmf, max)
         }
         
-        temp_res <- nmf.mnnals(
+        temp_res <- IntNMF::nmf.mnnals(
           dat_list_nmf, 
           k = k, 
           maxiter = nmf_maxiter,
