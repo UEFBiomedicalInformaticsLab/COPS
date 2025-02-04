@@ -699,7 +699,7 @@ umap_viz <- function(
     color_scale = scale_color_brewer(palette = "Dark2")
 ) {
   umap_args[["X"]] <- data
-  umap_args[["n_components"]] <- n_components
+  umap_args[["n_components"]] <- 2
   umap_args[["n_neighbors"]] <- umap_neighbors
   umap_args[["pca"]] <- if(pre_manifold_pca) min(max_pcs, dim(data)) else NULL
   umap_args[["verbose"]] <- FALSE
