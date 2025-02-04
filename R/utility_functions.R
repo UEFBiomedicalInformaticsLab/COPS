@@ -681,6 +681,7 @@ pca_viz <- function(
 #' @describeIn triple_viz Data visualization using UMAP
 #'
 #' @param max_pcs maximum number of PCs (limited by data) to extract for UMAP
+#' @param umap_args additional arguments passed to UMAP
 #'
 #' @return \code{ggplot} object
 #' @export
@@ -694,15 +695,15 @@ umap_viz <- function(
     umap_neighbors = 20, 
     pre_manifold_pca = TRUE, 
     max_pcs = 50, 
+    umap_args = list(init = "normlaplacian"), 
     color_scale = scale_color_brewer(palette = "Dark2")
 ) {
-  res_umap <- uwot::umap(
-    data, 
-    n_neighbors = umap_neighbors, 
-    n_components = 2, 
-    pca = if(pre_manifold_pca) min(max_pcs, dim(data)) else NULL, 
-    verbose = FALSE, 
-    init = "normlaplacian")
+  umap_args[["X"]] <- data
+  umap_args[["n_components"]] <- n_components
+  umap_args[["n_neighbors"]] <- umap_neighbors
+  umap_args[["pca"]] <- if(pre_manifold_pca) min(max_pcs, dim(data)) else NULL
+  umap_args[["verbose"]] <- FALSE
+  res_umap <- do.call(uwot::umap, umap_args)
   res_umap <- data.frame(Dim.1 = res_umap[,1], Dim.2 = res_umap[,2])
   res_umap <- cbind(res_umap, category)
   colnames(res_umap)[3] <- "category"

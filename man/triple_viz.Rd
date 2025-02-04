@@ -32,6 +32,7 @@ umap_viz(
   umap_neighbors = 20,
   pre_manifold_pca = TRUE,
   max_pcs = 50,
+  umap_args = list(init = "normlaplacian"),
   color_scale = scale_color_brewer(palette = "Dark2")
 )
 
@@ -63,6 +64,8 @@ tsne_viz(
 \item{color_scale}{color scale used for \code{category}}
 
 \item{max_pcs}{maximum number of PCs (limited by data) to extract for UMAP}
+
+\item{umap_args}{additional arguments passed to UMAP}
 }
 \value{
 list of plots
