@@ -16,7 +16,7 @@
 #'   \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} to translate pathway gene symbols to. The default value results in gene symbol based gene 
 #'   sets when \code{is.null(gene_set_list)}. 
 #' @param gsva_kcdf distribution name for \code{\link[GSVA]{gsva}} empirical probability distribution kernel.
-#' @param gs_subcats if \code{is.null(gene_set_list)}, this character vector indicates \code{\link[msigdbr]{msigdbr}}) gene set subcategory 
+#' @param gs_subcats if \code{is.null(gene_set_list)}, this character vector indicates \code{\link[msigdbr]{msigdbr}}) gene set subcollection 
 #'   names that are included in the analysis.
 #' @param ... extra arguments are passed to \code{\link[COPS]{RWRFGSEA}}
 #' 
@@ -33,7 +33,7 @@
 #'     "GSVA", 
 #'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
-#'     gs_subcats = "CP:KEGG")
+#'     gs_subcats = "CP:KEGG_LEGACY")
 #' # batch-wise
 #' ad_gsva <- genes_to_pathways(
 #'     ad_ge_micro_zscore, 
@@ -41,7 +41,7 @@
 #'     batch_label_pw = ad_studies$GSE, 
 #'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
-#'     gs_subcats = "CP:KEGG")
+#'     gs_subcats = "CP:KEGG_LEGACY")
 #' 
 #' ## DiffRank example
 #' ad_diffrank <- genes_to_pathways(
@@ -49,7 +49,7 @@
 #'     "DiffRank", 
 #'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
-#'     gs_subcats = "CP:KEGG")
+#'     gs_subcats = "CP:KEGG_LEGACY")
 #' # batch-wise
 #' ad_diffrank <- genes_to_pathways(
 #'     ad_ge_micro_zscore, 
@@ -57,7 +57,7 @@
 #'     batch_label_pw = ad_studies$GSE, 
 #'     parallel = 1, 
 #'     gene_key_x = "ENSEMBL", 
-#'     gs_subcats = "CP:KEGG")
+#'     gs_subcats = "CP:KEGG_LEGACY")
 #' 
 #' @importFrom AnnotationDbi mapIds
 #' @importFrom org.Hs.eg.db org.Hs.eg.db
@@ -86,7 +86,7 @@ genes_to_pathways <- function(
       db_annots, 
       grepl(
         paste0("^", paste(gs_subcats, collapse = "$|^"), "$"), 
-        gs_subcat
+        gs_subcollection
       )
     )
     
@@ -95,14 +95,14 @@ genes_to_pathways <- function(
         as.character(
           AnnotationDbi::mapIds(
             org.Hs.eg.db::org.Hs.eg.db, 
-            db_annots$human_gene_symbol, 
+            db_annots$gene_symbol, 
             column = gene_key_x, 
             keytype = "SYMBOL"
           )
         )
       )
     } else {
-      db_annots$gene_id <- db_annots$human_gene_symbol
+      db_annots$gene_id <- db_annots$gene_symbol
     }
     
     gene_set_list <- lapply(

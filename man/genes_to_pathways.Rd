@@ -46,7 +46,7 @@ DiffRank(x, gene_set_list, parallel = 1)
 \code{\link[org.Hs.eg.db]{org.Hs.eg.db}} to translate pathway gene symbols to. The default value results in gene symbol based gene 
 sets when \code{is.null(gene_set_list)}.}
 
-\item{gs_subcats}{if \code{is.null(gene_set_list)}, this character vector indicates \code{\link[msigdbr]{msigdbr}}) gene set subcategory 
+\item{gs_subcats}{if \code{is.null(gene_set_list)}, this character vector indicates \code{\link[msigdbr]{msigdbr}}) gene set subcollection 
 names that are included in the analysis.}
 
 \item{gsva_kcdf}{distribution name for \code{\link[GSVA]{gsva}} empirical probability distribution kernel.}
@@ -76,7 +76,7 @@ ad_gsva <- genes_to_pathways(
     "GSVA", 
     parallel = 1, 
     gene_key_x = "ENSEMBL", 
-    gs_subcats = "CP:KEGG")
+    gs_subcats = "CP:KEGG_LEGACY")
 # batch-wise
 ad_gsva <- genes_to_pathways(
     ad_ge_micro_zscore, 
@@ -84,7 +84,7 @@ ad_gsva <- genes_to_pathways(
     batch_label_pw = ad_studies$GSE, 
     parallel = 1, 
     gene_key_x = "ENSEMBL", 
-    gs_subcats = "CP:KEGG")
+    gs_subcats = "CP:KEGG_LEGACY")
 
 ## DiffRank example
 ad_diffrank <- genes_to_pathways(
@@ -92,7 +92,7 @@ ad_diffrank <- genes_to_pathways(
     "DiffRank", 
     parallel = 1, 
     gene_key_x = "ENSEMBL", 
-    gs_subcats = "CP:KEGG")
+    gs_subcats = "CP:KEGG_LEGACY")
 # batch-wise
 ad_diffrank <- genes_to_pathways(
     ad_ge_micro_zscore, 
@@ -100,6 +100,6 @@ ad_diffrank <- genes_to_pathways(
     batch_label_pw = ad_studies$GSE, 
     parallel = 1, 
     gene_key_x = "ENSEMBL", 
-    gs_subcats = "CP:KEGG")
+    gs_subcats = "CP:KEGG_LEGACY")
 
 }

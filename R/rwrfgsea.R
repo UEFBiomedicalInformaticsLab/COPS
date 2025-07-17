@@ -37,7 +37,8 @@
 #' pw_db <- msigdbr::msigdbr(
 #'     species = "Homo sapiens", 
 #'     category = "C2", 
-#'     subcategory = "CP:KEGG")
+#'     subcollection = "CP:KEGG_LEGACY"
+#' )
 #' pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene) 
 #' 
 #' ad_rwrfgsea_res <- RWRFGSEA(

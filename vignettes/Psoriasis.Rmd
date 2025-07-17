@@ -249,7 +249,11 @@ of pathway annotations. To keep the runtime short we will only use KEGG and filt
 the pathways based on size. 
 
 ```{r}
-pw_db <- msigdbr::msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG")
+pw_db <- msigdbr::msigdbr(
+  species = "Homo sapiens", 
+  category = "C2", 
+  subcollection = "CP:KEGG_LEGACY"
+)
 pw_list <- lapply(split(pw_db, pw_db$gs_name), function(x) x$ensembl_gene)
 pw_list <- pw_list[which(sapply(pw_list, length) <= 200 & sapply(pw_list, length) >= 100)]
 ```

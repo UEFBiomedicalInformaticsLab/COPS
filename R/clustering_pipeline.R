@@ -67,7 +67,7 @@
 #' association_data = ad_studies, 
 #' pathway_enrichment_method = "DiffRank", 
 #' gene_key_x = "ENSEMBL", 
-#' gs_subcats = "CP:KEGG", 
+#' gs_subcats = "CP:KEGG_LEGACY", 
 #' parallel = 1, nruns = 2, nfolds = 5, 
 #' dimred_methods = c("none"), 
 #' cluster_methods = c("hierarchical"), 
