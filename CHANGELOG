@@ -1,3 +1,7 @@
+v1.2.1 More visualization control and updated examples and defaults for msigdbr.
+- Exposed UMAP args in visualization functions and option to omit the PCA step.
+- Updated code to match new msigdbr collection names. 
+
 v1.2.0 Reduced dependencies and added network analysis functionality
 - Random walk with restart implemented using Matrix solve. 
 - WGCNA equivalents for hard thresholding, simple TOM similarity and eigengenes
