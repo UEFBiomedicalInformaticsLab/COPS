@@ -770,7 +770,7 @@ rbind_fill <- function(a,b) {
   colnames(b_fill_mat) <- b_fill
   b <- cbind(b, b_fill_mat)
   
-  return(rbind(a, b))
+  return(rbind(a[,all_cols], b[,all_cols]))
 }
 
 #' Cbind modification which fills missing rows with NA using base R functions
@@ -794,7 +794,7 @@ cbind_fill <- function(a,b) {
   colnames(b_fill_mat) <- colnames(b)
   b <- rbind(b, b_fill_mat)
   
-  return(cbind(a, b))
+  return(cbind(a[all_rows,], b[all_rows,]))
 }
 
 #' Plot p-values in -log10 scale with original labels
